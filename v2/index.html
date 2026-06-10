@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#2f5fd0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="りくのぼうけん">
+    <title>りくのぼうけん</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="icon" type="image/png" href="icon-192.png">
+    <link rel="stylesheet" href="styles.css?v=9">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero-panel" aria-labelledby="app-title">
+        <div class="hero-deco" aria-hidden="true"></div>
+        <div class="title-row">
+          <div>
+            <p class="eyebrow">たして ひいて ポケモンゲット</p>
+            <h1 id="app-title">りくのぼうけん</h1>
+          </div>
+          <div class="score-stack" aria-live="polite">
+            <div class="score-pill">
+              <span id="stars">0</span>
+              <span>できた</span>
+            </div>
+            <div class="high-pill">
+              <span>ベスト</span>
+              <strong id="high-score">0</strong>
+            </div>
+            <button class="time-toggle" type="button" id="time-toggle" aria-pressed="false">
+              <span class="toggle-knob" aria-hidden="true"></span>
+              <span id="time-toggle-label">じかんなし</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <nav class="mode-tabs" aria-label="れんしゅうモード">
+        <button class="mode-tab is-active" type="button" data-mode="simple">しゅぎょう</button>
+        <button class="mode-tab" type="button" data-mode="pair">あわせて10</button>
+        <button class="mode-tab" type="button" data-mode="bridge">ぼうけん</button>
+        <button class="mode-tab" type="button" data-mode="minus">ひきざん</button>
+        <button class="mode-tab" type="button" data-mode="dex">ずかん</button>
+        <button class="mode-tab" type="button" data-mode="records">きろく</button>
+      </nav>
+
+      <section class="mission-strip" aria-label="きょうのミッション">
+        <span class="mission-label">きょうのミッション</span>
+        <div class="mission-track">
+          <div class="mission-fill" id="mission-fill"></div>
+        </div>
+        <span class="mission-text" id="mission-text">あと20もん</span>
+      </section>
+
+      <section class="play-area is-waiting" id="simple-mode">
+        <div class="question-card">
+          <div class="prompt-row">
+            <p class="prompt">こたえはいくつ？</p>
+            <button class="icon-button" type="button" id="new-simple" aria-label="つぎのもんだい">↻</button>
+          </div>
+          <button class="start-button" type="button" id="simple-start">スタート</button>
+          <div class="timer-row" id="simple-timer-row" aria-label="のこりじかん">
+            <div class="timer-track">
+              <div class="timer-fill" id="simple-timer-fill"></div>
+            </div>
+            <div class="timer-count"><span id="simple-time">60</span>びょう</div>
+          </div>
+          <div class="equation simple-equation" id="simple-equation">3 + 4</div>
+          <div class="ten-frame" id="simple-frame" aria-label="10マスのボード"></div>
+          <p class="feedback" id="simple-feedback" aria-live="polite">こたえを えらんでね</p>
+          <button class="next-button is-hidden" type="button" id="simple-next">つぎへ</button>
+        </div>
+        <div class="choice-grid simple-choice-grid" id="simple-choices" aria-label="こたえのカード"></div>
+      </section>
+
+      <section class="play-area is-hidden is-waiting" id="pair-mode">
+        <div class="question-card">
+          <div class="prompt-row">
+            <p class="prompt">あといくつで 10 かな？</p>
+            <button class="icon-button" type="button" id="new-pair" aria-label="つぎのもんだい">↻</button>
+          </div>
+          <button class="start-button" type="button" id="pair-start">スタート</button>
+          <div class="timer-row" id="pair-timer-row" aria-label="のこりじかん">
+            <div class="timer-track">
+              <div class="timer-fill" id="pair-timer-fill"></div>
+            </div>
+            <div class="timer-count"><span id="pair-time">60</span>びょう</div>
+          </div>
+          <div class="number-display">
+            <span id="pair-number">4</span>
+          </div>
+          <div class="ten-frame" id="pair-frame" aria-label="10マスのボード"></div>
+          <p class="feedback" id="pair-feedback" aria-live="polite">なかよしを えらんでね</p>
+          <button class="next-button is-hidden" type="button" id="pair-next">つぎへ</button>
+        </div>
+        <div class="choice-grid" id="pair-choices" aria-label="こたえのカード"></div>
+      </section>
+
+      <section class="play-area is-hidden is-waiting" id="bridge-mode">
+        <div class="question-card adventure-card">
+          <div class="prompt-row">
+            <p class="prompt">10をつくってから たそう</p>
+            <button class="icon-button" type="button" id="new-bridge" aria-label="つぎのもんだい">↻</button>
+          </div>
+          <button class="start-button" type="button" id="bridge-start">スタート</button>
+          <div class="timer-row" id="bridge-timer-row" aria-label="のこりじかん">
+            <div class="timer-track">
+              <div class="timer-fill" id="bridge-timer-fill"></div>
+            </div>
+            <div class="timer-count"><span id="bridge-time">60</span>びょう</div>
+          </div>
+          <div class="equation bridge-equation" id="bridge-equation">8 + 3</div>
+          <div class="equation-chain" id="bridge-chain">10をつくると？</div>
+          <div class="bridge-board">
+            <div>
+              <p class="small-label addend-label" id="bridge-left-label">8</p>
+              <div class="ten-frame compact" id="bridge-frame"></div>
+            </div>
+            <div>
+              <p class="small-label addend-label" id="bridge-right-label">3</p>
+              <div class="donor-dots" id="donor-dots"></div>
+            </div>
+          </div>
+          <p class="feedback" id="bridge-feedback" aria-live="polite">いくつわけたら 10 になる？</p>
+          <button class="next-button is-hidden" type="button" id="bridge-next">つぎへ</button>
+        </div>
+        <div class="choice-grid" id="bridge-choices" aria-label="こたえのカード"></div>
+      </section>
+
+      <section class="play-area is-hidden is-waiting" id="minus-mode">
+        <div class="question-card">
+          <div class="prompt-row">
+            <p class="prompt">のこりはいくつ？</p>
+            <button class="icon-button" type="button" id="new-minus" aria-label="つぎのもんだい">↻</button>
+          </div>
+          <button class="start-button" type="button" id="minus-start">スタート</button>
+          <div class="timer-row" id="minus-timer-row" aria-label="のこりじかん">
+            <div class="timer-track">
+              <div class="timer-fill" id="minus-timer-fill"></div>
+            </div>
+            <div class="timer-count"><span id="minus-time">60</span>びょう</div>
+          </div>
+          <div class="equation simple-equation" id="minus-equation">7 − 3</div>
+          <div class="ten-frame" id="minus-frame" aria-label="10マスのボード"></div>
+          <p class="feedback" id="minus-feedback" aria-live="polite">こたえを えらんでね</p>
+          <button class="next-button is-hidden" type="button" id="minus-next">つぎへ</button>
+        </div>
+        <div class="choice-grid simple-choice-grid" id="minus-choices" aria-label="こたえのカード"></div>
+      </section>
+
+      <section class="records-panel is-hidden" id="records-mode" aria-labelledby="records-title">
+        <div class="question-card">
+          <div class="prompt-row">
+            <p class="prompt" id="records-title">60びょうチャレンジ</p>
+            <button class="quiet-button" type="button" id="clear-records">けす</button>
+          </div>
+          <div class="records-columns four">
+            <div class="records-col">
+              <h3 class="records-col-title">しゅぎょう</h3>
+              <ol class="records-list" id="simple-records-list" aria-label="しゅぎょうランキング"></ol>
+              <p class="records-empty" id="simple-records-empty">まだきろくがないよ</p>
+            </div>
+            <div class="records-col">
+              <h3 class="records-col-title">あわせて10</h3>
+              <ol class="records-list" id="pair-records-list" aria-label="あわせて10ランキング"></ol>
+              <p class="records-empty" id="pair-records-empty">まだきろくがないよ</p>
+            </div>
+            <div class="records-col">
+              <h3 class="records-col-title">ぼうけん</h3>
+              <ol class="records-list" id="bridge-records-list" aria-label="ぼうけんランキング"></ol>
+              <p class="records-empty" id="bridge-records-empty">まだきろくがないよ</p>
+            </div>
+            <div class="records-col">
+              <h3 class="records-col-title">ひきざん</h3>
+              <ol class="records-list" id="minus-records-list" aria-label="ひきざんランキング"></ol>
+              <p class="records-empty" id="minus-records-empty">まだきろくがないよ</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="records-panel is-hidden" id="dex-mode" aria-labelledby="dex-title">
+        <div class="question-card sticker-card">
+          <div class="prompt-row">
+            <p class="prompt" id="dex-title">ポケモンずかん</p>
+            <div class="sticker-actions">
+              <span class="sticker-count" id="dex-count">0しゅるい / 60</span>
+              <button class="quiet-button" type="button" id="release-pokemon">ぜんぶにがす</button>
+            </div>
+          </div>
+          <p class="sticker-progress" id="dex-progress">じかんありで 10もん できると ポケモンを ゲットできるよ</p>
+          <div class="sticker-grid" id="dex-grid" aria-label="ポケモンずかん"></div>
+        </div>
+      </section>
+
+      <section class="parent-strip" aria-labelledby="parent-title">
+        <div>
+          <h2 id="parent-title">おうちの人メモ</h2>
+          <p id="parent-note">「じかんあり」の正解10問でゲットチャンス（成功80%・色違いあり）。ミッション20問のボーナスは確定ゲット。</p>
+        </div>
+        <button class="quiet-button" type="button" id="reset-progress">リセット</button>
+      </section>
+    </main>
+
+    <div class="confetti-layer" id="confetti" aria-hidden="true"></div>
+    <div class="fly-layer" id="fly-layer" aria-hidden="true"></div>
+    <div class="sticker-overlay is-hidden" id="sticker-overlay" aria-hidden="true">
+      <div class="sticker-pop">
+        <div class="pokeball" id="pokeball" aria-hidden="true"></div>
+        <img class="sticker-pop-img" id="sticker-img" alt="">
+        <p class="sticker-pop-name" id="sticker-name"></p>
+        <p id="sticker-caption">ポケモン ゲット！</p>
+      </div>
+    </div>
+
+    <script src="app.js?v=11"></script>
+  </body>
+</html>
