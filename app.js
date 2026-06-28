@@ -1,13 +1,16 @@
 const pairs = [
   { base: 1, friend: 9 },
-  { base: 2, friend: 8 },
-  { base: 3, friend: 7 },
-  { base: 4, friend: 6 },
+  { base: 2, friend: 8, showReverse: true },
+  { base: 3, friend: 7, showReverse: true },
+  { base: 4, friend: 6, showReverse: true },
   { base: 5, friend: 5 },
   { base: 6, friend: 4 },
   { base: 7, friend: 3 },
   { base: 8, friend: 2 },
-  { base: 9, friend: 1 }
+  { base: 9, friend: 1 },
+  { base: 2, friend: 8, showReverse: true },
+  { base: 3, friend: 7, showReverse: true },
+  { base: 4, friend: 6, showReverse: true },
 ];
 
 const bridgeProblems = makeBridgeProblems();
@@ -61,6 +64,9 @@ const els = {
   timeToggleLabel: document.querySelector("#time-toggle-label"),
   pairNumber: document.querySelector("#pair-number"),
   pairFrame: document.querySelector("#pair-frame"),
+  pairReverseSection: document.querySelector("#pair-reverse"),
+  pairReverseEquation: document.querySelector("#pair-reverse-equation"),
+  pairReverseFrame: document.querySelector("#pair-reverse-frame"),
   pairChoices: document.querySelector("#pair-choices"),
   pairFeedback: document.querySelector("#pair-feedback"),
   pairNext: document.querySelector("#pair-next"),
@@ -434,7 +440,8 @@ function nextPair() {
   els.pairFeedback.className = "feedback";
   els.pairFeedback.textContent = "なかよしを えらんでね";
   setNextButton("pair", false);
-  renderTenFrame(els.pairFrame, state.pair.base, state.pair.friend, false, true);
+  els.pairReverseSection.classList.add("is-hidden");
+  renderTenFrame(els.pairFrame, 0, 0);
   renderChoiceButtons(els.pairChoices, [1, 2, 3, 4, 5, 6, 7, 8, 9], choosePair);
   if (state.activeMode === "pair") startChallengeTimer();
 }
@@ -448,6 +455,7 @@ function choosePair(value, button) {
 
   if (correct) {
     timer.locked = true;
+    stopChallengeTimer();
     state.pairStreak += 1;
     countSolvedQuestion();
     els.pairFeedback.className = "feedback is-good";
@@ -456,6 +464,11 @@ function choosePair(value, button) {
     els.pairNumber.setAttribute("aria-label", `${state.pair.base} + ${state.pair.friend} = 10`);
     els.pairNumber.parentElement.classList.add("is-solved-equation");
     renderTenFrame(els.pairFrame, state.pair.base, state.pair.friend, true);
+    if (state.pair.showReverse) {
+      els.pairReverseEquation.innerHTML = `<span class="eq-green">${state.pair.friend}</span><span> + </span><span class="eq-red">${state.pair.base}</span><span> = 10</span>`;
+      renderTenFrame(els.pairReverseFrame, state.pair.friend, state.pair.base, true);
+      els.pairReverseSection.classList.remove("is-hidden");
+    }
     setNextButton("pair", true);
     playTone("good");
   } else {
@@ -537,6 +550,7 @@ function chooseSimple(value, button, problem = state.simple) {
   button.classList.add(correct ? "is-correct" : "is-wrong");
   if (correct) {
     timer.locked = true;
+    stopChallengeTimer();
     state.simpleStreak += 1;
     countSolvedQuestion();
     els.simpleFeedback.className = "feedback is-good";
@@ -588,6 +602,7 @@ function chooseBridge(value, button, problem = state.bridge) {
 
   if (correct) {
     timer.locked = true;
+    stopChallengeTimer();
     state.bridgeStreak += 1;
     countSolvedQuestion();
     els.bridgeFeedback.className = "feedback is-good";
