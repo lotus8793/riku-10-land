@@ -123,14 +123,17 @@ const CONFETTI_COLORS = ["#ff6b6b", "#f9c74f", "#2fbf71", "#3b82f6", "#b388ff", 
 
 const pairs = [
   { base: 1, friend: 9 },
-  { base: 2, friend: 8 },
-  { base: 3, friend: 7 },
-  { base: 4, friend: 6 },
+  { base: 2, friend: 8, showReverse: true },
+  { base: 3, friend: 7, showReverse: true },
+  { base: 4, friend: 6, showReverse: true },
   { base: 5, friend: 5 },
   { base: 6, friend: 4 },
   { base: 7, friend: 3 },
   { base: 8, friend: 2 },
-  { base: 9, friend: 1 }
+  { base: 9, friend: 1 },
+  { base: 2, friend: 8, showReverse: true },
+  { base: 3, friend: 7, showReverse: true },
+  { base: 4, friend: 6, showReverse: true },
 ];
 
 function makeBridgeProblems() {
@@ -204,6 +207,7 @@ const state = {
   daily: loadDaily(),
   nextQuestionTimeoutId: null,
   timedEnabled: localStorage.getItem(TIMED_KEY) === "true",
+  blocksEnabled: localStorage.getItem("riku10v2-blocks-enabled") !== "false",
   challenge: { remainingMs: CHALLENGE_SECONDS * 1000, intervalId: null, ended: false }
 };
 
@@ -240,6 +244,11 @@ const els = {
   timeToggleLabel: qs("#time-toggle-label"),
   pairNumber: qs("#pair-number"),
   pairFrame: qs("#pair-frame"),
+  pairReverseSection: qs("#pair-reverse"),
+  pairReverseEquation: qs("#pair-reverse-equation"),
+  pairReverseFrame: qs("#pair-reverse-frame"),
+  blockToggle: qs("#block-toggle"),
+  blockToggleLabel: qs("#block-toggle-label"),
   bridgeEquation: qs("#bridge-equation"),
   bridgeChain: qs("#bridge-chain"),
   bridgeLeftLabel: qs("#bridge-left-label"),
@@ -593,6 +602,7 @@ function praiseText() {
 
 function onCorrect(mode) {
   state.locked[mode] = true;
+  stopChallengeTimer();
   state.combo += 1;
   countSolvedQuestion();
   if (state.timedEnabled && !state.challenge.ended) {
@@ -756,6 +766,18 @@ function startChallengeTimer() {
   }, TIMER_TICK_MS);
 }
 
+function renderBlockToggle() {
+  els.blockToggle.classList.toggle("is-on", state.blocksEnabled);
+  els.blockToggle.setAttribute("aria-pressed", String(state.blocksEnabled));
+  els.blockToggleLabel.textContent = state.blocksEnabled ? "ブロックあり" : "ブロックなし";
+}
+
+function setBlockDisplay(enabled) {
+  state.blocksEnabled = enabled;
+  localStorage.setItem("riku10v2-blocks-enabled", String(enabled));
+  renderBlockToggle();
+}
+
 function setTimedMode(enabled) {
   state.timedEnabled = enabled;
   localStorage.setItem(TIMED_KEY, String(enabled));
@@ -850,7 +872,12 @@ function nextPair() {
   M.pair.feedback.className = "feedback";
   M.pair.feedback.textContent = "なかよしを えらんでね";
   setNextButton("pair", false);
-  renderTenFrame(els.pairFrame, state.problem.pair.base, state.problem.pair.friend, false, true);
+  els.pairReverseSection.classList.add("is-hidden");
+  if (state.blocksEnabled) {
+    renderTenFrame(els.pairFrame, state.problem.pair.base, state.problem.pair.friend, false, true);
+  } else {
+    renderTenFrame(els.pairFrame, 0, 0);
+  }
   renderChoiceButtons(M.pair.choices, [1, 2, 3, 4, 5, 6, 7, 8, 9], choosePair);
   if (state.activeMode === "pair") startChallengeTimer();
 }
@@ -866,6 +893,11 @@ function choosePair(value, button) {
     els.pairNumber.setAttribute("aria-label", `${problem.base} + ${problem.friend} = 10`);
     els.pairNumber.parentElement.classList.add("is-solved-equation");
     renderTenFrame(els.pairFrame, problem.base, problem.friend, true);
+    if (problem.showReverse) {
+      els.pairReverseEquation.innerHTML = `<span class="eq-green">${problem.friend}</span><span> + </span><span class="eq-red">${problem.base}</span><span> = 10</span>`;
+      renderTenFrame(els.pairReverseFrame, problem.friend, problem.base, true);
+      els.pairReverseSection.classList.remove("is-hidden");
+    }
     onCorrect("pair");
   } else {
     onWrong("pair");
@@ -1005,7 +1037,7 @@ function nextMinus() {
   M.minus.feedback.className = "feedback";
   M.minus.feedback.textContent = "こたえを えらんでね";
   setNextButton("minus", false);
-  renderMinusFrame(p.a, 0);
+  renderMinusFrame(state.blocksEnabled ? p.a : 0, 0);
   renderChoiceButtons(M.minus.choices, [1, 2, 3, 4, 5, 6, 7, 8, 9], (value, button) => {
     chooseMinus(value, button, p);
   });
@@ -1062,6 +1094,10 @@ MODES.forEach((mode) => {
   M[mode].start.addEventListener("click", () => startMode(mode));
 });
 
+els.blockToggle.addEventListener("click", () => {
+  setBlockDisplay(!state.blocksEnabled);
+});
+
 els.timeToggle.addEventListener("click", () => {
   setTimedMode(!state.timedEnabled);
   if (state.activeMode === "records") {
@@ -1105,6 +1141,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 }
 
 renderTimeToggle();
+renderBlockToggle();
 renderRecords();
 renderMission();
 saveScore();

@@ -371,7 +371,6 @@ h1 {
 .play-area.is-waiting .equation,
 .play-area.is-waiting .equation-chain,
 .play-area.is-waiting .bridge-board,
-.play-area.is-waiting .reverse-reveal,
 .play-area.is-waiting .choice-grid {
   display: none;
 }
@@ -829,27 +828,6 @@ h1 {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.5;
-}
-
-.reverse-reveal {
-  margin-top: 16px;
-  padding: 14px 14px 10px;
-  border: 2px solid #86efad;
-  border-radius: 16px;
-  background: #f0faf6;
-}
-
-.reverse-label {
-  margin: 0 0 4px;
-  color: #13734c;
-  font-size: 18px;
-  font-weight: 900;
-  text-align: center;
-}
-
-.reverse-equation {
-  margin: 6px 0;
-  font-size: clamp(30px, 6vw, 44px);
 }
 
 .quiet-button {
