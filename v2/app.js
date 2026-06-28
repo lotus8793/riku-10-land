@@ -393,7 +393,7 @@ function saveScore() {
   els.highScore.textContent = state.highScore;
   els.parentNote.textContent = state.timedEnabled
     ? `60びょうで ${state.stars}もん。ベスト ${state.highScore}もん。`
-    : `じかんなしモード（れんしゅう）。ポケモンゲットは「じかんあり」で。いま ${totalCaught()}ひき。`;
+    : `じかんなしモード（れんしゅう）。ポケモンゲットもカウント中。いま ${totalCaught()}ひき。`;
 }
 
 /* ---------- ポケモン ---------- */
@@ -645,7 +645,7 @@ function onCorrect(mode) {
   stopChallengeTimer();
   state.combo += 1;
   countSolvedQuestion();
-  if (state.timedEnabled && !state.challenge.ended) {
+  if (!state.challenge.ended) {
     registerCorrect();
   }
   const feedback = M[mode].feedback;
@@ -661,7 +661,7 @@ function onWrong(mode, _hint, correctValue) {
   state.combo = 0;
   state.locked[mode] = true;
   stopChallengeTimer();
-  if (state.timedEnabled && !state.challenge.ended) {
+  if (!state.challenge.ended) {
     registerWrong();
   }
   const feedback = M[mode].feedback;
