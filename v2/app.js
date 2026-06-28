@@ -557,6 +557,15 @@ function renderDex() {
   });
 }
 
+function registerWrong() {
+  state.totalCorrect = Math.max(0, state.totalCorrect - 1);
+  localStorage.setItem(TOTAL_KEY, String(state.totalCorrect));
+  rolloverDaily();
+  state.daily.count = Math.max(0, state.daily.count - 1);
+  saveDaily();
+  renderMission();
+}
+
 function registerCorrect() {
   state.totalCorrect += 1;
   localStorage.setItem(TOTAL_KEY, String(state.totalCorrect));
@@ -652,6 +661,9 @@ function onWrong(mode, _hint, correctValue) {
   state.combo = 0;
   state.locked[mode] = true;
   stopChallengeTimer();
+  if (state.timedEnabled && !state.challenge.ended) {
+    registerWrong();
+  }
   const feedback = M[mode].feedback;
   feedback.className = "feedback is-try";
   feedback.innerHTML = `ふせいかい！<br><span class="feedback-cheer">${pick(CHEERS)}</span>`;
