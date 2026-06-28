@@ -608,14 +608,14 @@ function playTone(kind, combo = 0) {
           ? [392, 293.66]
           : kind === "click"
             ? [987.77]
-            : [190];
+            : [330, 220];
 
   notes.forEach((freq, index) => {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
     gain.connect(ctx.destination);
-    osc.type = kind === "try" ? "sine" : "triangle";
+    osc.type = kind === "try" ? "sawtooth" : "triangle";
     osc.frequency.value = freq;
     const at = ctx.currentTime + index * 0.09;
     gain.gain.setValueAtTime(0.0001, at);
