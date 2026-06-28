@@ -238,7 +238,7 @@ const state = {
   daily: loadDaily(),
   nextQuestionTimeoutId: null,
   timedEnabled: localStorage.getItem(TIMED_KEY) === "true",
-  blocksEnabled: localStorage.getItem("riku10v2-blocks-enabled") !== "false",
+  blocksEnabled: localStorage.getItem("riku10v2-blocks-enabled") === "true",
   challenge: { remainingMs: CHALLENGE_SECONDS * 1000, intervalId: null, ended: false }
 };
 
@@ -930,11 +930,7 @@ function nextPair() {
   M.pair.feedback.textContent = "なかよしを えらんでね";
   setNextButton("pair", false);
   els.pairReverseSection.classList.add("is-hidden");
-  if (state.blocksEnabled) {
-    renderTenFrame(els.pairFrame, state.problem.pair.base, state.problem.pair.friend, false, true);
-  } else {
-    renderTenFrame(els.pairFrame, 0, 0);
-  }
+  renderTenFrame(els.pairFrame, 0, 0);
   renderChoiceButtons(M.pair.choices, [1, 2, 3, 4, 5, 6, 7, 8, 9], choosePair);
   if (state.activeMode === "pair") startChallengeTimer();
 }
