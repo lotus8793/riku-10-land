@@ -300,6 +300,8 @@ const els = {
   dexCount: qs("#dex-count"),
   dexProgress: qs("#dex-progress"),
   dexGrid: qs("#dex-grid"),
+  catchFill: qs("#catch-fill"),
+  catchText: qs("#catch-text"),
   missionFill: qs("#mission-fill"),
   missionText: qs("#mission-text"),
   parentNote: qs("#parent-note")
@@ -501,6 +503,11 @@ function catchPokemon(bonus) {
 
 function renderMission() {
   rolloverDaily();
+  const remain = STICKER_STEP - (state.totalCorrect % STICKER_STEP);
+  const catchPercent = ((STICKER_STEP - remain) / STICKER_STEP) * 100;
+  els.catchFill.style.width = `${catchPercent}%`;
+  els.catchText.textContent = `あと${remain}もん`;
+
   const percent = Math.min(100, (state.daily.count / MISSION_GOAL) * 100);
   els.missionFill.style.width = `${percent}%`;
   els.missionFill.classList.toggle("is-done", state.daily.done);

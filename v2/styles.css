@@ -1214,6 +1214,10 @@ h1 {
   line-height: 1.5;
 }
 
+.catch-fill {
+  background: linear-gradient(90deg, #e53935, #ff7043) !important;
+}
+
 .feedback-cheer {
   display: block;
   font-size: 16px;
