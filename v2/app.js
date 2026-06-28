@@ -913,6 +913,9 @@ function chooseSimple(value, button, problem = state.problem.simple) {
     renderTenFrame(els.simpleFrame, problem.a, problem.b, true);
     onCorrect("simple");
   } else {
+    els.simpleEquation.innerHTML = `<span class="eq-green">${problem.a}</span><span> + </span><span class="eq-red">${problem.b}</span><span> = ${answer}</span>`;
+    els.simpleEquation.classList.add("is-solved");
+    renderTenFrame(els.simpleFrame, problem.a, problem.b, true);
     onWrong("simple", null, answer);
   }
 }
@@ -953,6 +956,9 @@ function choosePair(value, button) {
     }
     onCorrect("pair");
   } else {
+    els.pairNumber.innerHTML = `<span class="eq-green">${problem.base}</span><span> + </span><span class="eq-red">${problem.friend}</span><span> = 10</span>`;
+    els.pairNumber.parentElement.classList.add("is-solved-equation");
+    renderTenFrame(els.pairFrame, problem.base, problem.friend, true);
     onWrong("pair", null, problem.friend);
   }
 }
@@ -1074,6 +1080,11 @@ function chooseBridge(value, button, problem = state.problem.bridge) {
     animateBridgeCompletion(problem, need);
     onCorrect("bridge");
   } else {
+    els.bridgeEquation.textContent = `${problem.big} + ${problem.small} = ${answer}`;
+    els.bridgeEquation.classList.add("is-solved");
+    els.bridgeLeftLabel.textContent = 10;
+    els.bridgeRightLabel.textContent = rest;
+    animateBridgeCompletion(problem, need);
     onWrong("bridge", `${problem.big}を10にして、のこりをたすよ`, answer);
   }
 }
@@ -1108,6 +1119,9 @@ function chooseMinus(value, button, problem = state.problem.minus) {
     renderMinusFrame(problem.a, problem.b);
     onCorrect("minus");
   } else {
+    els.minusEquation.innerHTML = `<span class="eq-green">${problem.a}</span><span> − </span><span class="eq-red">${problem.b}</span><span> = ${answer}</span>`;
+    els.minusEquation.classList.add("is-solved");
+    renderMinusFrame(problem.a, problem.b);
     onWrong("minus", "まるを けして かぞえてみよう", answer);
   }
 }
