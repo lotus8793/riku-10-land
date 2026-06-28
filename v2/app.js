@@ -1139,7 +1139,7 @@ document.querySelectorAll(".mode-tab").forEach((tab) => {
 });
 
 MODES.forEach((mode) => {
-  qs(`#new-${mode}`).addEventListener("click", () => nextQuestion(mode));
+  qs(`#new-${mode}`)?.addEventListener("click", () => nextQuestion(mode));
   M[mode].next.addEventListener("click", () => nextQuestion(mode));
   M[mode].start.addEventListener("click", () => startMode(mode));
 });
