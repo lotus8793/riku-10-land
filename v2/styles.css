@@ -1214,6 +1214,13 @@ h1 {
   line-height: 1.5;
 }
 
+.feedback-cheer {
+  display: block;
+  font-size: 16px;
+  font-weight: 800;
+  opacity: 0.8;
+}
+
 .reverse-reveal {
   margin-top: 16px;
   padding: 14px 14px 10px;

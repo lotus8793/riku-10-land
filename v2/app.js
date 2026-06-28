@@ -81,7 +81,37 @@ const STICKERS = [
   { id: 260, name: "ラグラージ" },
   { id: 392, name: "ゴウカザル" },
   { id: 395, name: "エンペルト" },
-  { id: 501, name: "ミジュマル" }
+  { id: 501, name: "ミジュマル" },
+  { id: 63, name: "ケーシィ" },
+  { id: 95, name: "イワーク" },
+  { id: 132, name: "メタモン" },
+  { id: 147, name: "ミニリュウ" },
+  { id: 152, name: "チコリータ" },
+  { id: 155, name: "ヒノアラシ" },
+  { id: 158, name: "ワニノコ" },
+  { id: 212, name: "ハッサム" },
+  { id: 243, name: "ライコウ" },
+  { id: 244, name: "エンテイ" },
+  { id: 245, name: "スイクン" },
+  { id: 255, name: "アチャモ" },
+  { id: 258, name: "ミズゴロウ" },
+  { id: 302, name: "ヤミラミ" },
+  { id: 311, name: "プラスル" },
+  { id: 312, name: "マイナン" },
+  { id: 359, name: "アブソル" },
+  { id: 380, name: "ラティアス" },
+  { id: 381, name: "ラティオス" },
+  { id: 382, name: "カイオーガ" },
+  { id: 383, name: "グラードン" },
+  { id: 385, name: "ジラーチ" },
+  { id: 387, name: "ナエトル" },
+  { id: 390, name: "ヒコザル" },
+  { id: 417, name: "パチリス" },
+  { id: 483, name: "ディアルガ" },
+  { id: 484, name: "パルキア" },
+  { id: 491, name: "ダークライ" },
+  { id: 495, name: "ツタージャ" },
+  { id: 570, name: "ゾロア" }
 ];
 
 function stickerImageUrl(id, shiny = false) {
@@ -118,6 +148,7 @@ function loadDaily() {
 }
 
 const PRAISES = ["できた！", "すごい！", "やったね！", "てんさい！", "かんぺき！", "ナイス！"];
+const CHEERS = ["つぎはがんばろう", "あといっぽ", "りくならできるよ"];
 
 const CONFETTI_COLORS = ["#ff6b6b", "#f9c74f", "#2fbf71", "#3b82f6", "#b388ff", "#ff9f1c"];
 
@@ -617,12 +648,19 @@ function onCorrect(mode) {
   saveScore();
 }
 
-function onWrong(mode, hint) {
+function onWrong(mode, _hint, correctValue) {
   state.combo = 0;
+  state.locked[mode] = true;
+  stopChallengeTimer();
   const feedback = M[mode].feedback;
   feedback.className = "feedback is-try";
-  feedback.textContent = hint || "もういちど";
+  feedback.innerHTML = `ふせいかい！<br><span class="feedback-cheer">${pick(CHEERS)}</span>`;
   playTone("try");
+  if (correctValue !== undefined) {
+    const btn = M[mode].choices.querySelector(`[data-value="${correctValue}"]`);
+    if (btn) btn.classList.add("is-correct");
+  }
+  setNextButton(mode, true);
 }
 
 /* ---------- 10マス・カード描画 ---------- */
@@ -856,7 +894,7 @@ function chooseSimple(value, button, problem = state.problem.simple) {
     renderTenFrame(els.simpleFrame, problem.a, problem.b, true);
     onCorrect("simple");
   } else {
-    onWrong("simple");
+    onWrong("simple", null, answer);
   }
 }
 
@@ -900,7 +938,7 @@ function choosePair(value, button) {
     }
     onCorrect("pair");
   } else {
-    onWrong("pair");
+    onWrong("pair", null, problem.friend);
   }
 }
 
@@ -1021,7 +1059,7 @@ function chooseBridge(value, button, problem = state.problem.bridge) {
     animateBridgeCompletion(problem, need);
     onCorrect("bridge");
   } else {
-    onWrong("bridge", `${problem.big}を10にして、のこりをたすよ`);
+    onWrong("bridge", `${problem.big}を10にして、のこりをたすよ`, answer);
   }
 }
 
@@ -1055,7 +1093,7 @@ function chooseMinus(value, button, problem = state.problem.minus) {
     renderMinusFrame(problem.a, problem.b);
     onCorrect("minus");
   } else {
-    onWrong("minus", "まるを けして かぞえてみよう");
+    onWrong("minus", "まるを けして かぞえてみよう", answer);
   }
 }
 
