@@ -14,6 +14,7 @@ const RECORDS_KEYS = {
   minus: "riku10v2-records-minus"
 };
 const TOTAL_KEY = "riku10v2-total-correct";
+const CATCH_PROGRESS_KEY = "riku10v2-catch-progress";
 const TIMED_KEY = "riku10v2-timed-enabled";
 const CAUGHT_KEY = "riku10v2-caught";
 const DAILY_KEY = "riku10v2-daily";
@@ -139,6 +140,17 @@ function loadCaught() {
   return caught;
 }
 
+// つぎのポケモンまでの進捗（0〜9）。累計正解数とは独立して管理する。
+// キーが無い場合は旧仕様（累計の10問区切り）から引き継ぐ
+function loadCatchProgress() {
+  const raw = localStorage.getItem(CATCH_PROGRESS_KEY);
+  if (raw !== null) {
+    return Math.min(STICKER_STEP - 1, Math.max(0, Number(raw) || 0));
+  }
+  const total = Number(localStorage.getItem(TOTAL_KEY) || "0") || 0;
+  return total % STICKER_STEP;
+}
+
 function loadDaily() {
   try {
     const parsed = JSON.parse(localStorage.getItem(DAILY_KEY) || "null");
@@ -233,6 +245,7 @@ const state = {
   stars: 0,
   highScore: 0,
   totalCorrect: Number(localStorage.getItem(TOTAL_KEY) || "0") || 0,
+  catchProgress: loadCatchProgress(),
   activeMode: "simple",
   caught: loadCaught(),
   daily: loadDaily(),
@@ -503,8 +516,8 @@ function catchPokemon(bonus) {
 
 function renderMission() {
   rolloverDaily();
-  const remain = STICKER_STEP - (state.totalCorrect % STICKER_STEP);
-  const catchPercent = ((STICKER_STEP - remain) / STICKER_STEP) * 100;
+  const remain = STICKER_STEP - state.catchProgress;
+  const catchPercent = (state.catchProgress / STICKER_STEP) * 100;
   els.catchFill.style.width = `${catchPercent}%`;
   els.catchText.textContent = `あと${remain}もん`;
 
@@ -519,7 +532,7 @@ function renderMission() {
 function renderDex() {
   els.dexCount.textContent = `${speciesCaught()}しゅるい / ${STICKERS.length}`;
 
-  const remain = STICKER_STEP - (state.totalCorrect % STICKER_STEP);
+  const remain = STICKER_STEP - state.catchProgress;
   els.dexProgress.textContent = `ぜんぶで ${totalCaught()}ひき。あと ${remain}もん で つぎのポケモン`;
 
   const entries = STICKERS.map((species, index) => {
@@ -564,9 +577,14 @@ function renderDex() {
   });
 }
 
+function saveCatchProgress() {
+  localStorage.setItem(CATCH_PROGRESS_KEY, String(state.catchProgress));
+}
+
 function registerWrong() {
-  state.totalCorrect = Math.max(0, state.totalCorrect - 1);
-  localStorage.setItem(TOTAL_KEY, String(state.totalCorrect));
+  // ペナルティは「つぎのポケモンまで」の進捗のみ。0未満にはしない
+  state.catchProgress = Math.max(0, state.catchProgress - 1);
+  saveCatchProgress();
   rolloverDaily();
   state.daily.count = Math.max(0, state.daily.count - 1);
   saveDaily();
@@ -579,9 +597,12 @@ function registerCorrect() {
   rolloverDaily();
   state.daily.count += 1;
   saveDaily();
-  if (state.totalCorrect % STICKER_STEP === 0) {
+  state.catchProgress += 1;
+  if (state.catchProgress >= STICKER_STEP) {
+    state.catchProgress = 0; // ゲットしたら0から数え直し。間違えても戻らない
     catchPokemon(false);
   }
+  saveCatchProgress();
   if (!state.daily.done && state.daily.count >= MISSION_GOAL) {
     state.daily.done = true;
     saveDaily();
@@ -1175,8 +1196,10 @@ els.timeToggle.addEventListener("click", () => {
 qs("#release-pokemon").addEventListener("click", () => {
   if (!window.confirm("ほんとうに ポケモンを ぜんぶ にがす？（累計正解数もリセットされます）")) return;
   state.totalCorrect = 0;
+  state.catchProgress = 0;
   state.caught = {};
   localStorage.setItem(TOTAL_KEY, "0");
+  saveCatchProgress();
   saveCaught();
   renderDex();
   saveScore();
