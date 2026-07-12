@@ -713,8 +713,17 @@ function catchPokemon(bonus) {
   queueCatchOverlay({ species, shiny, bonus, fled: false });
 }
 
+// あわせて10・10+X が今日あと何問ミッションにカウントできるか
+function renderPracticeCaps() {
+  [["pair", "#pair-cap"], ["tenplus", "#tenplus-cap"]].forEach(([mode, selector]) => {
+    const left = Math.max(0, PRACTICE_MISSION_CAP - (state.daily[`${mode}Used`] || 0));
+    qs(selector).textContent = left > 0 ? `ミッションに あと${left}もん` : "きょうのぶんは カウントおわり";
+  });
+}
+
 function renderMission() {
   rolloverDaily();
+  renderPracticeCaps();
   const remain = SETTINGS.catchStep - state.catchProgress;
   const catchPercent = (state.catchProgress / SETTINGS.catchStep) * 100;
   els.catchFill.style.width = `${catchPercent}%`;
@@ -870,7 +879,7 @@ function importBackup(file) {
 
 /* ---------- せいせき（おうちの人向け） ---------- */
 
-const MODE_LABELS = { simple: "しゅぎょう", pair: "あわせて10", tenplus: "10+X", bridge: "ぼうけん", minus: "ひきざんジム", ice: "こおりのダンジョン" };
+const MODE_LABELS = { simple: "たしざんジム", pair: "あわせて10", tenplus: "10+X", bridge: "ほのおのダンジョン", minus: "ひきざんジム", ice: "こおりのダンジョン" };
 
 function formatProblemLabel(mode, key) {
   if (mode === "minus" || mode === "ice") return key.replace("-", " − ");

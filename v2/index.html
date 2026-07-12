@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=17">
+    <link rel="stylesheet" href="styles.css?v=18">
   </head>
   <body>
     <main class="app-shell">
@@ -21,6 +21,7 @@
             <p class="eyebrow">たして ひいて ポケモンゲット</p>
             <h1 id="app-title">りくのぼうけん</h1>
           </div>
+          <img class="hero-art" src="hero.png?v=1" alt="ポケモンのなかまたち">
           <div class="score-stack" aria-live="polite">
             <div class="score-pill">
               <span>ちょきん</span>
@@ -36,14 +37,13 @@
             </button>
           </div>
         </div>
-        <img class="hero-art" src="hero.png?v=1" alt="ポケモンのなかまたち">
       </section>
 
       <nav class="mode-tabs" aria-label="れんしゅうモード">
         <button class="mode-tab is-active" type="button" data-mode="pair">あわせて10</button>
         <button class="mode-tab" type="button" data-mode="tenplus">10+X</button>
-        <button class="mode-tab" type="button" data-mode="simple">しゅぎょう</button>
-        <button class="mode-tab" type="button" data-mode="bridge">ぼうけん</button>
+        <button class="mode-tab" type="button" data-mode="simple">たしざんジム</button>
+        <button class="mode-tab" type="button" data-mode="bridge">ほのおのダンジョン</button>
         <button class="mode-tab" type="button" data-mode="minus">ひきざんジム</button>
         <button class="mode-tab" type="button" data-mode="ice">こおりのダンジョン</button>
         <button class="mode-tab" type="button" data-mode="dex">ずかん</button>
@@ -100,6 +100,7 @@
         <div class="question-card">
           <div class="prompt-row">
             <p class="prompt">あといくつで 10 かな？</p>
+            <span class="practice-cap" id="pair-cap"></span>
           </div>
           <button class="start-button" type="button" id="pair-start">スタート</button>
           <div class="timer-row" id="pair-timer-row" aria-label="のこりじかん">
@@ -127,6 +128,7 @@
         <div class="question-card">
           <div class="prompt-row">
             <p class="prompt">10に たすと いくつ？</p>
+            <span class="practice-cap" id="tenplus-cap"></span>
           </div>
           <button class="start-button" type="button" id="tenplus-start">スタート</button>
           <div class="timer-row" id="tenplus-timer-row" aria-label="のこりじかん">
@@ -249,13 +251,13 @@
               <p class="records-empty" id="tenplus-records-empty">まだきろくがないよ</p>
             </div>
             <div class="records-col">
-              <h3 class="records-col-title">しゅぎょう</h3>
-              <ol class="records-list" id="simple-records-list" aria-label="しゅぎょうランキング"></ol>
+              <h3 class="records-col-title">たしざんジム</h3>
+              <ol class="records-list" id="simple-records-list" aria-label="たしざんジムランキング"></ol>
               <p class="records-empty" id="simple-records-empty">まだきろくがないよ</p>
             </div>
             <div class="records-col">
-              <h3 class="records-col-title">ぼうけん</h3>
-              <ol class="records-list" id="bridge-records-list" aria-label="ぼうけんランキング"></ol>
+              <h3 class="records-col-title">ほのおのダンジョン</h3>
+              <ol class="records-list" id="bridge-records-list" aria-label="ほのおのダンジョンランキング"></ol>
               <p class="records-empty" id="bridge-records-empty">まだきろくがないよ</p>
             </div>
             <div class="records-col">
@@ -339,6 +341,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=19"></script>
+    <script src="app.js?v=20"></script>
   </body>
 </html>
