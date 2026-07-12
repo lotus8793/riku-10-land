@@ -306,6 +306,7 @@ const state = {
   activeMode: "pair",
   caught: loadCaught(),
   daily: loadDaily(),
+  iceRevealTimeoutId: null,
   coins: Math.max(0, Number(localStorage.getItem(COINS_KEY) || "0") || 0),
   coinProgress: Math.min(COIN_STEP - 1, Math.max(0, Number(localStorage.getItem(COIN_PROGRESS_KEY) || "0") || 0)),
   coinJustEarned: false,
@@ -1091,6 +1092,7 @@ function clearNextQuestion() {
     state.nextQuestionTimeoutId = null;
   }
   clearBridgeReveal();
+  clearIceReveal();
 }
 
 function renderTimerRows() {
@@ -1535,6 +1537,8 @@ function chooseMinus(value, button, problem = state.problem.minus) {
 
 function nextIce() {
   if (!guardNext("ice")) return;
+  clearIceReveal();
+  els.flyLayer.replaceChildren();
   const p = pickWeighted("ice", iceProblems, state.lastKey.ice);
   state.problem.ice = p;
   state.lastKey.ice = abKey(p);
@@ -1556,6 +1560,112 @@ function nextIce() {
   if (state.activeMode === "ice") startChallengeTimer();
 }
 
+// 氷がとけたあと、一の位のバラがマスに飛び込んで合流する
+function animateIceCompletion(problem) {
+  const left = 10 - problem.b;
+  const ones = problem.a - 10;
+  renderTenFrame(els.iceFrame, left, 0);
+  els.iceLeftLabel.textContent = problem.a - problem.b;
+  els.iceRightLabel.textContent = "";
+
+  const cells = [...els.iceFrame.children].slice(left, left + ones);
+  const dots = [...els.iceDots.children].slice(0, ones);
+  const dotRects = dots.map((dot) => dot.getBoundingClientRect());
+  const cellRects = cells.map((cell) => cell.getBoundingClientRect());
+  renderPlainDots(els.iceDots, 0);
+
+  const canAnimate =
+    typeof document.createElement("div").animate === "function" &&
+    dots.length === ones &&
+    dotRects.every((rect) => rect.width > 0) &&
+    cellRects.every((rect) => rect.width > 0);
+
+  if (!canAnimate) {
+    cells.forEach((cell, index) => {
+      cell.classList.add("is-friend-filled");
+      cell.style.setProperty("--pop-delay", `${index * 55}ms`);
+    });
+    return;
+  }
+
+  cells.forEach((cell, index) => {
+    const from = dotRects[index];
+    const to = cellRects[index];
+    const flyer = document.createElement("div");
+    flyer.className = "fly-square";
+    flyer.style.left = `${from.left}px`;
+    flyer.style.top = `${from.top}px`;
+    flyer.style.width = `${from.width}px`;
+    flyer.style.height = `${from.height}px`;
+    els.flyLayer.append(flyer);
+
+    const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+    const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+    const scale = to.width / from.width;
+
+    const animation = flyer.animate(
+      [
+        { transform: "translate(0, 0) scale(1)", opacity: 1 },
+        { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: 1 }
+      ],
+      { duration: 520, delay: index * 110, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "backwards" }
+    );
+
+    animation.onfinish = () => {
+      flyer.remove();
+      cell.classList.add("is-friend-filled", "is-landed");
+      cell.style.setProperty("--pop-delay", "0ms");
+    };
+  });
+}
+
+// 段階1: 「11」の絵を見せたまま、右のブロックから1つずつ ✕ にして数える（1,2,3,4…）
+// 段階2: ✕がとけて、一の位のバラが合流する
+function revealIceAnswer(problem) {
+  const cells = [...els.iceFrame.children];
+  let count = 0;
+  const step = () => {
+    state.iceRevealTimeoutId = null;
+    if (state.problem.ice !== problem) return;
+    if (count < problem.b) {
+      const cell = cells[9 - count];
+      if (cell) {
+        cell.classList.add("is-removed");
+        cell.dataset.count = count + 1;
+        cell.style.setProperty("--pop-delay", "0ms");
+      }
+      count += 1;
+      state.iceRevealTimeoutId = setTimeout(step, 450);
+      return;
+    }
+    els.iceLeftLabel.textContent = 10 - problem.b;
+    state.iceRevealTimeoutId = setTimeout(() => {
+      state.iceRevealTimeoutId = null;
+      if (state.problem.ice === problem) animateIceCompletion(problem);
+    }, 900);
+  };
+  state.iceRevealTimeoutId = setTimeout(step, 500);
+}
+
+function scheduleIceReveal(problem) {
+  if (state.blocksEnabled) {
+    revealIceAnswer(problem);
+    return;
+  }
+  // ブロックなしでは、まず「10のかたまり＋バラ」の絵を見せてから消す
+  state.iceRevealTimeoutId = setTimeout(() => {
+    state.iceRevealTimeoutId = null;
+    if (state.problem.ice === problem) revealIceAnswer(problem);
+  }, 1500);
+}
+
+function clearIceReveal() {
+  if (state.iceRevealTimeoutId) {
+    clearTimeout(state.iceRevealTimeoutId);
+    state.iceRevealTimeoutId = null;
+  }
+}
+
 function chooseIce(value, button, problem = state.problem.ice) {
   if (state.locked.ice) return;
   const ones = problem.a - 10;
@@ -1564,17 +1674,16 @@ function chooseIce(value, button, problem = state.problem.ice) {
   const correct = value === answer;
   recordAnswer("ice", problem, correct);
   button.classList.add(correct ? "is-correct" : "is-wrong");
-  els.iceEquation.innerHTML = `<span class="eq-green">${problem.a}</span><span> − </span><span class="eq-red">${problem.b}</span><span> = ${answer}</span>`;
+  els.iceEquation.textContent = `${problem.a} − ${problem.b} = ${answer}`;
   els.iceEquation.classList.add("is-solved");
   els.iceChain.textContent = `10 − ${problem.b} = ${left}、 ${left} + ${ones} = ${answer}`;
   els.iceChain.classList.add("is-solved");
-  els.iceLeftLabel.textContent = left;
-  renderMinusFrame(els.iceFrame, 10, problem.b);
   if (correct) {
     onCorrect("ice");
   } else {
     onWrong("ice", "10からひいて、のこりとたすよ", answer);
   }
+  scheduleIceReveal(problem);
 }
 
 /* ---------- モード切替・初期化 ---------- */
