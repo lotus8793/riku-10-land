@@ -18,6 +18,9 @@ const CATCH_PROGRESS_KEY = "riku10v2-catch-progress";
 const TIMED_KEY = "riku10v2-timed-enabled";
 const CAUGHT_KEY = "riku10v2-caught";
 const DAILY_KEY = "riku10v2-daily";
+const STATS_KEY = "riku10v2-stats";
+const DAYLOG_KEY = "riku10v2-daylog";
+const BACKUP_PREFIX = "riku10v2-";
 const MISSION_GOAL = 20;
 const SHINY_RATE = 0.1;
 const CATCH_RATE = 0.8;
@@ -159,6 +162,26 @@ function loadDaily() {
   return { date: todayStr(), count: 0, done: false };
 }
 
+function loadStats() {
+  let parsed = null;
+  try {
+    parsed = JSON.parse(localStorage.getItem(STATS_KEY) || "null");
+  } catch {}
+  const stats = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  MODES.forEach((mode) => {
+    if (!stats[mode] || typeof stats[mode] !== "object") stats[mode] = {};
+  });
+  return stats;
+}
+
+function loadDayLog() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(DAYLOG_KEY) || "null");
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+  } catch {}
+  return {};
+}
+
 const PRAISES = ["できた！", "すごい！", "やったね！", "てんさい！", "かんぺき！", "ナイス！"];
 const CHEERS = ["つぎはがんばろう", "あといっぽ", "りくならできるよ", "てきとうにやってる？", "かんがえてますか？", "しゅうちゅうして！", "こんなのおぼえるだけだからね！"];
 
@@ -233,6 +256,9 @@ function loadModeRecords(key) {
 const state = {
   problem: { simple: null, pair: null, bridge: null, minus: null },
   lastKey: { simple: "", pair: "", bridge: "", minus: "" },
+  questionAt: { simple: 0, pair: 0, bridge: 0, minus: 0 },
+  stats: loadStats(),
+  dayLog: loadDayLog(),
   started: { simple: false, pair: false, bridge: false, minus: false },
   locked: { simple: true, pair: true, bridge: true, minus: true },
   records: {
@@ -336,16 +362,71 @@ function problemKey(problem) {
   return `${problem.big ?? problem.base}+${problem.small ?? problem.friend}`;
 }
 
-function pickDifferent(items, lastKey) {
-  if (items.length <= 1) return pick(items);
-  const candidates = items.filter((item) => problemKey(item) !== lastKey);
-  return pick(candidates.length ? candidates : items);
+/* ---------- 成績記録・にがて優先出題 ---------- */
+
+function statKeyFn(mode) {
+  return mode === "pair" || mode === "bridge" ? problemKey : abKey;
 }
 
-function pickDifferentAb(items, lastKey) {
-  if (items.length <= 1) return pick(items);
-  const candidates = items.filter((item) => abKey(item) !== lastKey);
-  return pick(candidates.length ? candidates : items);
+function saveStats() {
+  localStorage.setItem(STATS_KEY, JSON.stringify(state.stats));
+}
+
+function saveDayLog() {
+  const keys = Object.keys(state.dayLog);
+  if (keys.length > 60) {
+    keys
+      .sort((a, b) => new Date(a) - new Date(b))
+      .slice(0, keys.length - 60)
+      .forEach((key) => {
+        delete state.dayLog[key];
+      });
+  }
+  localStorage.setItem(DAYLOG_KEY, JSON.stringify(state.dayLog));
+}
+
+function recordAnswer(mode, problem, correct) {
+  const key = statKeyFn(mode)(problem);
+  const elapsed = Date.now() - (state.questionAt[mode] || 0);
+  const stat = state.stats[mode][key] || { c: 0, w: 0, t: 0 };
+  if (correct) stat.c += 1;
+  else stat.w += 1;
+  if (elapsed > 300 && elapsed < 60000) {
+    stat.t = stat.t ? Math.round(stat.t * 0.7 + elapsed * 0.3) : elapsed;
+  }
+  // 昔の成績を引きずらないよう、たまったら半減して直近を重視
+  if (stat.c + stat.w > 30) {
+    stat.c = Math.round(stat.c / 2);
+    stat.w = Math.round(stat.w / 2);
+  }
+  state.stats[mode][key] = stat;
+  saveStats();
+
+  const day = state.dayLog[todayStr()] || { c: 0, w: 0 };
+  if (correct) day.c += 1;
+  else day.w += 1;
+  state.dayLog[todayStr()] = day;
+  saveDayLog();
+}
+
+function problemWeight(stat) {
+  if (!stat || stat.c + stat.w === 0) return 2; // まだ出していない問題は多めに
+  const wrongRate = stat.w / (stat.c + stat.w);
+  const slow = stat.t > 6000 ? 1.5 : stat.t > 3500 ? 0.7 : 0;
+  return 1 + wrongRate * 4 + slow;
+}
+
+function pickWeighted(mode, items, lastKey) {
+  const keyFn = statKeyFn(mode);
+  const filtered = items.filter((item) => keyFn(item) !== lastKey);
+  const pool = filtered.length ? filtered : items;
+  const weights = pool.map((item) => problemWeight(state.stats[mode][keyFn(item)]));
+  let r = Math.random() * weights.reduce((sum, weight) => sum + weight, 0);
+  for (let i = 0; i < pool.length; i += 1) {
+    r -= weights[i];
+    if (r <= 0) return pool[i];
+  }
+  return pool[pool.length - 1];
 }
 
 /* ---------- きろく ---------- */
@@ -611,6 +692,157 @@ function registerCorrect() {
   renderMission();
 }
 
+/* ---------- バックアップ ---------- */
+
+function exportBackup() {
+  const data = {};
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(BACKUP_PREFIX)) data[key] = localStorage.getItem(key);
+  }
+  const payload = { app: "riku-no-bouken", version: 2, savedAt: new Date().toISOString(), data };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `riku-no-bouken-${todayStr()}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function importBackup(file) {
+  file.text().then((text) => {
+    let payload = null;
+    try {
+      payload = JSON.parse(text);
+    } catch {}
+    const data = payload && payload.app === "riku-no-bouken" ? payload.data : null;
+    if (!data || typeof data !== "object") {
+      window.alert("このファイルは りくのぼうけんの ほぞんデータじゃないみたい");
+      return;
+    }
+    if (!window.confirm("いまのデータを ほぞんデータで うわがきするよ。いい？")) return;
+    Object.entries(data).forEach(([key, value]) => {
+      if (key.startsWith(BACKUP_PREFIX) && typeof value === "string") {
+        localStorage.setItem(key, value);
+      }
+    });
+    location.reload();
+  });
+}
+
+/* ---------- せいせき（おうちの人向け） ---------- */
+
+const MODE_LABELS = { simple: "しゅぎょう", pair: "あわせて10", bridge: "ぼうけん", minus: "ひきざん" };
+
+function formatProblemLabel(mode, key) {
+  if (mode === "minus") return key.replace("-", " − ");
+  if (mode === "simple") return key.replace("-", " + ");
+  return key.replace("+", " + ");
+}
+
+function renderStatsSummary() {
+  const today = state.dayLog[todayStr()] || { c: 0, w: 0 };
+  const attempts = today.c + today.w;
+  const summary = qs("#stats-summary");
+  if (!attempts) {
+    summary.textContent = "きょうは まだ問題を解いていません。";
+    return;
+  }
+  const rate = Math.round((today.c / attempts) * 100);
+  summary.textContent = `きょう: ${today.c}問正解・${today.w}問ミス（正答率 ${rate}%）`;
+}
+
+function renderStatsChart() {
+  const chart = qs("#stats-chart");
+  chart.replaceChildren();
+  const days = [];
+  for (let i = 13; i >= 0; i -= 1) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    const log = state.dayLog[key] || { c: 0, w: 0 };
+    days.push({ label: `${d.getMonth() + 1}/${d.getDate()}`, count: log.c || 0, wrong: log.w || 0, isToday: i === 0 });
+  }
+  const max = Math.max(...days.map((day) => day.count), 5);
+  const best = Math.max(...days.map((day) => day.count));
+  days.forEach((day, index) => {
+    const col = document.createElement("div");
+    col.className = "stats-col";
+    col.title = `${day.label}: ${day.count}問正解 / ${day.wrong}問ミス`;
+
+    const value = document.createElement("span");
+    value.className = "stats-value";
+    // ラベルは今日とベスト日だけ（他はホバーで見る）
+    if (day.count > 0 && (day.isToday || day.count === best)) value.textContent = day.count;
+
+    const track = document.createElement("div");
+    track.className = "stats-bar-track";
+    const bar = document.createElement("div");
+    bar.className = "stats-bar";
+    if (day.isToday) bar.classList.add("is-today");
+    bar.style.height = day.count ? `${Math.max(4, (day.count / max) * 100)}%` : "0";
+    track.append(bar);
+
+    const label = document.createElement("span");
+    label.className = "stats-day";
+    if (index % 2 === 1 || day.isToday) label.textContent = day.label;
+
+    col.append(value, track, label);
+    chart.append(col);
+  });
+}
+
+function renderStatsWeak() {
+  const wrap = qs("#stats-weak");
+  wrap.replaceChildren();
+  MODES.forEach((mode) => {
+    const column = document.createElement("div");
+    column.className = "records-col";
+    const title = document.createElement("h3");
+    title.className = "records-col-title";
+    title.textContent = MODE_LABELS[mode];
+    column.append(title);
+
+    const weakest = Object.entries(state.stats[mode])
+      .map(([key, stat]) => ({ key, ...stat, tries: stat.c + stat.w, weight: problemWeight(stat) }))
+      .filter((stat) => stat.tries >= 2 && (stat.w > 0 || stat.t > 6000))
+      .sort((a, b) => b.weight - a.weight)
+      .slice(0, 5);
+
+    if (!weakest.length) {
+      const empty = document.createElement("p");
+      empty.className = "records-empty";
+      empty.textContent = "にがては ないみたい";
+      column.append(empty);
+    } else {
+      const list = document.createElement("ol");
+      list.className = "records-list";
+      weakest.forEach((stat) => {
+        const row = document.createElement("li");
+        row.className = "record-row";
+        const label = document.createElement("strong");
+        label.className = "record-score";
+        label.textContent = formatProblemLabel(mode, stat.key);
+        const detail = document.createElement("span");
+        detail.className = "record-date";
+        const accuracy = Math.round((stat.c / stat.tries) * 100);
+        detail.textContent = `正答${accuracy}%${stat.t ? `・約${Math.round(stat.t / 1000)}秒` : ""}`;
+        row.append(label, detail);
+        list.append(row);
+      });
+      column.append(list);
+    }
+    wrap.append(column);
+  });
+}
+
+function renderStatsPanel() {
+  renderStatsSummary();
+  renderStatsChart();
+  renderStatsWeak();
+}
+
 /* ---------- 演出 ---------- */
 
 function burstConfetti(count) {
@@ -670,6 +902,7 @@ function praiseText() {
 
 function onCorrect(mode) {
   state.locked[mode] = true;
+  M[mode].section.classList.add("is-answer-shown");
   stopChallengeTimer();
   state.combo += 1;
   countSolvedQuestion();
@@ -688,6 +921,7 @@ function onCorrect(mode) {
 function onWrong(mode, _hint, correctValue) {
   state.combo = 0;
   state.locked[mode] = true;
+  M[mode].section.classList.add("is-answer-shown");
   stopChallengeTimer();
   if (!state.challenge.ended) {
     registerWrong();
@@ -774,6 +1008,7 @@ function resetModeStart(mode) {
   state.started[mode] = false;
   setModeWaiting(mode, true);
   state.locked[mode] = true;
+  M[mode].section.classList.remove("is-answer-shown");
   setNextButton(mode, false);
 }
 
@@ -848,6 +1083,7 @@ function renderBlockToggle() {
   els.blockToggle.classList.toggle("is-on", state.blocksEnabled);
   els.blockToggle.setAttribute("aria-pressed", String(state.blocksEnabled));
   els.blockToggleLabel.textContent = state.blocksEnabled ? "ブロックあり" : "ブロックなし";
+  document.body.classList.toggle("no-blocks", !state.blocksEnabled);
 }
 
 function setBlockDisplay(enabled) {
@@ -882,6 +1118,8 @@ function startMode(mode) {
 }
 
 function nextQuestion(mode) {
+  M[mode].section.classList.remove("is-answer-shown");
+  state.questionAt[mode] = Date.now();
   if (mode === "pair") nextPair();
   else if (mode === "bridge") nextBridge();
   else if (mode === "minus") nextMinus();
@@ -907,8 +1145,7 @@ function guardNext(mode) {
 
 function nextSimple() {
   if (!guardNext("simple")) return;
-  const candidates = simpleProblems.filter((p) => abKey(p) !== state.lastKey.simple);
-  const p = pick(candidates.length ? candidates : simpleProblems);
+  const p = pickWeighted("simple", simpleProblems, state.lastKey.simple);
   state.problem.simple = p;
   state.lastKey.simple = abKey(p);
   els.simpleEquation.classList.remove("is-solved");
@@ -927,6 +1164,7 @@ function chooseSimple(value, button, problem = state.problem.simple) {
   if (state.locked.simple) return;
   const answer = problem.a + problem.b;
   const correct = value === answer;
+  recordAnswer("simple", problem, correct);
   button.classList.add(correct ? "is-correct" : "is-wrong");
   if (correct) {
     els.simpleEquation.innerHTML = `<span class="eq-green">${problem.a}</span><span> + </span><span class="eq-red">${problem.b}</span><span> = ${answer}</span>`;
@@ -945,7 +1183,7 @@ function chooseSimple(value, button, problem = state.problem.simple) {
 
 function nextPair() {
   if (!guardNext("pair")) return;
-  state.problem.pair = pickDifferent(pairs, state.lastKey.pair);
+  state.problem.pair = pickWeighted("pair", pairs, state.lastKey.pair);
   state.lastKey.pair = problemKey(state.problem.pair);
   els.pairNumber.textContent = state.problem.pair.base;
   els.pairNumber.removeAttribute("aria-label");
@@ -963,6 +1201,7 @@ function choosePair(value, button) {
   if (state.locked.pair) return;
   const problem = state.problem.pair;
   const correct = value === problem.friend;
+  recordAnswer("pair", problem, correct);
   button.classList.add(correct ? "is-correct" : "is-wrong");
 
   if (correct) {
@@ -1061,7 +1300,7 @@ function animateBridgeCompletion(problem, need) {
 function nextBridge() {
   if (!guardNext("bridge")) return;
   els.flyLayer.replaceChildren();
-  state.problem.bridge = pickDifferent(bridgeProblems, state.lastKey.bridge);
+  state.problem.bridge = pickWeighted("bridge", bridgeProblems, state.lastKey.bridge);
   state.lastKey.bridge = problemKey(state.problem.bridge);
   const currentBridge = state.problem.bridge;
   const need = 10 - currentBridge.big;
@@ -1089,6 +1328,7 @@ function chooseBridge(value, button, problem = state.problem.bridge) {
   const rest = problem.small - need;
   const answer = problem.big + problem.small;
   const correct = value === answer;
+  recordAnswer("bridge", problem, correct);
   button.classList.add(correct ? "is-correct" : "is-wrong");
 
   if (correct) {
@@ -1098,15 +1338,15 @@ function chooseBridge(value, button, problem = state.problem.bridge) {
     els.bridgeChain.classList.add("is-solved");
     els.bridgeLeftLabel.textContent = 10;
     els.bridgeRightLabel.textContent = rest;
-    animateBridgeCompletion(problem, need);
     onCorrect("bridge");
+    animateBridgeCompletion(problem, need);
   } else {
     els.bridgeEquation.textContent = `${problem.big} + ${problem.small} = ${answer}`;
     els.bridgeEquation.classList.add("is-solved");
     els.bridgeLeftLabel.textContent = 10;
     els.bridgeRightLabel.textContent = rest;
-    animateBridgeCompletion(problem, need);
     onWrong("bridge", `${problem.big}を10にして、のこりをたすよ`, answer);
+    animateBridgeCompletion(problem, need);
   }
 }
 
@@ -1114,7 +1354,7 @@ function chooseBridge(value, button, problem = state.problem.bridge) {
 
 function nextMinus() {
   if (!guardNext("minus")) return;
-  const p = pickDifferentAb(minusProblems, state.lastKey.minus);
+  const p = pickWeighted("minus", minusProblems, state.lastKey.minus);
   state.problem.minus = p;
   state.lastKey.minus = abKey(p);
   els.minusEquation.classList.remove("is-solved");
@@ -1122,7 +1362,7 @@ function nextMinus() {
   M.minus.feedback.className = "feedback";
   M.minus.feedback.textContent = "こたえを えらんでね";
   setNextButton("minus", false);
-  renderMinusFrame(state.blocksEnabled ? p.a : 0, 0);
+  renderMinusFrame(p.a, 0);
   renderChoiceButtons(M.minus.choices, [1, 2, 3, 4, 5, 6, 7, 8, 9], (value, button) => {
     chooseMinus(value, button, p);
   });
@@ -1133,6 +1373,7 @@ function chooseMinus(value, button, problem = state.problem.minus) {
   if (state.locked.minus) return;
   const answer = problem.a - problem.b;
   const correct = value === answer;
+  recordAnswer("minus", problem, correct);
   button.classList.add(correct ? "is-correct" : "is-wrong");
   if (correct) {
     els.minusEquation.innerHTML = `<span class="eq-green">${problem.a}</span><span> − </span><span class="eq-red">${problem.b}</span><span> = ${answer}</span>`;
@@ -1213,6 +1454,28 @@ qs("#clear-records").addEventListener("click", () => {
   saveRecords();
   renderRecords();
   saveScore();
+});
+
+qs("#stats-open").addEventListener("click", () => {
+  const panel = qs("#stats-panel");
+  const willOpen = panel.classList.contains("is-hidden");
+  if (willOpen) renderStatsPanel();
+  panel.classList.toggle("is-hidden", !willOpen);
+  if (willOpen) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+qs("#stats-close").addEventListener("click", () => {
+  qs("#stats-panel").classList.add("is-hidden");
+});
+
+qs("#backup-export").addEventListener("click", exportBackup);
+
+const backupImportInput = qs("#backup-import-file");
+qs("#backup-import").addEventListener("click", () => backupImportInput.click());
+backupImportInput.addEventListener("change", () => {
+  const file = backupImportInput.files && backupImportInput.files[0];
+  if (file) importBackup(file);
+  backupImportInput.value = "";
 });
 
 qs("#reset-progress").addEventListener("click", () => {

@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=9">
+    <link rel="stylesheet" href="styles.css?v=11">
   </head>
   <body>
     <main class="app-shell">
@@ -209,12 +209,32 @@
         </div>
       </section>
 
+      <section class="records-panel is-hidden" id="stats-panel" aria-labelledby="stats-title">
+        <div class="question-card">
+          <div class="prompt-row">
+            <p class="prompt" id="stats-title">せいせき（おうちの人向け）</p>
+            <button class="quiet-button" type="button" id="stats-close">とじる</button>
+          </div>
+          <p class="stats-summary" id="stats-summary"></p>
+          <h3 class="stats-heading">まいにちの正解数（14日間）</h3>
+          <div class="stats-chart" id="stats-chart" role="img" aria-label="日別の正解数グラフ"></div>
+          <h3 class="stats-heading">にがてな問題（間違いや時間がかかったもの）</h3>
+          <div class="records-columns four" id="stats-weak"></div>
+        </div>
+      </section>
+
       <section class="parent-strip" aria-labelledby="parent-title">
         <div>
           <h2 id="parent-title">おうちの人メモ</h2>
           <p id="parent-note">「じかんあり」の正解10問でゲットチャンス（成功80%・色違いあり）。ミッション20問のボーナスは確定ゲット。</p>
         </div>
-        <button class="quiet-button" type="button" id="reset-progress">リセット</button>
+        <div class="parent-actions">
+          <button class="quiet-button" type="button" id="stats-open">せいせき</button>
+          <button class="quiet-button" type="button" id="backup-export">ほぞん</button>
+          <button class="quiet-button" type="button" id="backup-import">よみこみ</button>
+          <button class="quiet-button" type="button" id="reset-progress">リセット</button>
+        </div>
+        <input type="file" id="backup-import-file" accept="application/json,.json" hidden>
       </section>
     </main>
 
@@ -229,6 +249,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=11"></script>
+    <script src="app.js?v=13"></script>
   </body>
 </html>

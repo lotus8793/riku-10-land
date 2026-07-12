@@ -388,6 +388,12 @@ h1 {
   display: none;
 }
 
+body.no-blocks .play-area:not(.is-answer-shown) .ten-frame,
+body.no-blocks .play-area:not(.is-answer-shown) .donor-dots,
+body.no-blocks .play-area:not(.is-answer-shown) .bridge-board {
+  display: none;
+}
+
 .timer-track {
   overflow: hidden;
   height: 18px;
@@ -1216,6 +1222,82 @@ h1 {
 
 .catch-fill {
   background: linear-gradient(90deg, #e53935, #ff7043) !important;
+}
+
+.parent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* せいせきパネル */
+
+.stats-summary {
+  margin: 4px 0 0;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.stats-heading {
+  margin: 20px 0 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.stats-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 6px 2px 0;
+}
+
+.stats-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.stats-value {
+  min-height: 15px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-bar-track {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  height: 96px;
+  border-bottom: 1px solid rgba(38, 50, 56, 0.14);
+}
+
+.stats-bar {
+  width: 62%;
+  max-width: 26px;
+  border-radius: 4px 4px 0 0;
+  background: #7fa8e8;
+}
+
+.stats-bar.is-today {
+  background: #2f5fd0;
+}
+
+.stats-day {
+  min-height: 14px;
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
 }
 
 .feedback-cheer {
