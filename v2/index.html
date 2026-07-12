@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=18">
+    <link rel="stylesheet" href="styles.css?v=19">
   </head>
   <body>
     <main class="app-shell">
@@ -35,6 +35,10 @@
               <span class="toggle-knob" aria-hidden="true"></span>
               <span id="block-toggle-label">ブロックあり</span>
             </button>
+            <button class="time-toggle" type="button" id="explain-toggle" aria-pressed="true">
+              <span class="toggle-knob" aria-hidden="true"></span>
+              <span id="explain-toggle-label">かいせつあり</span>
+            </button>
           </div>
         </div>
       </section>
@@ -50,6 +54,7 @@
         <button class="mode-tab" type="button" data-mode="calendar">カレンダー</button>
         <button class="mode-tab" type="button" data-mode="records">きろく</button>
         <button class="mode-tab" type="button" data-mode="stats">とうけい</button>
+        <button class="mode-tab" type="button" data-mode="settings">せってい</button>
       </nav>
 
       <section class="mission-strip" aria-label="ポケモンゲットまで">
@@ -62,10 +67,13 @@
 
       <section class="mission-strip" aria-label="きょうのミッション">
         <span class="mission-label">きょうのミッション</span>
-        <div class="mission-track">
-          <div class="mission-fill" id="mission-fill"></div>
+        <div class="mission-track mission-track-segmented" id="mission-track">
+          <div class="mission-seg seg-pair" id="mission-seg-pair"></div>
+          <div class="mission-seg seg-tenplus" id="mission-seg-tenplus"></div>
+          <div class="mission-seg seg-main" id="mission-seg-main"></div>
         </div>
         <span class="mission-text" id="mission-text">あと30もん</span>
+        <span class="mission-legend" id="mission-legend"></span>
       </section>
 
       <section class="mission-strip" aria-label="フレンダゲージ">
@@ -156,9 +164,6 @@
 
       <section class="play-area is-hidden is-waiting" id="bridge-mode">
         <div class="question-card adventure-card fire-card">
-          <div class="prompt-row">
-            <p class="prompt">10をつくってから たそう</p>
-          </div>
           <button class="start-button" type="button" id="bridge-start">スタート</button>
           <div class="timer-row" id="bridge-timer-row" aria-label="のこりじかん">
             <div class="timer-track">
@@ -167,7 +172,6 @@
             <div class="timer-count"><span id="bridge-time">60</span>びょう</div>
           </div>
           <div class="equation bridge-equation" id="bridge-equation">8 + 3</div>
-          <div class="equation-chain" id="bridge-chain">10をつくると？</div>
           <div class="bridge-board">
             <div>
               <p class="small-label addend-label" id="bridge-left-label">8</p>
@@ -206,9 +210,6 @@
 
       <section class="play-area is-hidden is-waiting" id="ice-mode">
         <div class="question-card adventure-card ice-card">
-          <div class="prompt-row">
-            <p class="prompt">10のかたまりから ひこう</p>
-          </div>
           <button class="start-button" type="button" id="ice-start">スタート</button>
           <div class="timer-row" id="ice-timer-row" aria-label="のこりじかん">
             <div class="timer-track">
@@ -280,11 +281,7 @@
             <p class="prompt" id="dex-title">ポケモンずかん</p>
             <div class="sticker-actions">
               <span class="sticker-count" id="dex-count">0しゅるい / 60</span>
-              <button class="quiet-button" type="button" id="backup-export">ほぞん</button>
-              <button class="quiet-button" type="button" id="backup-import">よみこみ</button>
-              <button class="quiet-button" type="button" id="release-pokemon">ぜんぶにがす</button>
             </div>
-            <input type="file" id="backup-import-file" accept="application/json,.json" hidden>
           </div>
           <p class="sticker-progress" id="dex-progress">じかんありで 10もん できると ポケモンを ゲットできるよ</p>
           <div class="sticker-grid" id="dex-grid" aria-label="ポケモンずかん"></div>
@@ -309,21 +306,37 @@
         <div class="question-card">
           <div class="prompt-row">
             <p class="prompt" id="stats-title">とうけい（おうちの人向け）</p>
-            <div class="stats-buttons">
-              <button class="quiet-button" type="button" id="coin-reset">ちょきんリセット（保護者用）</button>
-              <button class="quiet-button" type="button" id="reset-progress">リセット</button>
-            </div>
           </div>
           <p class="stats-summary" id="stats-summary"></p>
           <h3 class="stats-heading">まいにちの正解数（14日間）</h3>
           <div class="stats-chart" id="stats-chart" role="img" aria-label="日別の正解数グラフ"></div>
           <h3 class="stats-heading">にがてな問題（間違いや時間がかかったもの）</h3>
           <div class="records-columns six" id="stats-weak"></div>
-          <h3 class="stats-heading">せってい: ゲージのクリアもんだい数</h3>
+        </div>
+      </section>
+
+      <section class="records-panel is-hidden" id="settings-mode" aria-labelledby="settings-title">
+        <div class="question-card">
+          <div class="prompt-row">
+            <p class="prompt" id="settings-title">せってい（おうちの人向け）</p>
+          </div>
+          <h3 class="stats-heading">ゲージのクリアもんだい数</h3>
           <div class="stats-settings">
             <label>ポケモンゲット <input type="number" id="set-catch" min="1" max="999"></label>
             <label>きょうのミッション <input type="number" id="set-mission" min="1" max="999"></label>
             <label>フレンダゲージ <input type="number" id="set-coin" min="1" max="999"></label>
+          </div>
+          <h3 class="stats-heading">データのほぞん・よみこみ</h3>
+          <div class="stats-buttons settings-actions">
+            <button class="quiet-button" type="button" id="backup-export">ほぞん</button>
+            <button class="quiet-button" type="button" id="backup-import">よみこみ</button>
+          </div>
+          <input type="file" id="backup-import-file" accept="application/json,.json" hidden>
+          <h3 class="stats-heading">リセット</h3>
+          <div class="stats-buttons settings-actions">
+            <button class="quiet-button" type="button" id="coin-reset">ちょきんリセット</button>
+            <button class="quiet-button" type="button" id="release-pokemon">ずかんリセット（ぜんぶにがす）</button>
+            <button class="quiet-button" type="button" id="reset-progress">チャレンジリセット</button>
           </div>
         </div>
       </section>
@@ -341,6 +354,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=20"></script>
+    <script src="app.js?v=21"></script>
   </body>
 </html>

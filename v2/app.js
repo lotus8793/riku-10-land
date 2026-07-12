@@ -356,6 +356,7 @@ const state = {
   bridgeRevealTimeoutId: null,
   timedEnabled: localStorage.getItem(TIMED_KEY) === "true",
   blocksEnabled: localStorage.getItem("riku10v2-blocks-enabled") === "true",
+  explainEnabled: localStorage.getItem("riku10v2-explain-enabled") !== "false",
   challenge: { remainingMs: CHALLENGE_SECONDS * 1000, intervalId: null, ended: false }
 };
 
@@ -392,8 +393,9 @@ const els = {
   pairReverseFrame: qs("#pair-reverse-frame"),
   blockToggle: qs("#block-toggle"),
   blockToggleLabel: qs("#block-toggle-label"),
+  explainToggle: qs("#explain-toggle"),
+  explainToggleLabel: qs("#explain-toggle-label"),
   bridgeEquation: qs("#bridge-equation"),
-  bridgeChain: qs("#bridge-chain"),
   bridgeLeftLabel: qs("#bridge-left-label"),
   bridgeRightLabel: qs("#bridge-right-label"),
   bridgeFrame: qs("#bridge-frame"),
@@ -423,7 +425,10 @@ const els = {
   dexGrid: qs("#dex-grid"),
   catchFill: qs("#catch-fill"),
   catchText: qs("#catch-text"),
-  missionFill: qs("#mission-fill"),
+  missionSegPair: qs("#mission-seg-pair"),
+  missionSegTenplus: qs("#mission-seg-tenplus"),
+  missionSegMain: qs("#mission-seg-main"),
+  missionLegend: qs("#mission-legend"),
   missionText: qs("#mission-text")
 };
 
@@ -729,9 +734,18 @@ function renderMission() {
   els.catchFill.style.width = `${catchPercent}%`;
   els.catchText.textContent = `あと${remain}もん`;
 
-  const percent = Math.min(100, (state.daily.count / SETTINGS.missionGoal) * 100);
-  els.missionFill.style.width = `${percent}%`;
-  els.missionFill.classList.toggle("is-done", state.daily.done);
+  // 3色の内訳バー: あわせて10 → 10+X → ジム・ダンジョン
+  const pairSeg = Math.min(state.daily.pairUsed || 0, state.daily.count);
+  const tenplusSeg = Math.min(state.daily.tenplusUsed || 0, state.daily.count - pairSeg);
+  const mainSeg = Math.max(0, state.daily.count - pairSeg - tenplusSeg);
+  const toWidth = (value) => `${Math.min(100, (value / SETTINGS.missionGoal) * 100)}%`;
+  els.missionSegPair.style.width = toWidth(pairSeg);
+  els.missionSegTenplus.style.width = toWidth(tenplusSeg);
+  els.missionSegMain.style.width = toWidth(mainSeg);
+  els.missionLegend.innerHTML =
+    `<i class="legend-dot seg-pair"></i>あわせて10 ${pairSeg}/${PRACTICE_MISSION_CAP}` +
+    `<i class="legend-dot seg-tenplus"></i>10+X ${tenplusSeg}/${PRACTICE_MISSION_CAP}` +
+    `<i class="legend-dot seg-main"></i>ジム・ダンジョン ${mainSeg}`;
   els.missionText.textContent = state.daily.done
     ? `クリア！🎉${state.streak.last === todayStr() && state.streak.count > 1 ? ` ${state.streak.count}日れんぞく` : ""}`
     : `あと ${SETTINGS.missionGoal - state.daily.count}もん`;
@@ -988,6 +1002,9 @@ function renderStatsPanel() {
   renderStatsSummary();
   renderStatsChart();
   renderStatsWeak();
+}
+
+function renderSettingsPanel() {
   qs("#set-catch").value = SETTINGS.catchStep;
   qs("#set-mission").value = SETTINGS.missionGoal;
   qs("#set-coin").value = SETTINGS.coinStep;
@@ -1333,6 +1350,19 @@ function setBlockDisplay(enabled) {
   renderBlockToggle();
 }
 
+function renderExplainToggle() {
+  els.explainToggle.classList.toggle("is-on", state.explainEnabled);
+  els.explainToggle.setAttribute("aria-pressed", String(state.explainEnabled));
+  els.explainToggleLabel.textContent = state.explainEnabled ? "かいせつあり" : "かいせつなし";
+  document.body.classList.toggle("no-explain", !state.explainEnabled);
+}
+
+function setExplainDisplay(enabled) {
+  state.explainEnabled = enabled;
+  localStorage.setItem("riku10v2-explain-enabled", String(enabled));
+  renderExplainToggle();
+}
+
 function setTimedMode(enabled) {
   state.timedEnabled = enabled;
   localStorage.setItem(TIMED_KEY, String(enabled));
@@ -1408,15 +1438,14 @@ function chooseSimple(value, button, problem = state.problem.simple) {
   const correct = value === answer;
   recordAnswer("simple", problem, correct);
   button.classList.add(correct ? "is-correct" : "is-wrong");
-  if (correct) {
-    els.simpleEquation.innerHTML = `<span class="eq-green">${problem.a}</span><span> + </span><span class="eq-red">${problem.b}</span><span> = ${answer}</span>`;
-    els.simpleEquation.classList.add("is-solved");
+  els.simpleEquation.innerHTML = `<span class="eq-green">${problem.a}</span><span> + </span><span class="eq-red">${problem.b}</span><span> = ${answer}</span>`;
+  els.simpleEquation.classList.add("is-solved");
+  if (state.explainEnabled) {
     renderTenFrame(els.simpleFrame, problem.a, problem.b, true);
+  }
+  if (correct) {
     onCorrect("simple");
   } else {
-    els.simpleEquation.innerHTML = `<span class="eq-green">${problem.a}</span><span> + </span><span class="eq-red">${problem.b}</span><span> = ${answer}</span>`;
-    els.simpleEquation.classList.add("is-solved");
-    renderTenFrame(els.simpleFrame, problem.a, problem.b, true);
     onWrong("simple", null, answer);
   }
 }
@@ -1446,21 +1475,20 @@ function choosePair(value, button) {
   recordAnswer("pair", problem, correct);
   button.classList.add(correct ? "is-correct" : "is-wrong");
 
-  if (correct) {
-    els.pairNumber.innerHTML = `<span class="eq-green">${problem.base}</span><span> + </span><span class="eq-red">${problem.friend}</span><span> = 10</span>`;
-    els.pairNumber.setAttribute("aria-label", `${problem.base} + ${problem.friend} = 10`);
-    els.pairNumber.parentElement.classList.add("is-solved-equation");
+  els.pairNumber.innerHTML = `<span class="eq-green">${problem.base}</span><span> + </span><span class="eq-red">${problem.friend}</span><span> = 10</span>`;
+  els.pairNumber.parentElement.classList.add("is-solved-equation");
+  if (state.explainEnabled) {
     renderTenFrame(els.pairFrame, problem.base, problem.friend, true);
-    if (problem.showReverse) {
+  }
+  if (correct) {
+    els.pairNumber.setAttribute("aria-label", `${problem.base} + ${problem.friend} = 10`);
+    if (problem.showReverse && state.explainEnabled) {
       els.pairReverseEquation.innerHTML = `<span class="eq-green">${problem.friend}</span><span> + </span><span class="eq-red">${problem.base}</span><span> = 10</span>`;
       renderTenFrame(els.pairReverseFrame, problem.friend, problem.base, true);
       els.pairReverseSection.classList.remove("is-hidden");
     }
     onCorrect("pair");
   } else {
-    els.pairNumber.innerHTML = `<span class="eq-green">${problem.base}</span><span> + </span><span class="eq-red">${problem.friend}</span><span> = 10</span>`;
-    els.pairNumber.parentElement.classList.add("is-solved-equation");
-    renderTenFrame(els.pairFrame, problem.base, problem.friend, true);
     onWrong("pair", null, problem.friend);
   }
 }
@@ -1591,6 +1619,7 @@ function revealBridgeAnswer(problem, need, rest) {
 }
 
 function scheduleBridgeReveal(problem, need, rest) {
+  if (!state.explainEnabled) return;
   if (state.blocksEnabled) {
     revealBridgeAnswer(problem, need, rest);
     return;
@@ -1621,8 +1650,6 @@ function nextBridge() {
   els.bridgeLeftLabel.textContent = currentBridge.big;
   els.bridgeRightLabel.textContent = currentBridge.small;
   els.bridgeEquation.classList.remove("is-solved");
-  els.bridgeChain.textContent = "10をつくると？";
-  els.bridgeChain.classList.remove("is-solved");
   M.bridge.feedback.className = "feedback";
   M.bridge.feedback.textContent = "こたえを えらんでね";
   setNextButton("bridge", false);
@@ -1647,8 +1674,6 @@ function chooseBridge(value, button, problem = state.problem.bridge) {
   if (correct) {
     els.bridgeEquation.textContent = `${problem.big} + ${problem.small} = ${answer}`;
     els.bridgeEquation.classList.add("is-solved");
-    els.bridgeChain.textContent = "";
-    els.bridgeChain.classList.add("is-solved");
     onCorrect("bridge");
     scheduleBridgeReveal(problem, need, rest);
   } else {
@@ -1740,6 +1765,7 @@ function startRemovalSteps(mode, problem, targets) {
 }
 
 function scheduleRemovalReveal(mode, problem, buildTargets) {
+  if (!state.explainEnabled) return;
   if (state.blocksEnabled) {
     startRemovalSteps(mode, problem, buildTargets());
     return;
@@ -1808,11 +1834,13 @@ function switchMode(mode) {
   qs("#records-mode").classList.toggle("is-hidden", mode !== "records");
   qs("#dex-mode").classList.toggle("is-hidden", mode !== "dex");
   qs("#stats-panel").classList.toggle("is-hidden", mode !== "stats");
+  qs("#settings-mode").classList.toggle("is-hidden", mode !== "settings");
   qs("#calendar-mode").classList.toggle("is-hidden", mode !== "calendar");
 
   if (mode === "records") renderRecords();
   if (mode === "dex") renderDex();
   if (mode === "stats") renderStatsPanel();
+  if (mode === "settings") renderSettingsPanel();
   if (mode === "calendar") {
     calendarOffset = 0;
     renderCalendar();
@@ -1831,6 +1859,10 @@ MODES.forEach((mode) => {
 
 els.blockToggle.addEventListener("click", () => {
   setBlockDisplay(!state.blocksEnabled);
+});
+
+els.explainToggle.addEventListener("click", () => {
+  setExplainDisplay(!state.explainEnabled);
 });
 
 els.timeToggle.addEventListener("click", () => {
@@ -1906,6 +1938,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 
 renderTimeToggle();
 renderBlockToggle();
+renderExplainToggle();
 renderRecords();
 renderMission();
 renderCoinGauge();

@@ -254,6 +254,53 @@ h1 {
   background: linear-gradient(90deg, #f9c74f, #f8961e);
 }
 
+.mission-track-segmented {
+  display: flex;
+}
+
+.mission-seg {
+  height: 100%;
+  transition: width 240ms ease;
+}
+
+.mission-seg.seg-pair,
+.legend-dot.seg-pair {
+  background: #3b82f6;
+}
+
+.mission-seg.seg-tenplus,
+.legend-dot.seg-tenplus {
+  background: #b388ff;
+}
+
+.mission-seg.seg-main,
+.legend-dot.seg-main {
+  background: #2fbf71;
+}
+
+.mission-legend {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-left: 8px;
+  border-radius: 3px;
+}
+
+.legend-dot:first-child {
+  margin-left: 0;
+}
+
 .mission-text {
   min-width: 72px;
   font-size: 13px;
@@ -391,6 +438,13 @@ h1 {
 body.no-blocks .play-area:not(.is-answer-shown) .ten-frame,
 body.no-blocks .play-area:not(.is-answer-shown) .donor-dots,
 body.no-blocks .play-area:not(.is-answer-shown) .bridge-board {
+  display: none;
+}
+
+/* かいせつなし: ブロックなしなら答え表示のときもブロックを出さない */
+body.no-blocks.no-explain .play-area .ten-frame,
+body.no-blocks.no-explain .play-area .donor-dots,
+body.no-blocks.no-explain .play-area .bridge-board {
   display: none;
 }
 
@@ -1299,28 +1353,11 @@ body.no-blocks .play-area:not(.is-answer-shown) .bridge-board {
   position: relative;
   z-index: 1;
   display: block;
-  height: clamp(70px, 16vw, 130px);
+  height: clamp(84px, 19vw, 160px);
   width: auto;
   min-width: 0;
-  margin: -8px 0;
+  margin: -10px 0;
   filter: drop-shadow(0 8px 14px rgba(10, 40, 90, 0.35));
-  animation: hero-bob 3.2s ease-in-out infinite;
-}
-
-@keyframes hero-bob {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-7px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-art {
-    animation: none;
-  }
 }
 
 /* カレンダー */
