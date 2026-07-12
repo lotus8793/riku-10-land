@@ -1294,11 +1294,10 @@ body.no-blocks.no-explain .play-area .bridge-board {
   line-height: 1;
 }
 
-/* 5個×2段・左詰め。セルは固定サイズで、コンテナ幅や個数に依存させない */
+/* 5個×2段・左詰め。セルは上限44px、狭いときは左右均等に縮む */
 .donor-dots {
   display: grid;
-  grid-template-columns: repeat(5, 44px);
-  grid-auto-rows: 44px;
+  grid-template-columns: repeat(5, minmax(0, 44px));
   justify-content: center;
   align-content: start;
   gap: 6px;
@@ -1306,26 +1305,25 @@ body.no-blocks.no-explain .play-area .bridge-board {
 }
 
 .donor-dot {
-  width: 44px;
-  height: 44px;
+  aspect-ratio: 1;
   border: 3px solid #fff;
   border-radius: 12px;
   background: radial-gradient(circle at 35% 30%, #ffd1c9 0 22%, var(--red) 23% 66%, #c4322b 67%);
   box-shadow: 0 4px 10px rgba(38, 50, 56, 0.16);
 }
 
-/* ダンジョン系ボードの10マスも同じ固定サイズに揃える */
+/* こおりのダンジョンでは、バラのブロックも10のかたまりと同じ緑 */
+#ice-mode .donor-dot:not(.is-removed) {
+  border-color: #1f7a4f;
+  background: radial-gradient(circle at 35% 30%, #97f5b2 0 22%, var(--green) 23% 64%, #168653 65%);
+}
+
+/* ダンジョン系ボードの10マスも同じ定義に揃える（左右カラムが同幅なのでサイズが一致する） */
 .bridge-board .ten-frame {
-  grid-template-columns: repeat(5, 44px);
-  grid-auto-rows: 44px;
+  grid-template-columns: repeat(5, minmax(0, 44px));
   justify-content: center;
   gap: 6px;
   max-width: none;
-}
-
-.bridge-board .frame-cell {
-  width: 44px;
-  height: 44px;
 }
 
 .donor-dot.is-moved {
