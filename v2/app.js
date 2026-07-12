@@ -878,10 +878,10 @@ function importBackup(file) {
     } catch {}
     const data = payload && payload.app === "riku-no-bouken" ? payload.data : null;
     if (!data || typeof data !== "object") {
-      window.alert("このファイルは りくのぼうけんの ほぞんデータじゃないみたい");
+      window.alert("このファイルは「りくのぼうけん」の保存データではありません");
       return;
     }
-    if (!window.confirm("いまのデータを ほぞんデータで うわがきするよ。いい？")) return;
+    if (!window.confirm("現在のデータを保存データで上書きします。よろしいですか？")) return;
     Object.entries(data).forEach(([key, value]) => {
       if (key.startsWith(BACKUP_PREFIX) && typeof value === "string") {
         localStorage.setItem(key, value);
@@ -906,12 +906,12 @@ function renderStatsSummary() {
   const attempts = today.c + today.w;
   const summary = qs("#stats-summary");
   if (!attempts) {
-    summary.textContent = "きょうは まだ問題を解いていません。";
+    summary.textContent = "本日はまだ問題を解いていません。";
     return;
   }
   const rate = Math.round((today.c / attempts) * 100);
   const streakAlive = state.streak.last === todayStr() || state.streak.last === yesterdayStr() ? state.streak.count : 0;
-  summary.textContent = `きょう: ${today.c}問正解・${today.w}問ミス（正答率 ${rate}%）／ミッション連続クリア ${streakAlive}日（7日ごとにボーナス100円）`;
+  summary.textContent = `本日: ${today.c}問正解・${today.w}問誤答（正答率 ${rate}%）／ミッション連続クリア ${streakAlive}日（7日ごとにボーナス100円）`;
 }
 
 function renderStatsChart() {
@@ -930,7 +930,7 @@ function renderStatsChart() {
   days.forEach((day, index) => {
     const col = document.createElement("div");
     col.className = "stats-col";
-    col.title = `${day.label}: ${day.count}問正解 / ${day.wrong}問ミス`;
+    col.title = `${day.label}: ${day.count}問正解 / ${day.wrong}問誤答`;
 
     const value = document.createElement("span");
     value.className = "stats-value";
@@ -974,7 +974,7 @@ function renderStatsWeak() {
     if (!weakest.length) {
       const empty = document.createElement("p");
       empty.className = "records-empty";
-      empty.textContent = "にがては ないみたい";
+      empty.textContent = "該当なし";
       column.append(empty);
     } else {
       const list = document.createElement("ol");
@@ -1879,7 +1879,7 @@ els.timeToggle.addEventListener("click", () => {
 });
 
 qs("#release-pokemon").addEventListener("click", () => {
-  if (!window.confirm("ほんとうに ポケモンを ぜんぶ にがす？（累計正解数もリセットされます）")) return;
+  if (!window.confirm("本当にポケモンを全部逃がしますか？（図鑑と累計正解数がリセットされます）")) return;
   state.totalCorrect = 0;
   state.catchProgress = 0;
   state.caught = {};
@@ -1909,7 +1909,7 @@ qs("#cal-next").addEventListener("click", () => {
 });
 
 qs("#coin-reset").addEventListener("click", () => {
-  if (!window.confirm("ちょきんを 0円に もどす？（お金をわたしたら リセットしてね）")) return;
+  if (!window.confirm("貯金を0円に戻しますか？（お金を渡したらリセットしてください）")) return;
   state.coins = 0;
   state.coinProgress = 0;
   state.coinJustEarned = false;

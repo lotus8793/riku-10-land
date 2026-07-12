@@ -48,8 +48,8 @@
         <button class="mode-tab" type="button" data-mode="dex">ずかん</button>
         <button class="mode-tab" type="button" data-mode="calendar">カレンダー</button>
         <button class="mode-tab" type="button" data-mode="records">きろく</button>
-        <button class="mode-tab" type="button" data-mode="stats">とうけい</button>
-        <button class="mode-tab" type="button" data-mode="settings">せってい</button>
+        <button class="mode-tab" type="button" data-mode="stats">統計</button>
+        <button class="mode-tab" type="button" data-mode="settings">設定</button>
       </nav>
 
       <section class="mission-strip" aria-label="ポケモンゲットまで">
@@ -300,12 +300,12 @@
       <section class="records-panel is-hidden" id="stats-panel" aria-labelledby="stats-title">
         <div class="question-card">
           <div class="prompt-row">
-            <p class="prompt" id="stats-title">とうけい（おうちの人向け）</p>
+            <p class="prompt" id="stats-title">統計（保護者向け）</p>
           </div>
           <p class="stats-summary" id="stats-summary"></p>
-          <h3 class="stats-heading">まいにちの正解数（14日間）</h3>
+          <h3 class="stats-heading">日別正解数（直近14日）</h3>
           <div class="stats-chart" id="stats-chart" role="img" aria-label="日別の正解数グラフ"></div>
-          <h3 class="stats-heading">にがてな問題（間違いや時間がかかったもの）</h3>
+          <h3 class="stats-heading">苦手な問題（誤答、または回答に時間がかかったもの）</h3>
           <div class="records-columns six" id="stats-weak"></div>
         </div>
       </section>
@@ -313,25 +313,25 @@
       <section class="records-panel is-hidden" id="settings-mode" aria-labelledby="settings-title">
         <div class="question-card">
           <div class="prompt-row">
-            <p class="prompt" id="settings-title">せってい（おうちの人向け）</p>
+            <p class="prompt" id="settings-title">設定（保護者向け）</p>
           </div>
-          <h3 class="stats-heading">ゲージのクリアもんだい数</h3>
+          <h3 class="stats-heading">ゲージのクリア問題数</h3>
           <div class="stats-settings">
             <label>ポケモンゲット <input type="number" id="set-catch" min="1" max="999"></label>
             <label>きょうのミッション <input type="number" id="set-mission" min="1" max="999"></label>
             <label>フレンダゲージ <input type="number" id="set-coin" min="1" max="999"></label>
           </div>
-          <h3 class="stats-heading">ずかんデータのほぞん・よみこみ</h3>
-          <p class="settings-note">ずかんのほかに ちょきん・きろく・とうけいのデータも いっしょにほぞんされます</p>
+          <h3 class="stats-heading">図鑑データの保存・読み込み</h3>
+          <p class="settings-note">図鑑のほかに、貯金・記録・統計のデータも一緒に保存されます</p>
           <div class="stats-buttons settings-actions">
-            <button class="quiet-button" type="button" id="backup-export">ずかんデータをほぞん</button>
-            <button class="quiet-button" type="button" id="backup-import">ずかんデータをよみこみ</button>
+            <button class="quiet-button" type="button" id="backup-export">図鑑データを保存</button>
+            <button class="quiet-button" type="button" id="backup-import">図鑑データを読み込み</button>
           </div>
           <input type="file" id="backup-import-file" accept="application/json,.json" hidden>
           <h3 class="stats-heading">リセット</h3>
           <div class="stats-buttons settings-actions">
-            <button class="quiet-button" type="button" id="coin-reset">ちょきんリセット</button>
-            <button class="quiet-button" type="button" id="release-pokemon">ずかんリセット（ぜんぶにがす）</button>
+            <button class="quiet-button" type="button" id="coin-reset">貯金リセット</button>
+            <button class="quiet-button" type="button" id="release-pokemon">図鑑リセット（全部逃がす）</button>
           </div>
         </div>
       </section>
@@ -349,6 +349,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=22"></script>
+    <script src="app.js?v=23"></script>
   </body>
 </html>
