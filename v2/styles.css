@@ -612,11 +612,12 @@ body.no-blocks.no-explain .play-area .bridge-board {
   min-width: 22px;
   height: 22px;
   border-radius: 999px;
-  background: #f97066;
+  border: 2px solid #fff;
+  background: #263238;
   color: #fff;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 900;
-  box-shadow: 0 2px 6px rgba(38, 50, 56, 0.2);
+  box-shadow: 0 2px 6px rgba(38, 50, 56, 0.25);
 }
 
 @keyframes remove-pop {
@@ -1292,20 +1293,20 @@ body.no-blocks.no-explain .play-area .bridge-board {
   line-height: 1;
 }
 
-/* 10マスと同じ 5個×2段・左詰めで並べる */
+/* 左の10マス（compact）と同じ 5個×2段・左詰め・同セルサイズ */
 .donor-dots {
   display: grid;
-  grid-template-columns: repeat(5, 44px);
-  justify-content: center;
-  justify-items: start;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  width: 100%;
+  max-width: 280px;
+  margin: 0 auto;
   min-height: 54px;
-  gap: 8px;
 }
 
 .donor-dot {
-  width: 44px;
-  height: 44px;
-  border: 4px solid #fff;
+  aspect-ratio: 1;
+  border: 3px solid #fff;
   border-radius: 12px;
   background: radial-gradient(circle at 35% 30%, #ffd1c9 0 22%, var(--red) 23% 66%, #c4322b 67%);
   box-shadow: 0 4px 10px rgba(38, 50, 56, 0.16);
@@ -1622,7 +1623,7 @@ body.no-blocks.no-explain .play-area .bridge-board {
   }
 
   .bridge-board {
-    grid-template-columns: 1fr 0.75fr;
+    grid-template-columns: 1fr 1fr;
   }
 
   .records-columns.six {
