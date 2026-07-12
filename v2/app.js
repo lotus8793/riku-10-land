@@ -5,13 +5,17 @@ const TIMER_TICK_MS = 100;
 const MAX_RECORDS = 10;
 const STICKER_STEP = 10;
 
-const MODES = ["simple", "pair", "bridge", "minus"];
+const MODES = ["pair", "tenplus", "simple", "bridge", "minus", "ice"];
+// ゲージ（ポケモン・フレンダ・ミッション）にカウントするモード。あわせて10と10+Xは対象外
+const GAUGE_MODES = ["simple", "bridge", "minus", "ice"];
 
 const RECORDS_KEYS = {
   simple: "riku10v2-records-simple",
   pair: "riku10v2-records-pair",
+  tenplus: "riku10v2-records-tenplus",
   bridge: "riku10v2-records-bridge",
-  minus: "riku10v2-records-minus"
+  minus: "riku10v2-records-minus",
+  ice: "riku10v2-records-ice"
 };
 const TOTAL_KEY = "riku10v2-total-correct";
 const CATCH_PROGRESS_KEY = "riku10v2-catch-progress";
@@ -21,6 +25,10 @@ const DAILY_KEY = "riku10v2-daily";
 const STATS_KEY = "riku10v2-stats";
 const DAYLOG_KEY = "riku10v2-daylog";
 const BACKUP_PREFIX = "riku10v2-";
+const COINS_KEY = "riku10v2-coins";
+const COIN_PROGRESS_KEY = "riku10v2-coin-progress";
+const COIN_STEP = 50;
+const COIN_VALUE = 100;
 const MISSION_GOAL = 20;
 const SHINY_RATE = 0.1;
 const CATCH_RATE = 0.8;
@@ -227,6 +235,14 @@ function makeSimpleProblems() {
   return problems;
 }
 
+function makeTenPlusProblems() {
+  const problems = [];
+  for (let b = 1; b <= 9; b += 1) {
+    problems.push({ a: 10, b });
+  }
+  return problems;
+}
+
 function makeMinusProblems() {
   const problems = [];
   for (let a = 2; a <= 10; a += 1) {
@@ -237,9 +253,22 @@ function makeMinusProblems() {
   return problems;
 }
 
+// くり下がりのひきざん（13−8 など、一の位だけでは引けないもの）
+function makeIceProblems() {
+  const problems = [];
+  for (let a = 11; a <= 18; a += 1) {
+    for (let b = a - 10 + 1; b <= 9; b += 1) {
+      problems.push({ a, b });
+    }
+  }
+  return problems;
+}
+
 const bridgeProblems = makeBridgeProblems();
 const simpleProblems = makeSimpleProblems();
+const tenPlusProblems = makeTenPlusProblems();
 const minusProblems = makeMinusProblems();
+const iceProblems = makeIceProblems();
 
 function loadModeRecords(key) {
   try {
@@ -254,27 +283,32 @@ function loadModeRecords(key) {
 }
 
 const state = {
-  problem: { simple: null, pair: null, bridge: null, minus: null },
-  lastKey: { simple: "", pair: "", bridge: "", minus: "" },
-  questionAt: { simple: 0, pair: 0, bridge: 0, minus: 0 },
+  problem: { simple: null, pair: null, tenplus: null, bridge: null, minus: null, ice: null },
+  lastKey: { simple: "", pair: "", tenplus: "", bridge: "", minus: "", ice: "" },
+  questionAt: { simple: 0, pair: 0, tenplus: 0, bridge: 0, minus: 0, ice: 0 },
   stats: loadStats(),
   dayLog: loadDayLog(),
-  started: { simple: false, pair: false, bridge: false, minus: false },
-  locked: { simple: true, pair: true, bridge: true, minus: true },
+  started: { simple: false, pair: false, tenplus: false, bridge: false, minus: false, ice: false },
+  locked: { simple: true, pair: true, tenplus: true, bridge: true, minus: true, ice: true },
   records: {
     simple: loadModeRecords(RECORDS_KEYS.simple),
     pair: loadModeRecords(RECORDS_KEYS.pair),
+    tenplus: loadModeRecords(RECORDS_KEYS.tenplus),
     bridge: loadModeRecords(RECORDS_KEYS.bridge),
-    minus: loadModeRecords(RECORDS_KEYS.minus)
+    minus: loadModeRecords(RECORDS_KEYS.minus),
+    ice: loadModeRecords(RECORDS_KEYS.ice)
   },
   combo: 0,
   stars: 0,
   highScore: 0,
   totalCorrect: Number(localStorage.getItem(TOTAL_KEY) || "0") || 0,
   catchProgress: loadCatchProgress(),
-  activeMode: "simple",
+  activeMode: "pair",
   caught: loadCaught(),
   daily: loadDaily(),
+  coins: Math.max(0, Number(localStorage.getItem(COINS_KEY) || "0") || 0),
+  coinProgress: Math.min(COIN_STEP - 1, Math.max(0, Number(localStorage.getItem(COIN_PROGRESS_KEY) || "0") || 0)),
+  coinJustEarned: false,
   nextQuestionTimeoutId: null,
   bridgeRevealTimeoutId: null,
   timedEnabled: localStorage.getItem(TIMED_KEY) === "true",
@@ -309,8 +343,10 @@ MODES.forEach((mode) => {
 });
 
 const els = {
-  stars: qs("#stars"),
+  savings: qs("#savings"),
   highScore: qs("#high-score"),
+  coinFill: qs("#coin-fill"),
+  coinText: qs("#coin-text"),
   timeToggle: qs("#time-toggle"),
   timeToggleLabel: qs("#time-toggle-label"),
   pairNumber: qs("#pair-number"),
@@ -326,6 +362,16 @@ const els = {
   bridgeRightLabel: qs("#bridge-right-label"),
   bridgeFrame: qs("#bridge-frame"),
   donorDots: qs("#donor-dots"),
+  tenplusEquation: qs("#tenplus-equation"),
+  tenplusFrame: qs("#tenplus-frame"),
+  tenplusDots: qs("#tenplus-dots"),
+  tenplusRightLabel: qs("#tenplus-right-label"),
+  iceEquation: qs("#ice-equation"),
+  iceChain: qs("#ice-chain"),
+  iceFrame: qs("#ice-frame"),
+  iceDots: qs("#ice-dots"),
+  iceLeftLabel: qs("#ice-left-label"),
+  iceRightLabel: qs("#ice-right-label"),
   simpleEquation: qs("#simple-equation"),
   simpleFrame: qs("#simple-frame"),
   minusEquation: qs("#minus-equation"),
@@ -485,8 +531,33 @@ function addRecord(score, mode) {
 }
 
 function saveScore() {
-  els.stars.textContent = state.stars;
   els.highScore.textContent = state.highScore;
+}
+
+/* ---------- フレンダゲージ（ちょきん） ---------- */
+
+function saveCoins() {
+  localStorage.setItem(COINS_KEY, String(state.coins));
+  localStorage.setItem(COIN_PROGRESS_KEY, String(state.coinProgress));
+}
+
+function renderCoinGauge() {
+  els.savings.textContent = `${state.coins * COIN_VALUE}円`;
+  const percent = Math.min(100, (state.coinProgress / COIN_STEP) * 100);
+  els.coinFill.style.width = `${percent}%`;
+  els.coinText.textContent = `あと${COIN_STEP - state.coinProgress}もんで100円`;
+}
+
+function registerCoinProgress() {
+  state.coinProgress += 1;
+  if (state.coinProgress >= COIN_STEP) {
+    state.coinProgress = 0;
+    state.coins += 1;
+    state.coinJustEarned = true;
+    burstConfetti(48);
+  }
+  saveCoins();
+  renderCoinGauge();
 }
 
 /* ---------- ポケモン ---------- */
@@ -675,6 +746,7 @@ function registerCorrect() {
   rolloverDaily();
   state.daily.count += 1;
   saveDaily();
+  registerCoinProgress();
   state.catchProgress += 1;
   if (state.catchProgress >= STICKER_STEP) {
     state.catchProgress = 0; // ゲットしたら0から数え直し。間違えても戻らない
@@ -730,11 +802,11 @@ function importBackup(file) {
 
 /* ---------- せいせき（おうちの人向け） ---------- */
 
-const MODE_LABELS = { simple: "しゅぎょう", pair: "あわせて10", bridge: "ぼうけん", minus: "ひきざん" };
+const MODE_LABELS = { simple: "しゅぎょう", pair: "あわせて10", tenplus: "10+X", bridge: "ぼうけん", minus: "ひきざん", ice: "こおりのダンジョン" };
 
 function formatProblemLabel(mode, key) {
-  if (mode === "minus") return key.replace("-", " − ");
-  if (mode === "simple") return key.replace("-", " + ");
+  if (mode === "minus" || mode === "ice") return key.replace("-", " − ");
+  if (mode === "simple" || mode === "tenplus") return key.replace("-", " + ");
   return key.replace("+", " + ");
 }
 
@@ -903,12 +975,16 @@ function onCorrect(mode) {
   stopChallengeTimer();
   state.combo += 1;
   countSolvedQuestion();
-  if (!state.challenge.ended) {
+  if (!state.challenge.ended && GAUGE_MODES.includes(mode)) {
     registerCorrect();
   }
   const feedback = M[mode].feedback;
   feedback.className = "feedback is-good";
   feedback.textContent = praiseText();
+  if (state.coinJustEarned) {
+    state.coinJustEarned = false;
+    feedback.textContent = "💰 100円 ゲット！ ちょきんが ふえたよ！";
+  }
   setNextButton(mode, true);
   burstConfetti(Math.min(14 + Math.floor(state.combo / 5) * 10, 54));
   playTone("good", state.combo);
@@ -920,7 +996,7 @@ function onWrong(mode, _hint, correctValue) {
   state.locked[mode] = true;
   M[mode].section.classList.add("is-answer-shown");
   stopChallengeTimer();
-  if (!state.challenge.ended) {
+  if (!state.challenge.ended && GAUGE_MODES.includes(mode)) {
     registerWrong();
   }
   const feedback = M[mode].feedback;
@@ -955,8 +1031,8 @@ function renderTenFrame(container, filled, needed = 0, friendFilled = false, hid
   }
 }
 
-function renderMinusFrame(total, removed) {
-  els.minusFrame.replaceChildren();
+function renderMinusFrame(container, total, removed) {
+  container.replaceChildren();
   for (let index = 0; index < 10; index += 1) {
     const cell = document.createElement("div");
     cell.className = "frame-cell";
@@ -967,7 +1043,7 @@ function renderMinusFrame(total, removed) {
         cell.style.setProperty("--pop-delay", `${(index - (total - removed)) * 55}ms`);
       }
     }
-    els.minusFrame.append(cell);
+    container.append(cell);
   }
 }
 
@@ -1119,8 +1195,10 @@ function nextQuestion(mode) {
   M[mode].section.classList.remove("is-answer-shown");
   state.questionAt[mode] = Date.now();
   if (mode === "pair") nextPair();
+  else if (mode === "tenplus") nextTenPlus();
   else if (mode === "bridge") nextBridge();
   else if (mode === "minus") nextMinus();
+  else if (mode === "ice") nextIce();
   else nextSimple();
 }
 
@@ -1218,6 +1296,51 @@ function choosePair(value, button) {
     els.pairNumber.parentElement.classList.add("is-solved-equation");
     renderTenFrame(els.pairFrame, problem.base, problem.friend, true);
     onWrong("pair", null, problem.friend);
+  }
+}
+
+/* ---------- 10+X ---------- */
+
+function renderPlainDots(container, count) {
+  container.replaceChildren();
+  for (let index = 0; index < count; index += 1) {
+    const dot = document.createElement("div");
+    dot.className = "donor-dot";
+    container.append(dot);
+  }
+}
+
+function nextTenPlus() {
+  if (!guardNext("tenplus")) return;
+  const p = pickWeighted("tenplus", tenPlusProblems, state.lastKey.tenplus);
+  state.problem.tenplus = p;
+  state.lastKey.tenplus = abKey(p);
+  els.tenplusEquation.classList.remove("is-solved");
+  els.tenplusEquation.textContent = `10 + ${p.b}`;
+  els.tenplusRightLabel.textContent = p.b;
+  M.tenplus.feedback.className = "feedback";
+  M.tenplus.feedback.textContent = "こたえを えらんでね";
+  setNextButton("tenplus", false);
+  renderTenFrame(els.tenplusFrame, 10, 0);
+  renderPlainDots(els.tenplusDots, p.b);
+  renderChoiceButtons(M.tenplus.choices, [11, 12, 13, 14, 15, 16, 17, 18, 19], (value, button) => {
+    chooseTenPlus(value, button, p);
+  });
+  if (state.activeMode === "tenplus") startChallengeTimer();
+}
+
+function chooseTenPlus(value, button, problem = state.problem.tenplus) {
+  if (state.locked.tenplus) return;
+  const answer = 10 + problem.b;
+  const correct = value === answer;
+  recordAnswer("tenplus", problem, correct);
+  button.classList.add(correct ? "is-correct" : "is-wrong");
+  els.tenplusEquation.innerHTML = `<span class="eq-green">10</span><span> + </span><span class="eq-red">${problem.b}</span><span> = ${answer}</span>`;
+  els.tenplusEquation.classList.add("is-solved");
+  if (correct) {
+    onCorrect("tenplus");
+  } else {
+    onWrong("tenplus", null, answer);
   }
 }
 
@@ -1382,7 +1505,7 @@ function nextMinus() {
   M.minus.feedback.className = "feedback";
   M.minus.feedback.textContent = "こたえを えらんでね";
   setNextButton("minus", false);
-  renderMinusFrame(p.a, 0);
+  renderMinusFrame(els.minusFrame, p.a, 0);
   renderChoiceButtons(M.minus.choices, [1, 2, 3, 4, 5, 6, 7, 8, 9], (value, button) => {
     chooseMinus(value, button, p);
   });
@@ -1398,13 +1521,59 @@ function chooseMinus(value, button, problem = state.problem.minus) {
   if (correct) {
     els.minusEquation.innerHTML = `<span class="eq-green">${problem.a}</span><span> − </span><span class="eq-red">${problem.b}</span><span> = ${answer}</span>`;
     els.minusEquation.classList.add("is-solved");
-    renderMinusFrame(problem.a, problem.b);
+    renderMinusFrame(els.minusFrame, problem.a, problem.b);
     onCorrect("minus");
   } else {
     els.minusEquation.innerHTML = `<span class="eq-green">${problem.a}</span><span> − </span><span class="eq-red">${problem.b}</span><span> = ${answer}</span>`;
     els.minusEquation.classList.add("is-solved");
-    renderMinusFrame(problem.a, problem.b);
+    renderMinusFrame(els.minusFrame, problem.a, problem.b);
     onWrong("minus", "まるを けして かぞえてみよう", answer);
+  }
+}
+
+/* ---------- こおりのダンジョン（くり下がり） ---------- */
+
+function nextIce() {
+  if (!guardNext("ice")) return;
+  const p = pickWeighted("ice", iceProblems, state.lastKey.ice);
+  state.problem.ice = p;
+  state.lastKey.ice = abKey(p);
+  const ones = p.a - 10;
+  els.iceEquation.classList.remove("is-solved");
+  els.iceEquation.textContent = `${p.a} − ${p.b}`;
+  els.iceChain.textContent = "10から ひくと？";
+  els.iceChain.classList.remove("is-solved");
+  els.iceLeftLabel.textContent = 10;
+  els.iceRightLabel.textContent = ones;
+  M.ice.feedback.className = "feedback";
+  M.ice.feedback.textContent = "こたえを えらんでね";
+  setNextButton("ice", false);
+  renderMinusFrame(els.iceFrame, 10, 0);
+  renderPlainDots(els.iceDots, ones);
+  renderChoiceButtons(M.ice.choices, [1, 2, 3, 4, 5, 6, 7, 8, 9], (value, button) => {
+    chooseIce(value, button, p);
+  });
+  if (state.activeMode === "ice") startChallengeTimer();
+}
+
+function chooseIce(value, button, problem = state.problem.ice) {
+  if (state.locked.ice) return;
+  const ones = problem.a - 10;
+  const left = 10 - problem.b;
+  const answer = problem.a - problem.b;
+  const correct = value === answer;
+  recordAnswer("ice", problem, correct);
+  button.classList.add(correct ? "is-correct" : "is-wrong");
+  els.iceEquation.innerHTML = `<span class="eq-green">${problem.a}</span><span> − </span><span class="eq-red">${problem.b}</span><span> = ${answer}</span>`;
+  els.iceEquation.classList.add("is-solved");
+  els.iceChain.textContent = `10 − ${problem.b} = ${left}、 ${left} + ${ones} = ${answer}`;
+  els.iceChain.classList.add("is-solved");
+  els.iceLeftLabel.textContent = left;
+  renderMinusFrame(els.iceFrame, 10, problem.b);
+  if (correct) {
+    onCorrect("ice");
+  } else {
+    onWrong("ice", "10からひいて、のこりとたすよ", answer);
   }
 }
 
@@ -1478,6 +1647,15 @@ qs("#clear-records").addEventListener("click", () => {
   saveScore();
 });
 
+qs("#coin-reset").addEventListener("click", () => {
+  if (!window.confirm("ちょきんを 0円に もどす？（お金をわたしたら リセットしてね）")) return;
+  state.coins = 0;
+  state.coinProgress = 0;
+  state.coinJustEarned = false;
+  saveCoins();
+  renderCoinGauge();
+});
+
 qs("#backup-export").addEventListener("click", exportBackup);
 
 const backupImportInput = qs("#backup-import-file");
@@ -1507,5 +1685,6 @@ renderTimeToggle();
 renderBlockToggle();
 renderRecords();
 renderMission();
+renderCoinGauge();
 saveScore();
 MODES.forEach(resetModeStart);

@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=12">
+    <link rel="stylesheet" href="styles.css?v=14">
   </head>
   <body>
     <main class="app-shell">
@@ -23,8 +23,8 @@
           </div>
           <div class="score-stack" aria-live="polite">
             <div class="score-pill">
-              <span id="stars">0</span>
-              <span>できた</span>
+              <span>ちょきん</span>
+              <span id="savings">0円</span>
             </div>
             <div class="high-pill">
               <span>ベスト</span>
@@ -43,10 +43,12 @@
       </section>
 
       <nav class="mode-tabs" aria-label="れんしゅうモード">
-        <button class="mode-tab is-active" type="button" data-mode="simple">しゅぎょう</button>
-        <button class="mode-tab" type="button" data-mode="pair">あわせて10</button>
+        <button class="mode-tab is-active" type="button" data-mode="pair">あわせて10</button>
+        <button class="mode-tab" type="button" data-mode="tenplus">10+X</button>
+        <button class="mode-tab" type="button" data-mode="simple">しゅぎょう</button>
         <button class="mode-tab" type="button" data-mode="bridge">ぼうけん</button>
         <button class="mode-tab" type="button" data-mode="minus">ひきざん</button>
+        <button class="mode-tab" type="button" data-mode="ice">こおりのダンジョン</button>
         <button class="mode-tab" type="button" data-mode="dex">ずかん</button>
         <button class="mode-tab" type="button" data-mode="records">きろく</button>
         <button class="mode-tab" type="button" data-mode="stats">とうけい</button>
@@ -60,6 +62,14 @@
         <span class="mission-text" id="catch-text">あと10もん</span>
       </section>
 
+      <section class="mission-strip" aria-label="フレンダゲージ">
+        <span class="mission-label">フレンダゲージ</span>
+        <div class="mission-track">
+          <div class="mission-fill coin-fill" id="coin-fill"></div>
+        </div>
+        <span class="mission-text" id="coin-text">あと50もんで100円</span>
+      </section>
+
       <section class="mission-strip" aria-label="きょうのミッション">
         <span class="mission-label">きょうのミッション</span>
         <div class="mission-track">
@@ -68,7 +78,7 @@
         <span class="mission-text" id="mission-text">あと20もん</span>
       </section>
 
-      <section class="play-area is-waiting" id="simple-mode">
+      <section class="play-area is-hidden is-waiting" id="simple-mode">
         <div class="question-card">
           <div class="prompt-row">
             <p class="prompt">こたえはいくつ？</p>
@@ -88,7 +98,7 @@
         <div class="choice-grid simple-choice-grid" id="simple-choices" aria-label="こたえのカード"></div>
       </section>
 
-      <section class="play-area is-hidden is-waiting" id="pair-mode">
+      <section class="play-area is-waiting" id="pair-mode">
         <div class="question-card">
           <div class="prompt-row">
             <p class="prompt">あといくつで 10 かな？</p>
@@ -113,6 +123,35 @@
           <button class="next-button is-hidden" type="button" id="pair-next">つぎへ</button>
         </div>
         <div class="choice-grid" id="pair-choices" aria-label="こたえのカード"></div>
+      </section>
+
+      <section class="play-area is-hidden is-waiting" id="tenplus-mode">
+        <div class="question-card">
+          <div class="prompt-row">
+            <p class="prompt">10に たすと いくつ？</p>
+          </div>
+          <button class="start-button" type="button" id="tenplus-start">スタート</button>
+          <div class="timer-row" id="tenplus-timer-row" aria-label="のこりじかん">
+            <div class="timer-track">
+              <div class="timer-fill" id="tenplus-timer-fill"></div>
+            </div>
+            <div class="timer-count"><span id="tenplus-time">60</span>びょう</div>
+          </div>
+          <div class="equation simple-equation" id="tenplus-equation">10 + 2</div>
+          <div class="bridge-board">
+            <div>
+              <p class="small-label addend-label" id="tenplus-left-label">10</p>
+              <div class="ten-frame compact" id="tenplus-frame"></div>
+            </div>
+            <div>
+              <p class="small-label addend-label" id="tenplus-right-label">2</p>
+              <div class="donor-dots" id="tenplus-dots"></div>
+            </div>
+          </div>
+          <p class="feedback" id="tenplus-feedback" aria-live="polite">こたえを えらんでね</p>
+          <button class="next-button is-hidden" type="button" id="tenplus-next">つぎへ</button>
+        </div>
+        <div class="choice-grid simple-choice-grid" id="tenplus-choices" aria-label="こたえのカード"></div>
       </section>
 
       <section class="play-area is-hidden is-waiting" id="bridge-mode">
@@ -165,22 +204,57 @@
         <div class="choice-grid simple-choice-grid" id="minus-choices" aria-label="こたえのカード"></div>
       </section>
 
+      <section class="play-area is-hidden is-waiting" id="ice-mode">
+        <div class="question-card adventure-card ice-card">
+          <div class="prompt-row">
+            <p class="prompt">10のかたまりから ひこう</p>
+          </div>
+          <button class="start-button" type="button" id="ice-start">スタート</button>
+          <div class="timer-row" id="ice-timer-row" aria-label="のこりじかん">
+            <div class="timer-track">
+              <div class="timer-fill" id="ice-timer-fill"></div>
+            </div>
+            <div class="timer-count"><span id="ice-time">60</span>びょう</div>
+          </div>
+          <div class="equation bridge-equation" id="ice-equation">13 − 8</div>
+          <div class="equation-chain" id="ice-chain">10から ひくと？</div>
+          <div class="bridge-board">
+            <div>
+              <p class="small-label addend-label" id="ice-left-label">10</p>
+              <div class="ten-frame compact" id="ice-frame"></div>
+            </div>
+            <div>
+              <p class="small-label addend-label" id="ice-right-label">3</p>
+              <div class="donor-dots" id="ice-dots"></div>
+            </div>
+          </div>
+          <p class="feedback" id="ice-feedback" aria-live="polite">こたえを えらんでね</p>
+          <button class="next-button is-hidden" type="button" id="ice-next">つぎへ</button>
+        </div>
+        <div class="choice-grid simple-choice-grid" id="ice-choices" aria-label="こたえのカード"></div>
+      </section>
+
       <section class="records-panel is-hidden" id="records-mode" aria-labelledby="records-title">
         <div class="question-card">
           <div class="prompt-row">
             <p class="prompt" id="records-title">60びょうチャレンジ</p>
             <button class="quiet-button" type="button" id="clear-records">けす</button>
           </div>
-          <div class="records-columns four">
-            <div class="records-col">
-              <h3 class="records-col-title">しゅぎょう</h3>
-              <ol class="records-list" id="simple-records-list" aria-label="しゅぎょうランキング"></ol>
-              <p class="records-empty" id="simple-records-empty">まだきろくがないよ</p>
-            </div>
+          <div class="records-columns six">
             <div class="records-col">
               <h3 class="records-col-title">あわせて10</h3>
               <ol class="records-list" id="pair-records-list" aria-label="あわせて10ランキング"></ol>
               <p class="records-empty" id="pair-records-empty">まだきろくがないよ</p>
+            </div>
+            <div class="records-col">
+              <h3 class="records-col-title">10+X</h3>
+              <ol class="records-list" id="tenplus-records-list" aria-label="10+Xランキング"></ol>
+              <p class="records-empty" id="tenplus-records-empty">まだきろくがないよ</p>
+            </div>
+            <div class="records-col">
+              <h3 class="records-col-title">しゅぎょう</h3>
+              <ol class="records-list" id="simple-records-list" aria-label="しゅぎょうランキング"></ol>
+              <p class="records-empty" id="simple-records-empty">まだきろくがないよ</p>
             </div>
             <div class="records-col">
               <h3 class="records-col-title">ぼうけん</h3>
@@ -191,6 +265,11 @@
               <h3 class="records-col-title">ひきざん</h3>
               <ol class="records-list" id="minus-records-list" aria-label="ひきざんランキング"></ol>
               <p class="records-empty" id="minus-records-empty">まだきろくがないよ</p>
+            </div>
+            <div class="records-col">
+              <h3 class="records-col-title">こおりのダンジョン</h3>
+              <ol class="records-list" id="ice-records-list" aria-label="こおりのダンジョンランキング"></ol>
+              <p class="records-empty" id="ice-records-empty">まだきろくがないよ</p>
             </div>
           </div>
         </div>
@@ -217,13 +296,16 @@
         <div class="question-card">
           <div class="prompt-row">
             <p class="prompt" id="stats-title">とうけい（おうちの人向け）</p>
-            <button class="quiet-button" type="button" id="reset-progress">リセット</button>
+            <div class="stats-buttons">
+              <button class="quiet-button" type="button" id="coin-reset">ちょきんリセット（保護者用）</button>
+              <button class="quiet-button" type="button" id="reset-progress">リセット</button>
+            </div>
           </div>
           <p class="stats-summary" id="stats-summary"></p>
           <h3 class="stats-heading">まいにちの正解数（14日間）</h3>
           <div class="stats-chart" id="stats-chart" role="img" aria-label="日別の正解数グラフ"></div>
           <h3 class="stats-heading">にがてな問題（間違いや時間がかかったもの）</h3>
-          <div class="records-columns four" id="stats-weak"></div>
+          <div class="records-columns six" id="stats-weak"></div>
         </div>
       </section>
 
@@ -240,6 +322,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=14"></script>
+    <script src="app.js?v=16"></script>
   </body>
 </html>

@@ -672,8 +672,13 @@ body.no-blocks .play-area:not(.is-answer-shown) .bridge-board {
   margin-top: 16px;
 }
 
-.records-columns.four {
+.records-columns.six {
   grid-template-columns: repeat(2, 1fr);
+}
+
+.ice-card {
+  border: 2px solid #bfe3f7;
+  background: linear-gradient(160deg, #f2fbff 0%, #e3f3fd 60%, #d8ecfb 100%);
 }
 
 .simple-choice-grid {
@@ -1200,6 +1205,17 @@ body.no-blocks .play-area:not(.is-answer-shown) .bridge-board {
   background: linear-gradient(90deg, #e53935, #ff7043) !important;
 }
 
+.coin-fill {
+  background: linear-gradient(90deg, #f9a825, #ffd45a) !important;
+}
+
+.stats-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 /* とうけいパネル */
 
 .stats-summary {
@@ -1325,8 +1341,8 @@ body.no-blocks .play-area:not(.is-answer-shown) .bridge-board {
     grid-template-columns: 1fr 0.75fr;
   }
 
-  .records-columns.four {
-    grid-template-columns: repeat(4, 1fr);
+  .records-columns.six {
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .sticker-grid {
