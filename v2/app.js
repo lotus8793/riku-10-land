@@ -2006,3 +2006,4 @@ renderMission();
 renderCoinGauge();
 renderPartner();
 MODES.forEach(resetModeStart);
+switchMode("calendar"); // 起動時はカレンダーを表示

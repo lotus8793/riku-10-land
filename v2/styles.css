@@ -431,6 +431,11 @@ button {
   display: block;
 }
 
+/* スタート画面だけに出すメッセージ */
+.play-area:not(.is-waiting) .prompt.start-only {
+  display: none;
+}
+
 .play-area.is-waiting .timer-row,
 .play-area.is-waiting .icon-button,
 .play-area.is-waiting .number-display,

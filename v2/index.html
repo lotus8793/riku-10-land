@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=32">
+    <link rel="stylesheet" href="styles.css?v=33">
   </head>
   <body>
     <main class="app-shell">
@@ -163,6 +163,9 @@
 
       <section class="play-area is-hidden is-waiting" id="bridge-mode">
         <div class="question-card adventure-card fire-card">
+          <div class="prompt-row">
+            <p class="prompt start-only">さぁ、ぼうけんにでかけよう</p>
+          </div>
           <button class="start-button" type="button" id="bridge-start">スタート</button>
           <div class="timer-row" id="bridge-timer-row" aria-label="のこりじかん">
             <div class="timer-track">
@@ -210,6 +213,9 @@
 
       <section class="play-area is-hidden is-waiting" id="ice-mode">
         <div class="question-card adventure-card ice-card">
+          <div class="prompt-row">
+            <p class="prompt start-only">さぁ、ぼうけんにでかけよう</p>
+          </div>
           <button class="start-button" type="button" id="ice-start">スタート</button>
           <div class="timer-row" id="ice-timer-row" aria-label="のこりじかん">
             <div class="timer-track">
@@ -218,6 +224,7 @@
             <div class="timer-count"><span id="ice-time">60</span>びょう</div>
           </div>
           <div class="equation bridge-equation" id="ice-equation">13 − 8</div>
+          <div class="equation-chain" aria-hidden="true"></div>
           <div class="bridge-board">
             <div>
               <p class="small-label addend-label" id="ice-left-label">10</p>
@@ -355,6 +362,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=27"></script>
+    <script src="app.js?v=28"></script>
   </body>
 </html>
