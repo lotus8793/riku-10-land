@@ -483,6 +483,24 @@ body.no-blocks .play-area:not(.is-answer-shown) .bridge-board {
   font-weight: 950;
 }
 
+.donor-dot.is-removed {
+  position: relative;
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+}
+
+.donor-dot.is-removed::after {
+  content: "✕";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #f97066;
+  font-size: 24px;
+  font-weight: 950;
+}
+
+.donor-dot.is-removed[data-count]::before,
 .frame-cell.is-removed[data-count]::before {
   content: attr(data-count);
   position: absolute;
