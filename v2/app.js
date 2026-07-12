@@ -398,6 +398,7 @@ const els = {
   explainToggle: qs("#explain-toggle"),
   explainToggleLabel: qs("#explain-toggle-label"),
   bridgeEquation: qs("#bridge-equation"),
+  bridgeChain: qs("#bridge-chain"),
   bridgeLeftLabel: qs("#bridge-left-label"),
   bridgeRightLabel: qs("#bridge-right-label"),
   bridgeFrame: qs("#bridge-frame"),
@@ -1476,7 +1477,8 @@ function nextSimple() {
   M.simple.feedback.className = "feedback";
   M.simple.feedback.textContent = "こたえを えらんでね";
   setNextButton("simple", false);
-  renderTenFrame(els.simpleFrame, 0, 0);
+  // ブロックありなら出題中から a + b をブロックで見せる（なしの場合はCSSで隠れる）
+  renderTenFrame(els.simpleFrame, p.a, p.b, true);
   renderChoiceButtons(M.simple.choices, [1, 2, 3, 4, 5, 6, 7, 8, 9], (value, button) => {
     chooseSimple(value, button, p);
   });
@@ -1514,7 +1516,8 @@ function nextPair() {
   M.pair.feedback.textContent = "なかよしを えらんでね";
   setNextButton("pair", false);
   els.pairReverseSection.classList.add("is-hidden");
-  renderTenFrame(els.pairFrame, 0, 0);
+  // 出題中は base だけ埋めて「あといくつ」を数えられるように
+  renderTenFrame(els.pairFrame, state.problem.pair.base, 0);
   renderChoiceButtons(M.pair.choices, [1, 2, 3, 4, 5, 6, 7, 8, 9], choosePair);
   if (state.activeMode === "pair") startChallengeTimer();
 }
@@ -1608,7 +1611,13 @@ function renderSplitDots(total, moved) {
   for (let index = 0; index < total; index += 1) {
     const dot = document.createElement("div");
     dot.className = "donor-dot";
-    dot.classList.add(index < moved ? "is-moved-away" : "is-leftover");
+    if (index < moved) {
+      dot.classList.add("is-moved-away");
+    } else {
+      // のこりのブロックに 1, 2… と小さく番号を振る
+      dot.classList.add("is-leftover");
+      dot.dataset.count = index - moved + 1;
+    }
     els.donorDots.append(dot);
   }
 }
@@ -1628,9 +1637,11 @@ function animateBridgeCompletion(problem, need) {
 
   if (!canAnimate) {
     renderTenFrame(els.bridgeFrame, problem.big, need, true);
+    els.bridgeFrame.classList.add("is-ten-complete");
     return;
   }
 
+  let landed = 0;
   cells.forEach((cell, index) => {
     const from = dotRects[index];
     const to = cellRects[index];
@@ -1659,13 +1670,20 @@ function animateBridgeCompletion(problem, need) {
       cell.classList.remove("is-needed", "is-hidden-slot");
       cell.classList.add("is-friend-filled", "is-landed");
       cell.style.setProperty("--pop-delay", "0ms");
+      landed += 1;
+      // 10個そろった瞬間に、10のかたまりを大きく囲って見せる
+      if (landed === cells.length) {
+        els.bridgeFrame.classList.add("is-ten-complete");
+      }
     };
   });
 }
 
 function revealBridgeAnswer(problem, need, rest) {
   els.bridgeLeftLabel.textContent = 10;
-  els.bridgeRightLabel.textContent = rest;
+  els.bridgeRightLabel.textContent = ""; // のこりは番号バッジで数えるのでラベルは消す
+  els.bridgeChain.textContent = `10をつくると、のこりは ${rest}こ になるね`;
+  els.bridgeChain.classList.add("is-solved");
   animateBridgeCompletion(problem, need);
 }
 
@@ -1701,9 +1719,12 @@ function nextBridge() {
   els.bridgeLeftLabel.textContent = currentBridge.big;
   els.bridgeRightLabel.textContent = currentBridge.small;
   els.bridgeEquation.classList.remove("is-solved");
+  els.bridgeChain.textContent = "";
+  els.bridgeChain.classList.remove("is-solved");
   M.bridge.feedback.className = "feedback";
   M.bridge.feedback.textContent = "こたえを えらんでね";
   setNextButton("bridge", false);
+  els.bridgeFrame.classList.remove("is-ten-complete");
   renderTenFrame(els.bridgeFrame, currentBridge.big, need);
   renderDonorDots(currentBridge.small, 0);
   renderChoiceButtons(M.bridge.choices, [11, 12, 13, 14, 15, 16, 17, 18], (value, button) => {
