@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=16">
+    <link rel="stylesheet" href="styles.css?v=17">
   </head>
   <body>
     <main class="app-shell">
@@ -26,10 +26,6 @@
               <span>ちょきん</span>
               <span id="savings">0円</span>
             </div>
-            <div class="high-pill">
-              <span>ベスト</span>
-              <strong id="high-score">0</strong>
-            </div>
             <button class="time-toggle" type="button" id="time-toggle" aria-pressed="false">
               <span class="toggle-knob" aria-hidden="true"></span>
               <span id="time-toggle-label">じかんなし</span>
@@ -40,6 +36,7 @@
             </button>
           </div>
         </div>
+        <img class="hero-art" src="hero.png?v=1" alt="ポケモンのなかまたち">
       </section>
 
       <nav class="mode-tabs" aria-label="れんしゅうモード">
@@ -50,6 +47,7 @@
         <button class="mode-tab" type="button" data-mode="minus">ひきざんジム</button>
         <button class="mode-tab" type="button" data-mode="ice">こおりのダンジョン</button>
         <button class="mode-tab" type="button" data-mode="dex">ずかん</button>
+        <button class="mode-tab" type="button" data-mode="calendar">カレンダー</button>
         <button class="mode-tab" type="button" data-mode="records">きろく</button>
         <button class="mode-tab" type="button" data-mode="stats">とうけい</button>
       </nav>
@@ -62,20 +60,20 @@
         <span class="mission-text" id="catch-text">あと10もん</span>
       </section>
 
-      <section class="mission-strip" aria-label="フレンダゲージ">
-        <span class="mission-label">フレンダゲージ</span>
-        <div class="mission-track">
-          <div class="mission-fill coin-fill" id="coin-fill"></div>
-        </div>
-        <span class="mission-text" id="coin-text">あと50もんで100円</span>
-      </section>
-
       <section class="mission-strip" aria-label="きょうのミッション">
         <span class="mission-label">きょうのミッション</span>
         <div class="mission-track">
           <div class="mission-fill" id="mission-fill"></div>
         </div>
-        <span class="mission-text" id="mission-text">あと20もん</span>
+        <span class="mission-text" id="mission-text">あと30もん</span>
+      </section>
+
+      <section class="mission-strip" aria-label="フレンダゲージ">
+        <span class="mission-label">フレンダゲージ</span>
+        <div class="mission-track">
+          <div class="mission-fill coin-fill" id="coin-fill"></div>
+        </div>
+        <span class="mission-text" id="coin-text">あと75もんで100円</span>
       </section>
 
       <section class="play-area is-hidden is-waiting" id="simple-mode">
@@ -155,7 +153,7 @@
       </section>
 
       <section class="play-area is-hidden is-waiting" id="bridge-mode">
-        <div class="question-card adventure-card">
+        <div class="question-card adventure-card fire-card">
           <div class="prompt-row">
             <p class="prompt">10をつくってから たそう</p>
           </div>
@@ -217,7 +215,6 @@
             <div class="timer-count"><span id="ice-time">60</span>びょう</div>
           </div>
           <div class="equation bridge-equation" id="ice-equation">13 − 8</div>
-          <div class="equation-chain" id="ice-chain">10から ひくと？</div>
           <div class="bridge-board">
             <div>
               <p class="small-label addend-label" id="ice-left-label">10</p>
@@ -292,6 +289,20 @@
         </div>
       </section>
 
+      <section class="records-panel is-hidden" id="calendar-mode" aria-labelledby="cal-title">
+        <div class="question-card">
+          <div class="prompt-row">
+            <p class="prompt" id="cal-title">カレンダー</p>
+            <div class="stats-buttons">
+              <button class="quiet-button" type="button" id="cal-prev">← まえ</button>
+              <button class="quiet-button" type="button" id="cal-next">つぎ →</button>
+            </div>
+          </div>
+          <p class="cal-legend"><span class="cal-stamp cal-ball"></span> ミッションクリア　🟢 あそんだ日</p>
+          <div class="cal-grid" id="cal-grid"></div>
+        </div>
+      </section>
+
       <section class="records-panel is-hidden" id="stats-panel" aria-labelledby="stats-title">
         <div class="question-card">
           <div class="prompt-row">
@@ -306,6 +317,12 @@
           <div class="stats-chart" id="stats-chart" role="img" aria-label="日別の正解数グラフ"></div>
           <h3 class="stats-heading">にがてな問題（間違いや時間がかかったもの）</h3>
           <div class="records-columns six" id="stats-weak"></div>
+          <h3 class="stats-heading">せってい: ゲージのクリアもんだい数</h3>
+          <div class="stats-settings">
+            <label>ポケモンゲット <input type="number" id="set-catch" min="1" max="999"></label>
+            <label>きょうのミッション <input type="number" id="set-mission" min="1" max="999"></label>
+            <label>フレンダゲージ <input type="number" id="set-coin" min="1" max="999"></label>
+          </div>
         </div>
       </section>
 
@@ -322,6 +339,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=18"></script>
+    <script src="app.js?v=19"></script>
   </body>
 </html>

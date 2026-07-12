@@ -6,7 +6,8 @@ const MAX_RECORDS = 10;
 const STICKER_STEP = 10;
 
 const MODES = ["pair", "tenplus", "simple", "bridge", "minus", "ice"];
-// ゲージ（ポケモン・フレンダ・ミッション）にカウントするモード。あわせて10と10+Xは対象外
+// 全ゲージ（ポケモン・フレンダ・ミッション）にカウントするモード。
+// あわせて10と10+Xはミッションのみ、1日各10問（PRACTICE_MISSION_CAP）までカウントする
 const GAUGE_MODES = ["simple", "bridge", "minus", "ice"];
 
 const RECORDS_KEYS = {
@@ -27,9 +28,35 @@ const DAYLOG_KEY = "riku10v2-daylog";
 const BACKUP_PREFIX = "riku10v2-";
 const COINS_KEY = "riku10v2-coins";
 const COIN_PROGRESS_KEY = "riku10v2-coin-progress";
-const COIN_STEP = 50;
 const COIN_VALUE = 100;
-const MISSION_GOAL = 20;
+const STREAK_KEY = "riku10v2-mission-streak";
+const STREAK_BONUS_DAYS = 7;
+const SETTINGS_KEY = "riku10v2-settings";
+// あわせて10・10+X がミッションにカウントできる1日あたりの上限
+const PRACTICE_MISSION_CAP = 10;
+
+// ゲージのクリア数（とうけいタブの設定で変更できる）
+function loadSettings() {
+  const defaults = { catchStep: STICKER_STEP, missionGoal: 30, coinStep: 75 };
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const merged = { ...defaults };
+      ["catchStep", "missionGoal", "coinStep"].forEach((key) => {
+        const value = Number(parsed[key]);
+        if (Number.isFinite(value) && value >= 1 && value <= 999) merged[key] = Math.round(value);
+      });
+      return merged;
+    }
+  } catch {}
+  return { ...defaults };
+}
+
+const SETTINGS = loadSettings();
+
+function saveSettings() {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(SETTINGS));
+}
 const SHINY_RATE = 0.1;
 const CATCH_RATE = 0.8;
 
@@ -136,6 +163,20 @@ function todayStr() {
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 }
 
+function yesterdayStr() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+function loadStreak() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(STREAK_KEY) || "null");
+    if (parsed && typeof parsed.count === "number" && typeof parsed.last === "string") return parsed;
+  } catch {}
+  return { count: 0, last: "" };
+}
+
 function loadCaught() {
   try {
     const parsed = JSON.parse(localStorage.getItem(CAUGHT_KEY) || "null");
@@ -156,7 +197,7 @@ function loadCaught() {
 function loadCatchProgress() {
   const raw = localStorage.getItem(CATCH_PROGRESS_KEY);
   if (raw !== null) {
-    return Math.min(STICKER_STEP - 1, Math.max(0, Number(raw) || 0));
+    return Math.min(SETTINGS.catchStep - 1, Math.max(0, Number(raw) || 0));
   }
   const total = Number(localStorage.getItem(TOTAL_KEY) || "0") || 0;
   return total % STICKER_STEP;
@@ -300,28 +341,23 @@ const state = {
   },
   combo: 0,
   stars: 0,
-  highScore: 0,
   totalCorrect: Number(localStorage.getItem(TOTAL_KEY) || "0") || 0,
   catchProgress: loadCatchProgress(),
   activeMode: "pair",
   caught: loadCaught(),
   daily: loadDaily(),
-  iceRevealTimeoutId: null,
+  revealTimeout: { ice: null, minus: null },
   coins: Math.max(0, Number(localStorage.getItem(COINS_KEY) || "0") || 0),
-  coinProgress: Math.min(COIN_STEP - 1, Math.max(0, Number(localStorage.getItem(COIN_PROGRESS_KEY) || "0") || 0)),
+  coinProgress: Math.min(SETTINGS.coinStep - 1, Math.max(0, Number(localStorage.getItem(COIN_PROGRESS_KEY) || "0") || 0)),
   coinJustEarned: false,
+  streak: loadStreak(),
+  streakBonusJust: false,
   nextQuestionTimeoutId: null,
   bridgeRevealTimeoutId: null,
   timedEnabled: localStorage.getItem(TIMED_KEY) === "true",
   blocksEnabled: localStorage.getItem("riku10v2-blocks-enabled") === "true",
   challenge: { remainingMs: CHALLENGE_SECONDS * 1000, intervalId: null, ended: false }
 };
-
-function computeHighScore() {
-  return Math.max(...MODES.flatMap((mode) => state.records[mode].map((r) => r.score)), 0);
-}
-
-state.highScore = computeHighScore();
 
 function qs(selector) {
   return document.querySelector(selector);
@@ -345,7 +381,6 @@ MODES.forEach((mode) => {
 
 const els = {
   savings: qs("#savings"),
-  highScore: qs("#high-score"),
   coinFill: qs("#coin-fill"),
   coinText: qs("#coin-text"),
   timeToggle: qs("#time-toggle"),
@@ -368,7 +403,6 @@ const els = {
   tenplusDots: qs("#tenplus-dots"),
   tenplusRightLabel: qs("#tenplus-right-label"),
   iceEquation: qs("#ice-equation"),
-  iceChain: qs("#ice-chain"),
   iceFrame: qs("#ice-frame"),
   iceDots: qs("#ice-dots"),
   iceLeftLabel: qs("#ice-left-label"),
@@ -421,10 +455,10 @@ function saveStats() {
 
 function saveDayLog() {
   const keys = Object.keys(state.dayLog);
-  if (keys.length > 60) {
+  if (keys.length > 190) {
     keys
       .sort((a, b) => new Date(a) - new Date(b))
-      .slice(0, keys.length - 60)
+      .slice(0, keys.length - 190)
       .forEach((key) => {
         delete state.dayLog[key];
       });
@@ -526,13 +560,8 @@ function addRecord(score, mode) {
   state.records[mode] = [...state.records[mode], { score, date: new Date().toISOString() }]
     .sort((a, b) => b.score - a.score || new Date(b.date) - new Date(a.date))
     .slice(0, MAX_RECORDS);
-  state.highScore = computeHighScore();
   saveRecords();
   renderRecords();
-}
-
-function saveScore() {
-  els.highScore.textContent = state.highScore;
 }
 
 /* ---------- フレンダゲージ（ちょきん） ---------- */
@@ -544,14 +573,34 @@ function saveCoins() {
 
 function renderCoinGauge() {
   els.savings.textContent = `${state.coins * COIN_VALUE}円`;
-  const percent = Math.min(100, (state.coinProgress / COIN_STEP) * 100);
+  const percent = Math.min(100, (state.coinProgress / SETTINGS.coinStep) * 100);
   els.coinFill.style.width = `${percent}%`;
-  els.coinText.textContent = `あと${COIN_STEP - state.coinProgress}もんで100円`;
+  els.coinText.textContent = `あと${SETTINGS.coinStep - state.coinProgress}もんで100円`;
+}
+
+// ミッションクリアの連続日数。7日ごとにボーナス100円
+function registerMissionClear() {
+  if (state.streak.last === todayStr()) return;
+  state.streak.count = state.streak.last === yesterdayStr() ? state.streak.count + 1 : 1;
+  state.streak.last = todayStr();
+  localStorage.setItem(STREAK_KEY, JSON.stringify(state.streak));
+  // カレンダーに⭐を残す
+  const day = state.dayLog[todayStr()] || { c: 0, w: 0 };
+  day.m = true;
+  state.dayLog[todayStr()] = day;
+  saveDayLog();
+  if (state.streak.count % STREAK_BONUS_DAYS === 0) {
+    state.coins += 1;
+    state.streakBonusJust = true;
+    saveCoins();
+    renderCoinGauge();
+    burstConfetti(60);
+  }
 }
 
 function registerCoinProgress() {
   state.coinProgress += 1;
-  if (state.coinProgress >= COIN_STEP) {
+  if (state.coinProgress >= SETTINGS.coinStep) {
     state.coinProgress = 0;
     state.coins += 1;
     state.coinJustEarned = true;
@@ -666,23 +715,23 @@ function catchPokemon(bonus) {
 
 function renderMission() {
   rolloverDaily();
-  const remain = STICKER_STEP - state.catchProgress;
-  const catchPercent = (state.catchProgress / STICKER_STEP) * 100;
+  const remain = SETTINGS.catchStep - state.catchProgress;
+  const catchPercent = (state.catchProgress / SETTINGS.catchStep) * 100;
   els.catchFill.style.width = `${catchPercent}%`;
   els.catchText.textContent = `あと${remain}もん`;
 
-  const percent = Math.min(100, (state.daily.count / MISSION_GOAL) * 100);
+  const percent = Math.min(100, (state.daily.count / SETTINGS.missionGoal) * 100);
   els.missionFill.style.width = `${percent}%`;
   els.missionFill.classList.toggle("is-done", state.daily.done);
   els.missionText.textContent = state.daily.done
-    ? "クリア！🎉"
-    : `あと ${MISSION_GOAL - state.daily.count}もん`;
+    ? `クリア！🎉${state.streak.last === todayStr() && state.streak.count > 1 ? ` ${state.streak.count}日れんぞく` : ""}`
+    : `あと ${SETTINGS.missionGoal - state.daily.count}もん`;
 }
 
 function renderDex() {
   els.dexCount.textContent = `${speciesCaught()}しゅるい / ${STICKERS.length}`;
 
-  const remain = STICKER_STEP - state.catchProgress;
+  const remain = SETTINGS.catchStep - state.catchProgress;
   els.dexProgress.textContent = `ぜんぶで ${totalCaught()}ひき。あと ${remain}もん で つぎのポケモン`;
 
   const entries = STICKERS.map((species, index) => {
@@ -741,6 +790,15 @@ function registerWrong() {
   renderMission();
 }
 
+function checkMissionGoal() {
+  if (!state.daily.done && state.daily.count >= SETTINGS.missionGoal) {
+    state.daily.done = true;
+    saveDaily();
+    registerMissionClear();
+    catchPokemon(true);
+  }
+}
+
 function registerCorrect() {
   state.totalCorrect += 1;
   localStorage.setItem(TOTAL_KEY, String(state.totalCorrect));
@@ -749,16 +807,25 @@ function registerCorrect() {
   saveDaily();
   registerCoinProgress();
   state.catchProgress += 1;
-  if (state.catchProgress >= STICKER_STEP) {
+  if (state.catchProgress >= SETTINGS.catchStep) {
     state.catchProgress = 0; // ゲットしたら0から数え直し。間違えても戻らない
     catchPokemon(false);
   }
   saveCatchProgress();
-  if (!state.daily.done && state.daily.count >= MISSION_GOAL) {
-    state.daily.done = true;
-    saveDaily();
-    catchPokemon(true);
-  }
+  checkMissionGoal();
+  renderMission();
+}
+
+// あわせて10・10+X の正解は、ミッションだけに1日各10問までカウントする
+function registerPracticeCorrect(mode) {
+  rolloverDaily();
+  const usedKey = mode === "pair" ? "pairUsed" : "tenplusUsed";
+  const used = state.daily[usedKey] || 0;
+  if (used >= PRACTICE_MISSION_CAP) return;
+  state.daily[usedKey] = used + 1;
+  state.daily.count += 1;
+  saveDaily();
+  checkMissionGoal();
   renderMission();
 }
 
@@ -820,7 +887,8 @@ function renderStatsSummary() {
     return;
   }
   const rate = Math.round((today.c / attempts) * 100);
-  summary.textContent = `きょう: ${today.c}問正解・${today.w}問ミス（正答率 ${rate}%）`;
+  const streakAlive = state.streak.last === todayStr() || state.streak.last === yesterdayStr() ? state.streak.count : 0;
+  summary.textContent = `きょう: ${today.c}問正解・${today.w}問ミス（正答率 ${rate}%）／ミッション連続クリア ${streakAlive}日（7日ごとにボーナス100円）`;
 }
 
 function renderStatsChart() {
@@ -911,6 +979,91 @@ function renderStatsPanel() {
   renderStatsSummary();
   renderStatsChart();
   renderStatsWeak();
+  qs("#set-catch").value = SETTINGS.catchStep;
+  qs("#set-mission").value = SETTINGS.missionGoal;
+  qs("#set-coin").value = SETTINGS.coinStep;
+}
+
+function bindSettingInput(selector, key, onApply) {
+  const input = qs(selector);
+  input.addEventListener("change", () => {
+    const value = Math.round(Number(input.value));
+    if (!Number.isFinite(value) || value < 1 || value > 999) {
+      input.value = SETTINGS[key];
+      return;
+    }
+    SETTINGS[key] = value;
+    input.value = value;
+    saveSettings();
+    onApply();
+  });
+}
+
+bindSettingInput("#set-catch", "catchStep", () => {
+  state.catchProgress = Math.min(state.catchProgress, SETTINGS.catchStep - 1);
+  saveCatchProgress();
+  renderMission();
+});
+
+bindSettingInput("#set-mission", "missionGoal", () => {
+  renderMission();
+});
+
+bindSettingInput("#set-coin", "coinStep", () => {
+  state.coinProgress = Math.min(state.coinProgress, SETTINGS.coinStep - 1);
+  saveCoins();
+  renderCoinGauge();
+});
+
+/* ---------- カレンダー ---------- */
+
+let calendarOffset = 0; // 0 = 今月、-1 = 先月…
+
+function renderCalendar() {
+  const base = new Date();
+  base.setDate(1);
+  base.setMonth(base.getMonth() + calendarOffset);
+  const year = base.getFullYear();
+  const month = base.getMonth();
+  qs("#cal-title").textContent = `${year}ねん ${month + 1}がつ`;
+  qs("#cal-next").disabled = calendarOffset >= 0;
+
+  const grid = qs("#cal-grid");
+  grid.replaceChildren();
+  ["にち", "げつ", "か", "すい", "もく", "きん", "ど"].forEach((label) => {
+    const head = document.createElement("div");
+    head.className = "cal-head";
+    head.textContent = label;
+    grid.append(head);
+  });
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const lastDate = new Date(year, month + 1, 0).getDate();
+  for (let i = 0; i < firstDay; i += 1) {
+    const cell = document.createElement("div");
+    cell.className = "cal-cell is-empty";
+    grid.append(cell);
+  }
+  const today = todayStr();
+  for (let d = 1; d <= lastDate; d += 1) {
+    const key = `${year}-${month + 1}-${d}`;
+    const log = state.dayLog[key];
+    const cleared = Boolean(log && log.m);
+    const played = Boolean(log && (log.c || 0) + (log.w || 0) > 0);
+    const cell = document.createElement("div");
+    cell.className = "cal-cell";
+    if (cleared) cell.classList.add("is-cleared");
+    if (key === today) cell.classList.add("is-today");
+    const num = document.createElement("span");
+    num.textContent = d;
+    const stamp = document.createElement("span");
+    stamp.className = "cal-stamp";
+    if (cleared) stamp.classList.add("cal-ball");
+    else stamp.textContent = played ? "🟢" : "";
+    if (played) cell.title = `${log.c || 0}問正解 / ${log.w || 0}問ミス`;
+    cell.append(num, stamp);
+    grid.append(cell);
+  }
 }
 
 /* ---------- 演出 ---------- */
@@ -976,8 +1129,9 @@ function onCorrect(mode) {
   stopChallengeTimer();
   state.combo += 1;
   countSolvedQuestion();
-  if (!state.challenge.ended && GAUGE_MODES.includes(mode)) {
-    registerCorrect();
+  if (!state.challenge.ended) {
+    if (GAUGE_MODES.includes(mode)) registerCorrect();
+    else registerPracticeCorrect(mode);
   }
   const feedback = M[mode].feedback;
   feedback.className = "feedback is-good";
@@ -986,10 +1140,13 @@ function onCorrect(mode) {
     state.coinJustEarned = false;
     feedback.textContent = "💰 100円 ゲット！ ちょきんが ふえたよ！";
   }
+  if (state.streakBonusJust) {
+    state.streakBonusJust = false;
+    feedback.textContent = `🔥${state.streak.count}日れんぞくクリア！ ボーナス100円 ゲット！`;
+  }
   setNextButton(mode, true);
   burstConfetti(Math.min(14 + Math.floor(state.combo / 5) * 10, 54));
   playTone("good", state.combo);
-  saveScore();
 }
 
 function onWrong(mode, _hint, correctValue) {
@@ -1092,7 +1249,8 @@ function clearNextQuestion() {
     state.nextQuestionTimeoutId = null;
   }
   clearBridgeReveal();
-  clearIceReveal();
+  clearRemovalReveal("ice");
+  clearRemovalReveal("minus");
 }
 
 function renderTimerRows() {
@@ -1119,7 +1277,6 @@ function resetChallengeScore() {
   state.challenge.remainingMs = CHALLENGE_SECONDS * 1000;
   state.challenge.ended = false;
   renderTimerRows();
-  saveScore();
 }
 
 function handleChallengeEnd() {
@@ -1132,7 +1289,6 @@ function handleChallengeEnd() {
   stopChallengeTimer();
   renderTimerRows();
   addRecord(finalScore, state.activeMode);
-  saveScore();
 
   if (MODES.includes(state.activeMode)) {
     const feedback = M[state.activeMode].feedback;
@@ -1180,7 +1336,6 @@ function setTimedMode(enabled) {
 function countSolvedQuestion() {
   if (!state.timedEnabled || state.challenge.ended) return;
   state.stars += 1;
-  saveScore();
 }
 
 function startMode(mode) {
@@ -1499,6 +1654,7 @@ function chooseBridge(value, button, problem = state.problem.bridge) {
 
 function nextMinus() {
   if (!guardNext("minus")) return;
+  clearRemovalReveal("minus");
   const p = pickWeighted("minus", minusProblems, state.lastKey.minus);
   state.problem.minus = p;
   state.lastKey.minus = abKey(p);
@@ -1520,24 +1676,21 @@ function chooseMinus(value, button, problem = state.problem.minus) {
   const correct = value === answer;
   recordAnswer("minus", problem, correct);
   button.classList.add(correct ? "is-correct" : "is-wrong");
+  els.minusEquation.innerHTML = `<span class="eq-green">${problem.a}</span><span> − </span><span class="eq-red">${problem.b}</span><span> = ${answer}</span>`;
+  els.minusEquation.classList.add("is-solved");
   if (correct) {
-    els.minusEquation.innerHTML = `<span class="eq-green">${problem.a}</span><span> − </span><span class="eq-red">${problem.b}</span><span> = ${answer}</span>`;
-    els.minusEquation.classList.add("is-solved");
-    renderMinusFrame(els.minusFrame, problem.a, problem.b);
     onCorrect("minus");
   } else {
-    els.minusEquation.innerHTML = `<span class="eq-green">${problem.a}</span><span> − </span><span class="eq-red">${problem.b}</span><span> = ${answer}</span>`;
-    els.minusEquation.classList.add("is-solved");
-    renderMinusFrame(els.minusFrame, problem.a, problem.b);
     onWrong("minus", "まるを けして かぞえてみよう", answer);
   }
+  scheduleRemovalReveal("minus", problem, () => minusRemovalTargets(problem));
 }
 
 /* ---------- こおりのダンジョン（くり下がり） ---------- */
 
 function nextIce() {
   if (!guardNext("ice")) return;
-  clearIceReveal();
+  clearRemovalReveal("ice");
   els.flyLayer.replaceChildren();
   const p = pickWeighted("ice", iceProblems, state.lastKey.ice);
   state.problem.ice = p;
@@ -1545,8 +1698,6 @@ function nextIce() {
   const ones = p.a - 10;
   els.iceEquation.classList.remove("is-solved");
   els.iceEquation.textContent = `${p.a} − ${p.b}`;
-  els.iceChain.textContent = "まず みぎの バラから とろう";
-  els.iceChain.classList.remove("is-solved");
   els.iceLeftLabel.textContent = 10;
   els.iceRightLabel.textContent = ones;
   M.ice.feedback.className = "feedback";
@@ -1560,81 +1711,71 @@ function nextIce() {
   if (state.activeMode === "ice") startChallengeTimer();
 }
 
-// ✕がとけて、のこったブロックだけになる
-function finishIceReveal(problem) {
-  const answer = problem.a - problem.b;
-  renderTenFrame(els.iceFrame, answer, 0);
-  renderPlainDots(els.iceDots, 0);
-  els.iceLeftLabel.textContent = answer;
-  els.iceRightLabel.textContent = "";
-}
-
-// 減々法: 「13」の絵を見せたまま、まず右のバラを右から1,2,3…と✕にし、
-// たりない分は10のかたまりを右から✕にする → ✕がとけて答えだけ残る
-function revealIceAnswer(problem) {
-  const ones = problem.a - 10;
-  const dots = [...els.iceDots.children];
-  const cells = [...els.iceFrame.children];
+// 右から1つずつ✕にして数える共通演出（✕は消さずに残す）
+function startRemovalSteps(mode, problem, targets) {
   let count = 0;
   const step = () => {
-    state.iceRevealTimeoutId = null;
-    if (state.problem.ice !== problem) return;
-    if (count < problem.b) {
-      const target = count < ones ? dots[ones - 1 - count] : cells[9 - (count - ones)];
-      if (target) {
-        target.classList.add("is-removed");
-        target.dataset.count = count + 1;
-        target.style.setProperty("--pop-delay", "0ms");
-      }
-      count += 1;
-      state.iceRevealTimeoutId = setTimeout(step, 450);
-      return;
+    state.revealTimeout[mode] = null;
+    if (state.problem[mode] !== problem) return;
+    if (count >= targets.length) return;
+    const target = targets[count];
+    if (target) {
+      target.classList.add("is-removed");
+      target.dataset.count = count + 1;
+      target.style.setProperty("--pop-delay", "0ms");
     }
-    state.iceRevealTimeoutId = setTimeout(() => {
-      state.iceRevealTimeoutId = null;
-      if (state.problem.ice === problem) finishIceReveal(problem);
-    }, 900);
+    count += 1;
+    state.revealTimeout[mode] = setTimeout(step, 450);
   };
-  state.iceRevealTimeoutId = setTimeout(step, 500);
+  state.revealTimeout[mode] = setTimeout(step, 500);
 }
 
-function scheduleIceReveal(problem) {
+function scheduleRemovalReveal(mode, problem, buildTargets) {
   if (state.blocksEnabled) {
-    revealIceAnswer(problem);
+    startRemovalSteps(mode, problem, buildTargets());
     return;
   }
-  // ブロックなしでは、まず「10のかたまり＋バラ」の絵を見せてから消す
-  state.iceRevealTimeoutId = setTimeout(() => {
-    state.iceRevealTimeoutId = null;
-    if (state.problem.ice === problem) revealIceAnswer(problem);
+  // ブロックなしでは、まず引く前の絵を見せてから消しはじめる
+  state.revealTimeout[mode] = setTimeout(() => {
+    state.revealTimeout[mode] = null;
+    if (state.problem[mode] === problem) startRemovalSteps(mode, problem, buildTargets());
   }, 1500);
 }
 
-function clearIceReveal() {
-  if (state.iceRevealTimeoutId) {
-    clearTimeout(state.iceRevealTimeoutId);
-    state.iceRevealTimeoutId = null;
+function clearRemovalReveal(mode) {
+  if (state.revealTimeout[mode]) {
+    clearTimeout(state.revealTimeout[mode]);
+    state.revealTimeout[mode] = null;
   }
+}
+
+// こおり（減々法）: まず右のバラを右から✕にし、たりない分は10のかたまりを右から✕にする
+function iceRemovalTargets(problem) {
+  const ones = problem.a - 10;
+  const dots = [...els.iceDots.children].slice(0, ones).reverse();
+  const cells = [...els.iceFrame.children].slice(0, 10).reverse();
+  return dots.concat(cells).slice(0, problem.b);
+}
+
+// ひきざんジム: ブロックを右から✕にする
+function minusRemovalTargets(problem) {
+  return [...els.minusFrame.children].slice(0, problem.a).reverse().slice(0, problem.b);
 }
 
 function chooseIce(value, button, problem = state.problem.ice) {
   if (state.locked.ice) return;
-  const ones = problem.a - 10;
-  const rest = problem.b - ones;
   const answer = problem.a - problem.b;
   const correct = value === answer;
   recordAnswer("ice", problem, correct);
   button.classList.add(correct ? "is-correct" : "is-wrong");
   els.iceEquation.textContent = `${problem.a} − ${problem.b} = ${answer}`;
   els.iceEquation.classList.add("is-solved");
-  els.iceChain.textContent = `${problem.a} − ${ones} = 10、 10 − ${rest} = ${answer}`;
-  els.iceChain.classList.add("is-solved");
   if (correct) {
     onCorrect("ice");
   } else {
     onWrong("ice", "バラからとって、のこりは10からとるよ", answer);
   }
-  scheduleIceReveal(problem);
+  scheduleRemovalReveal("ice", problem, () => iceRemovalTargets(problem));
 }
 
 /* ---------- モード切替・初期化 ---------- */
@@ -1658,10 +1799,15 @@ function switchMode(mode) {
   qs("#records-mode").classList.toggle("is-hidden", mode !== "records");
   qs("#dex-mode").classList.toggle("is-hidden", mode !== "dex");
   qs("#stats-panel").classList.toggle("is-hidden", mode !== "stats");
+  qs("#calendar-mode").classList.toggle("is-hidden", mode !== "calendar");
 
   if (mode === "records") renderRecords();
   if (mode === "dex") renderDex();
   if (mode === "stats") renderStatsPanel();
+  if (mode === "calendar") {
+    calendarOffset = 0;
+    renderCalendar();
+  }
 }
 
 document.querySelectorAll(".mode-tab").forEach((tab) => {
@@ -1694,17 +1840,25 @@ qs("#release-pokemon").addEventListener("click", () => {
   saveCatchProgress();
   saveCaught();
   renderDex();
-  saveScore();
 });
 
 qs("#clear-records").addEventListener("click", () => {
   MODES.forEach((mode) => {
     state.records[mode] = [];
   });
-  state.highScore = 0;
   saveRecords();
   renderRecords();
-  saveScore();
+});
+
+qs("#cal-prev").addEventListener("click", () => {
+  calendarOffset -= 1;
+  renderCalendar();
+});
+
+qs("#cal-next").addEventListener("click", () => {
+  if (calendarOffset >= 0) return;
+  calendarOffset += 1;
+  renderCalendar();
 });
 
 qs("#coin-reset").addEventListener("click", () => {
@@ -1746,5 +1900,4 @@ renderBlockToggle();
 renderRecords();
 renderMission();
 renderCoinGauge();
-saveScore();
 MODES.forEach(resetModeStart);

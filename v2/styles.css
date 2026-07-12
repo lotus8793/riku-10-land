@@ -717,6 +717,11 @@ body.no-blocks .play-area:not(.is-answer-shown) .bridge-board {
   background: linear-gradient(160deg, #f2fbff 0%, #e3f3fd 60%, #d8ecfb 100%);
 }
 
+.fire-card {
+  border: 2px solid #ffd0c2;
+  background: linear-gradient(160deg, #fff8f3 0%, #ffeadf 60%, #ffdfd0 100%);
+}
+
 .simple-choice-grid {
   grid-template-columns: repeat(3, 1fr);
 }
@@ -1250,6 +1255,143 @@ body.no-blocks .play-area:not(.is-answer-shown) .bridge-board {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.stats-settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.stats-settings label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.stats-settings input {
+  width: 70px;
+  padding: 6px 8px;
+  border: 1px solid rgba(38, 50, 56, 0.2);
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+/* トップのなかまたち */
+
+.hero-art {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: min(440px, 86%);
+  margin: 14px auto 2px;
+  filter: drop-shadow(0 10px 18px rgba(10, 40, 90, 0.35));
+  animation: hero-bob 3.2s ease-in-out infinite;
+}
+
+@keyframes hero-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-art {
+    animation: none;
+  }
+}
+
+/* カレンダー */
+
+.cal-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.cal-head {
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.cal-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-height: 54px;
+  padding: 5px 4px;
+  border: 1px solid rgba(38, 50, 56, 0.08);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.cal-cell.is-empty {
+  border: none;
+  background: transparent;
+}
+
+.cal-cell.is-cleared {
+  border-color: #f4d47c;
+  background: #fff7dc;
+}
+
+.cal-cell.is-today {
+  outline: 3px solid #2f5fd0;
+  outline-offset: -1px;
+}
+
+.cal-stamp {
+  min-height: 20px;
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.cal-stamp.cal-ball {
+  position: relative;
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #263238;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #e53935 0 44%, #263238 44% 56%, #fff 56% 100%);
+}
+
+.cal-stamp.cal-ball::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  transform: translate(-50%, -50%);
+  border: 2px solid #263238;
+  border-radius: 50%;
+  background: #fff;
 }
 
 /* とうけいパネル */
