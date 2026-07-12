@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=11">
+    <link rel="stylesheet" href="styles.css?v=12">
   </head>
   <body>
     <main class="app-shell">
@@ -49,6 +49,7 @@
         <button class="mode-tab" type="button" data-mode="minus">ひきざん</button>
         <button class="mode-tab" type="button" data-mode="dex">ずかん</button>
         <button class="mode-tab" type="button" data-mode="records">きろく</button>
+        <button class="mode-tab" type="button" data-mode="stats">とうけい</button>
       </nav>
 
       <section class="mission-strip" aria-label="ポケモンゲットまで">
@@ -201,8 +202,11 @@
             <p class="prompt" id="dex-title">ポケモンずかん</p>
             <div class="sticker-actions">
               <span class="sticker-count" id="dex-count">0しゅるい / 60</span>
+              <button class="quiet-button" type="button" id="backup-export">ほぞん</button>
+              <button class="quiet-button" type="button" id="backup-import">よみこみ</button>
               <button class="quiet-button" type="button" id="release-pokemon">ぜんぶにがす</button>
             </div>
+            <input type="file" id="backup-import-file" accept="application/json,.json" hidden>
           </div>
           <p class="sticker-progress" id="dex-progress">じかんありで 10もん できると ポケモンを ゲットできるよ</p>
           <div class="sticker-grid" id="dex-grid" aria-label="ポケモンずかん"></div>
@@ -212,8 +216,8 @@
       <section class="records-panel is-hidden" id="stats-panel" aria-labelledby="stats-title">
         <div class="question-card">
           <div class="prompt-row">
-            <p class="prompt" id="stats-title">せいせき（おうちの人向け）</p>
-            <button class="quiet-button" type="button" id="stats-close">とじる</button>
+            <p class="prompt" id="stats-title">とうけい（おうちの人向け）</p>
+            <button class="quiet-button" type="button" id="reset-progress">リセット</button>
           </div>
           <p class="stats-summary" id="stats-summary"></p>
           <h3 class="stats-heading">まいにちの正解数（14日間）</h3>
@@ -223,19 +227,6 @@
         </div>
       </section>
 
-      <section class="parent-strip" aria-labelledby="parent-title">
-        <div>
-          <h2 id="parent-title">おうちの人メモ</h2>
-          <p id="parent-note">「じかんあり」の正解10問でゲットチャンス（成功80%・色違いあり）。ミッション20問のボーナスは確定ゲット。</p>
-        </div>
-        <div class="parent-actions">
-          <button class="quiet-button" type="button" id="stats-open">せいせき</button>
-          <button class="quiet-button" type="button" id="backup-export">ほぞん</button>
-          <button class="quiet-button" type="button" id="backup-import">よみこみ</button>
-          <button class="quiet-button" type="button" id="reset-progress">リセット</button>
-        </div>
-        <input type="file" id="backup-import-file" accept="application/json,.json" hidden>
-      </section>
     </main>
 
     <div class="confetti-layer" id="confetti" aria-hidden="true"></div>
@@ -249,6 +240,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=13"></script>
+    <script src="app.js?v=14"></script>
   </body>
 </html>

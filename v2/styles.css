@@ -1196,43 +1196,11 @@ body.no-blocks .play-area:not(.is-answer-shown) .bridge-board {
   }
 }
 
-.parent-strip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  margin-top: 14px;
-  padding: 14px;
-  border: 1px solid rgba(38, 50, 56, 0.08);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.78);
-}
-
-.parent-strip h2 {
-  margin: 0 0 4px;
-  font-size: 16px;
-}
-
-.parent-strip p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.5;
-}
-
 .catch-fill {
   background: linear-gradient(90deg, #e53935, #ff7043) !important;
 }
 
-.parent-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-/* せいせきパネル */
+/* とうけいパネル */
 
 .stats-summary {
   margin: 4px 0 0;
@@ -1395,10 +1363,5 @@ body.no-blocks .play-area:not(.is-answer-shown) .bridge-board {
 
   .sticker-grid {
     grid-template-columns: repeat(5, 1fr);
-  }
-
-  .parent-strip {
-    align-items: flex-start;
-    flex-direction: column;
   }
 }

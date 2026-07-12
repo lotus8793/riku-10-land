@@ -276,6 +276,7 @@ const state = {
   caught: loadCaught(),
   daily: loadDaily(),
   nextQuestionTimeoutId: null,
+  bridgeRevealTimeoutId: null,
   timedEnabled: localStorage.getItem(TIMED_KEY) === "true",
   blocksEnabled: localStorage.getItem("riku10v2-blocks-enabled") === "true",
   challenge: { remainingMs: CHALLENGE_SECONDS * 1000, intervalId: null, ended: false }
@@ -342,8 +343,7 @@ const els = {
   catchFill: qs("#catch-fill"),
   catchText: qs("#catch-text"),
   missionFill: qs("#mission-fill"),
-  missionText: qs("#mission-text"),
-  parentNote: qs("#parent-note")
+  missionText: qs("#mission-text")
 };
 
 function pick(items) {
@@ -487,9 +487,6 @@ function addRecord(score, mode) {
 function saveScore() {
   els.stars.textContent = state.stars;
   els.highScore.textContent = state.highScore;
-  els.parentNote.textContent = state.timedEnabled
-    ? `60びょうで ${state.stars}もん。ベスト ${state.highScore}もん。`
-    : `じかんなしモード（れんしゅう）。ポケモンゲットもカウント中。いま ${totalCaught()}ひき。`;
 }
 
 /* ---------- ポケモン ---------- */
@@ -1017,6 +1014,7 @@ function clearNextQuestion() {
     clearTimeout(state.nextQuestionTimeoutId);
     state.nextQuestionTimeoutId = null;
   }
+  clearBridgeReveal();
 }
 
 function renderTimerRows() {
@@ -1297,8 +1295,34 @@ function animateBridgeCompletion(problem, need) {
   });
 }
 
+function revealBridgeAnswer(problem, need, rest) {
+  els.bridgeLeftLabel.textContent = 10;
+  els.bridgeRightLabel.textContent = rest;
+  animateBridgeCompletion(problem, need);
+}
+
+function scheduleBridgeReveal(problem, need, rest) {
+  if (state.blocksEnabled) {
+    revealBridgeAnswer(problem, need, rest);
+    return;
+  }
+  // ブロックなしでは、まず「ブロックあり」と同じ絵を見せてから10を埋める動きを見せる
+  state.bridgeRevealTimeoutId = setTimeout(() => {
+    state.bridgeRevealTimeoutId = null;
+    if (state.problem.bridge === problem) revealBridgeAnswer(problem, need, rest);
+  }, 1500);
+}
+
+function clearBridgeReveal() {
+  if (state.bridgeRevealTimeoutId) {
+    clearTimeout(state.bridgeRevealTimeoutId);
+    state.bridgeRevealTimeoutId = null;
+  }
+}
+
 function nextBridge() {
   if (!guardNext("bridge")) return;
+  clearBridgeReveal();
   els.flyLayer.replaceChildren();
   state.problem.bridge = pickWeighted("bridge", bridgeProblems, state.lastKey.bridge);
   state.lastKey.bridge = problemKey(state.problem.bridge);
@@ -1336,17 +1360,13 @@ function chooseBridge(value, button, problem = state.problem.bridge) {
     els.bridgeEquation.classList.add("is-solved");
     els.bridgeChain.textContent = "";
     els.bridgeChain.classList.add("is-solved");
-    els.bridgeLeftLabel.textContent = 10;
-    els.bridgeRightLabel.textContent = rest;
     onCorrect("bridge");
-    animateBridgeCompletion(problem, need);
+    scheduleBridgeReveal(problem, need, rest);
   } else {
     els.bridgeEquation.textContent = `${problem.big} + ${problem.small} = ${answer}`;
     els.bridgeEquation.classList.add("is-solved");
-    els.bridgeLeftLabel.textContent = 10;
-    els.bridgeRightLabel.textContent = rest;
     onWrong("bridge", `${problem.big}を10にして、のこりをたすよ`, answer);
-    animateBridgeCompletion(problem, need);
+    scheduleBridgeReveal(problem, need, rest);
   }
 }
 
@@ -1408,9 +1428,11 @@ function switchMode(mode) {
   });
   qs("#records-mode").classList.toggle("is-hidden", mode !== "records");
   qs("#dex-mode").classList.toggle("is-hidden", mode !== "dex");
+  qs("#stats-panel").classList.toggle("is-hidden", mode !== "stats");
 
   if (mode === "records") renderRecords();
   if (mode === "dex") renderDex();
+  if (mode === "stats") renderStatsPanel();
 }
 
 document.querySelectorAll(".mode-tab").forEach((tab) => {
@@ -1454,18 +1476,6 @@ qs("#clear-records").addEventListener("click", () => {
   saveRecords();
   renderRecords();
   saveScore();
-});
-
-qs("#stats-open").addEventListener("click", () => {
-  const panel = qs("#stats-panel");
-  const willOpen = panel.classList.contains("is-hidden");
-  if (willOpen) renderStatsPanel();
-  panel.classList.toggle("is-hidden", !willOpen);
-  if (willOpen) panel.scrollIntoView({ behavior: "smooth", block: "start" });
-});
-
-qs("#stats-close").addEventListener("click", () => {
-  qs("#stats-panel").classList.add("is-hidden");
 });
 
 qs("#backup-export").addEventListener("click", exportBackup);
