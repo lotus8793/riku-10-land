@@ -755,7 +755,8 @@ body.no-blocks.no-explain .play-area .bridge-board {
   display: none;
 }
 
-.adventure-card .next-button.is-hidden {
+/* 演出中の高さ暴れ防止（スタート画面では場所を取らない） */
+.play-area:not(.is-waiting) .adventure-card .next-button.is-hidden {
   display: block;
   visibility: hidden;
 }
