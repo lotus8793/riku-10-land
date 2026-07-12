@@ -10,12 +10,16 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=25">
+    <link rel="stylesheet" href="styles.css?v=26">
   </head>
   <body>
     <main class="app-shell">
       <section class="hero-panel" aria-labelledby="app-title">
         <h1 class="hero-banner-wrap" id="app-title"><img class="hero-banner" src="hero-title.png?v=3" alt="りくのぼうけん"></h1>
+        <div class="partner-card is-hidden" id="partner-card">
+          <span class="partner-label">りくのパートナー</span>
+          <img class="partner-img" id="partner-img" alt="">
+        </div>
         <div class="hero-overlay">
           <div class="score-stack" aria-live="polite">
             <div class="score-pill">
@@ -279,6 +283,7 @@
             </div>
           </div>
           <p class="sticker-progress" id="dex-progress">じかんありで 10もん できると ポケモンを ゲットできるよ</p>
+          <p class="sticker-progress">すきなポケモンを タップすると「りくのパートナー」になるよ</p>
           <div class="sticker-grid" id="dex-grid" aria-label="ポケモンずかん"></div>
         </div>
       </section>
@@ -318,7 +323,7 @@
           <h3 class="stats-heading">ゲージのクリア問題数</h3>
           <div class="stats-settings">
             <label>ポケモンゲット <input type="number" id="set-catch" min="1" max="999"></label>
-            <label>きょうのミッション <input type="number" id="set-mission" min="1" max="999"></label>
+            <label>ミッション（ジム・ダンジョン枠） <input type="number" id="set-mission" min="1" max="999"></label>
             <label>フレンダゲージ <input type="number" id="set-coin" min="1" max="999"></label>
           </div>
           <h3 class="stats-heading">図鑑データの保存・読み込み</h3>
@@ -349,6 +354,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=23"></script>
+    <script src="app.js?v=25"></script>
   </body>
 </html>

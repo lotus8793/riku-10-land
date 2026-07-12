@@ -30,6 +30,7 @@ const COINS_KEY = "riku10v2-coins";
 const COIN_PROGRESS_KEY = "riku10v2-coin-progress";
 const COIN_VALUE = 100;
 const STREAK_KEY = "riku10v2-mission-streak";
+const PARTNER_KEY = "riku10v2-partner";
 const STREAK_BONUS_DAYS = 7;
 const SETTINGS_KEY = "riku10v2-settings";
 // あわせて10・10+X がミッションにカウントできる1日あたりの上限
@@ -352,6 +353,7 @@ const state = {
   coinJustEarned: false,
   streak: loadStreak(),
   streakBonusJust: false,
+  partner: Number(localStorage.getItem(PARTNER_KEY)) || null,
   nextQuestionTimeoutId: null,
   bridgeRevealTimeoutId: null,
   timedEnabled: localStorage.getItem(TIMED_KEY) === "true",
@@ -425,6 +427,8 @@ const els = {
   dexGrid: qs("#dex-grid"),
   catchFill: qs("#catch-fill"),
   catchText: qs("#catch-text"),
+  partnerCard: qs("#partner-card"),
+  partnerImg: qs("#partner-img"),
   missionSegPair: qs("#mission-seg-pair"),
   missionSegTenplus: qs("#mission-seg-tenplus"),
   missionSegMain: qs("#mission-seg-main"),
@@ -718,11 +722,21 @@ function catchPokemon(bonus) {
   queueCatchOverlay({ species, shiny, bonus, fled: false });
 }
 
+// ミッションの3枠それぞれの達成数
+function missionParts() {
+  rolloverDaily();
+  return {
+    pairDone: Math.min(state.daily.pairUsed || 0, PRACTICE_MISSION_CAP),
+    tenplusDone: Math.min(state.daily.tenplusUsed || 0, PRACTICE_MISSION_CAP),
+    mainDone: Math.min(state.daily.main || 0, SETTINGS.missionGoal)
+  };
+}
+
 // あわせて10・10+X が今日あと何問ミッションにカウントできるか
 function renderPracticeCaps() {
   [["pair", "#pair-cap"], ["tenplus", "#tenplus-cap"]].forEach(([mode, selector]) => {
     const left = Math.max(0, PRACTICE_MISSION_CAP - (state.daily[`${mode}Used`] || 0));
-    qs(selector).textContent = left > 0 ? `ミッションに あと${left}もん` : "きょうのぶんは カウントおわり";
+    qs(selector).textContent = left > 0 ? `ミッションに あと${left}もん` : "きょうのぶんは クリア！";
   });
 }
 
@@ -734,21 +748,39 @@ function renderMission() {
   els.catchFill.style.width = `${catchPercent}%`;
   els.catchText.textContent = `あと${remain}もん`;
 
-  // 3色の内訳バー: あわせて10 → 10+X → ジム・ダンジョン
-  const pairSeg = Math.min(state.daily.pairUsed || 0, state.daily.count);
-  const tenplusSeg = Math.min(state.daily.tenplusUsed || 0, state.daily.count - pairSeg);
-  const mainSeg = Math.max(0, state.daily.count - pairSeg - tenplusSeg);
-  const toWidth = (value) => `${Math.min(100, (value / SETTINGS.missionGoal) * 100)}%`;
-  els.missionSegPair.style.width = toWidth(pairSeg);
-  els.missionSegTenplus.style.width = toWidth(tenplusSeg);
-  els.missionSegMain.style.width = toWidth(mainSeg);
+  // 3色の内訳バー: あわせて10(10問) + 10+X(10問) + ジム・ダンジョン(設定値) の3枠必達
+  const { pairDone, tenplusDone, mainDone } = missionParts();
+  const total = PRACTICE_MISSION_CAP * 2 + SETTINGS.missionGoal;
+  const toWidth = (value) => `${Math.min(100, (value / total) * 100)}%`;
+  els.missionSegPair.style.width = toWidth(pairDone);
+  els.missionSegTenplus.style.width = toWidth(tenplusDone);
+  els.missionSegMain.style.width = toWidth(mainDone);
   els.missionLegend.innerHTML =
-    `<i class="legend-dot seg-pair"></i>あわせて10 ${pairSeg}/${PRACTICE_MISSION_CAP}` +
-    `<i class="legend-dot seg-tenplus"></i>10+X ${tenplusSeg}/${PRACTICE_MISSION_CAP}` +
-    `<i class="legend-dot seg-main"></i>ジム・ダンジョン ${mainSeg}`;
+    `<i class="legend-dot seg-pair"></i>あわせて10 ${pairDone}/${PRACTICE_MISSION_CAP}` +
+    `<i class="legend-dot seg-tenplus"></i>10+X ${tenplusDone}/${PRACTICE_MISSION_CAP}` +
+    `<i class="legend-dot seg-main"></i>ジム・ダンジョン ${mainDone}/${SETTINGS.missionGoal}`;
   els.missionText.textContent = state.daily.done
     ? `クリア！🎉${state.streak.last === todayStr() && state.streak.count > 1 ? ` ${state.streak.count}日れんぞく` : ""}`
-    : `あと ${SETTINGS.missionGoal - state.daily.count}もん`;
+    : `あと ${total - pairDone - tenplusDone - mainDone}もん`;
+}
+
+/* ---------- りくのパートナー ---------- */
+
+function renderPartner() {
+  const species = STICKERS.find((s) => s.id === state.partner);
+  const entry = species ? state.caught[species.id] : null;
+  const owned = Boolean(entry && (entry.n || 0) + (entry.s || 0) > 0);
+  els.partnerCard.classList.toggle("is-hidden", !owned);
+  if (!owned) return;
+  els.partnerImg.src = stickerImageUrl(species.id, (entry.s || 0) > 0);
+  els.partnerImg.alt = species.name;
+  els.partnerCard.title = species.name;
+}
+
+function setPartner(id) {
+  state.partner = id;
+  localStorage.setItem(PARTNER_KEY, String(id));
+  renderPartner();
 }
 
 function renderDex() {
@@ -779,6 +811,11 @@ function renderDex() {
       img.loading = "lazy";
       cell.append(img);
       cell.title = entry.name;
+      cell.classList.toggle("is-partner", entry.id === state.partner);
+      cell.addEventListener("click", () => {
+        setPartner(entry.id);
+        renderDex();
+      });
       if (entry.count >= 2) {
         const dupe = document.createElement("span");
         dupe.className = "dex-dupe";
@@ -808,13 +845,22 @@ function registerWrong() {
   state.catchProgress = Math.max(0, state.catchProgress - 1);
   saveCatchProgress();
   rolloverDaily();
-  state.daily.count = Math.max(0, state.daily.count - 1);
-  saveDaily();
+  // ミッションのジム・ダンジョン枠もペナルティ。ただしクリア後は固定で減らさない
+  if (!state.daily.done) {
+    state.daily.main = Math.max(0, (state.daily.main || 0) - 1);
+    saveDaily();
+  }
   renderMission();
 }
 
 function checkMissionGoal() {
-  if (!state.daily.done && state.daily.count >= SETTINGS.missionGoal) {
+  const { pairDone, tenplusDone, mainDone } = missionParts();
+  if (
+    !state.daily.done &&
+    pairDone >= PRACTICE_MISSION_CAP &&
+    tenplusDone >= PRACTICE_MISSION_CAP &&
+    mainDone >= SETTINGS.missionGoal
+  ) {
     state.daily.done = true;
     saveDaily();
     registerMissionClear();
@@ -826,7 +872,7 @@ function registerCorrect() {
   state.totalCorrect += 1;
   localStorage.setItem(TOTAL_KEY, String(state.totalCorrect));
   rolloverDaily();
-  state.daily.count += 1;
+  state.daily.main = (state.daily.main || 0) + 1;
   saveDaily();
   registerCoinProgress();
   state.catchProgress += 1;
@@ -839,14 +885,13 @@ function registerCorrect() {
   renderMission();
 }
 
-// あわせて10・10+X の正解は、ミッションだけに1日各10問までカウントする
+// あわせて10・10+X の正解は、ミッションの各10問枠にカウントする
 function registerPracticeCorrect(mode) {
   rolloverDaily();
   const usedKey = mode === "pair" ? "pairUsed" : "tenplusUsed";
   const used = state.daily[usedKey] || 0;
   if (used >= PRACTICE_MISSION_CAP) return;
   state.daily[usedKey] = used + 1;
-  state.daily.count += 1;
   saveDaily();
   checkMissionGoal();
   renderMission();
@@ -1887,6 +1932,7 @@ qs("#release-pokemon").addEventListener("click", () => {
   saveCatchProgress();
   saveCaught();
   renderDex();
+  renderPartner();
 });
 
 qs("#clear-records").addEventListener("click", () => {
@@ -1937,4 +1983,5 @@ renderExplainToggle();
 renderRecords();
 renderMission();
 renderCoinGauge();
+renderPartner();
 MODES.forEach(resetModeStart);
