@@ -1056,10 +1056,16 @@ function renderCalendar() {
 
   const grid = qs("#cal-grid");
   grid.replaceChildren();
-  ["にち", "げつ", "か", "すい", "もく", "きん", "ど"].forEach((label) => {
+  [["日", "にち"], ["月", "げつ"], ["火", "か"], ["水", "すい"], ["木", "もく"], ["金", "きん"], ["土", "ど"]].forEach(([kanji, kana]) => {
     const head = document.createElement("div");
     head.className = "cal-head";
-    head.textContent = label;
+    const kanjiEl = document.createElement("span");
+    kanjiEl.className = "cal-head-kanji";
+    kanjiEl.textContent = kanji;
+    const kanaEl = document.createElement("span");
+    kanaEl.className = "cal-head-kana";
+    kanaEl.textContent = kana;
+    head.append(kanjiEl, kanaEl);
     grid.append(head);
   });
 
@@ -1919,17 +1925,6 @@ backupImportInput.addEventListener("change", () => {
   const file = backupImportInput.files && backupImportInput.files[0];
   if (file) importBackup(file);
   backupImportInput.value = "";
-});
-
-qs("#reset-progress").addEventListener("click", () => {
-  clearNextQuestion();
-  stopChallengeTimer();
-  resetChallengeScore();
-  state.combo = 0;
-  MODES.forEach(resetModeStart);
-  if (state.activeMode === "records") {
-    renderRecords();
-  }
 });
 
 if ("serviceWorker" in navigator && location.protocol !== "file:") {

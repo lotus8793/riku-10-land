@@ -49,70 +49,33 @@ button {
   overflow: hidden;
   position: relative;
   border-radius: 20px;
-  background: linear-gradient(118deg, #2f5fd0 0%, #3f8ae0 52%, #56c2e8 100%);
+  background:
+    url("hero-bg.jpg?v=1") center / cover no-repeat,
+    linear-gradient(180deg, #2e8fe2 0%, #58b2f0 48%, #a7dbf9 100%);
   box-shadow: var(--shadow);
   color: #fff;
 }
 
-.hero-panel::before,
-.hero-panel::after {
-  content: "";
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.09);
-  pointer-events: none;
-}
-
-.hero-panel::before {
-  width: 240px;
-  height: 240px;
-  right: -70px;
-  top: -130px;
-}
-
-.hero-panel::after {
-  width: 150px;
-  height: 150px;
-  left: -60px;
-  bottom: -80px;
-}
-
-.hero-deco {
-  position: absolute;
-  inset: 0;
-  background-image:
-    radial-gradient(circle, rgba(255, 255, 255, 0.85) 0 1.4px, transparent 2px),
-    radial-gradient(circle, rgba(255, 255, 255, 0.45) 0 1px, transparent 1.6px);
-  background-size: 150px 95px, 95px 75px;
-  background-position: 14px 16px, 52px 44px;
-  opacity: 0.55;
-  pointer-events: none;
-}
-
-.title-row {
-  position: relative;
-  z-index: 1;
+.hero-banner-wrap {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 14px 22px;
-}
-
-.eyebrow {
-  margin: 0 0 6px;
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
-h1 {
+  justify-content: center;
   margin: 0;
-  font-size: clamp(22px, 5vw, 32px);
-  line-height: 1.1;
-  letter-spacing: 0.01em;
-  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
+  padding: 12px 16px 8px;
+}
+
+.hero-banner {
+  display: block;
+  width: clamp(240px, 46vw, 400px);
+  max-width: 100%;
+  height: auto;
+  filter: drop-shadow(0 8px 14px rgba(10, 40, 90, 0.3));
+}
+
+.hero-overlay {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
 }
 
 .score-stack {
@@ -1311,6 +1274,10 @@ body.no-blocks.no-explain .play-area .bridge-board {
   gap: 8px;
 }
 
+.settings-actions {
+  justify-content: flex-start;
+}
+
 .practice-cap {
   flex-shrink: 0;
   padding: 4px 10px;
@@ -1320,6 +1287,12 @@ body.no-blocks.no-explain .play-area .bridge-board {
   font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.settings-note {
+  margin: -2px 0 8px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .stats-settings {
@@ -1347,19 +1320,6 @@ body.no-blocks.no-explain .play-area .bridge-board {
   color: var(--ink);
 }
 
-/* トップのなかまたち */
-
-.hero-art {
-  position: relative;
-  z-index: 1;
-  display: block;
-  height: clamp(84px, 19vw, 160px);
-  width: auto;
-  min-width: 0;
-  margin: -10px 0;
-  filter: drop-shadow(0 8px 14px rgba(10, 40, 90, 0.35));
-}
-
 /* カレンダー */
 
 .cal-legend {
@@ -1379,10 +1339,21 @@ body.no-blocks.no-explain .play-area .bridge-board {
 }
 
 .cal-head {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
   color: var(--muted);
-  font-size: 12px;
   font-weight: 900;
+}
+
+.cal-head-kanji {
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.cal-head-kana {
+  font-size: 10px;
 }
 
 .cal-cell {
@@ -1586,10 +1557,6 @@ body.no-blocks.no-explain .play-area .bridge-board {
   .app-shell {
     padding-left: 10px;
     padding-right: 10px;
-  }
-
-  .title-row {
-    padding: 16px;
   }
 
   .prompt {

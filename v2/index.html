@@ -10,18 +10,13 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=19">
+    <link rel="stylesheet" href="styles.css?v=24">
   </head>
   <body>
     <main class="app-shell">
       <section class="hero-panel" aria-labelledby="app-title">
-        <div class="hero-deco" aria-hidden="true"></div>
-        <div class="title-row">
-          <div>
-            <p class="eyebrow">たして ひいて ポケモンゲット</p>
-            <h1 id="app-title">りくのぼうけん</h1>
-          </div>
-          <img class="hero-art" src="hero.png?v=1" alt="ポケモンのなかまたち">
+        <h1 class="hero-banner-wrap" id="app-title"><img class="hero-banner" src="hero-title.png?v=1" alt="りくのぼうけん"></h1>
+        <div class="hero-overlay">
           <div class="score-stack" aria-live="polite">
             <div class="score-pill">
               <span>ちょきん</span>
@@ -326,17 +321,17 @@
             <label>きょうのミッション <input type="number" id="set-mission" min="1" max="999"></label>
             <label>フレンダゲージ <input type="number" id="set-coin" min="1" max="999"></label>
           </div>
-          <h3 class="stats-heading">データのほぞん・よみこみ</h3>
+          <h3 class="stats-heading">ずかんデータのほぞん・よみこみ</h3>
+          <p class="settings-note">ずかんのほかに ちょきん・きろく・とうけいのデータも いっしょにほぞんされます</p>
           <div class="stats-buttons settings-actions">
-            <button class="quiet-button" type="button" id="backup-export">ほぞん</button>
-            <button class="quiet-button" type="button" id="backup-import">よみこみ</button>
+            <button class="quiet-button" type="button" id="backup-export">ずかんデータをほぞん</button>
+            <button class="quiet-button" type="button" id="backup-import">ずかんデータをよみこみ</button>
           </div>
           <input type="file" id="backup-import-file" accept="application/json,.json" hidden>
           <h3 class="stats-heading">リセット</h3>
           <div class="stats-buttons settings-actions">
             <button class="quiet-button" type="button" id="coin-reset">ちょきんリセット</button>
             <button class="quiet-button" type="button" id="release-pokemon">ずかんリセット（ぜんぶにがす）</button>
-            <button class="quiet-button" type="button" id="reset-progress">チャレンジリセット</button>
           </div>
         </div>
       </section>
@@ -354,6 +349,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=21"></script>
+    <script src="app.js?v=22"></script>
   </body>
 </html>
