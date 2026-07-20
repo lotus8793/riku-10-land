@@ -1753,10 +1753,15 @@ function renderMogiEquation(problem, answer = null) {
   const keepValue = splitLeft ? problem.small : problem.big;
   const moved = 10 - keepValue;
   const rest = total - 10;
+  // 丸の並びは下のブロック図と同じ向きにする:
+  // 左で10を作ったなら「うつした分」が左、右で10を作ったなら「のこり」が左
+  const movedBall = `<span class="cherry-ball ball-moved">${moved}</span>`;
+  const restBall = `<span class="cherry-ball ball-rest">${rest}</span>`;
+  const balls = state.mogi.doneSide === "left" ? movedBall + restBall : restBall + movedBall;
   const cherry =
     `<span class="cherry-group"><span class="cherry-num">${splitValue}</span>` +
     `<span class="cherry-arms"></span>` +
-    `<span class="cherry-row"><span class="cherry-ball">${moved}</span><span class="cherry-ball">${rest}</span></span></span>`;
+    `<span class="cherry-row">${balls}</span></span>`;
   const left = splitLeft ? cherry : `<span>${problem.big}</span>`;
   const right = splitLeft ? `<span>${problem.small}</span>` : cherry;
   els.mogiEquation.innerHTML = `${left}<span>+</span>${right}${answer !== null ? `<span>=</span><span>${answer}</span>` : ""}`;
@@ -1767,7 +1772,6 @@ function mogiTenComplete(side) {
   state.mogi.doneSide = side;
   mogiFrame(side).classList.add("is-ten-complete");
   playTone("good");
-  burstConfetti(24);
   const problem = state.problem.mogi;
   M.mogi.feedback.className = "feedback";
   M.mogi.feedback.textContent = `10を つくった！ ${problem.big} + ${problem.small} は いくつかな？`;
@@ -1789,13 +1793,26 @@ function chooseMogiSum(value, button, problem = state.problem.mogi) {
     renderMogiEquation(problem, answer);
     const splitValue = state.mogi.doneSide === "right" ? problem.big : problem.small;
     const moved = 10 - (state.mogi.doneSide === "right" ? problem.small : problem.big);
-    els.mogiChain.textContent = `${splitValue}を ${moved} と ${rest} に わけたね`;
+    // 文もさくらんぼの丸と同じ並びで読み上げる
+    const [firstPart, secondPart] = state.mogi.doneSide === "left" ? [moved, rest] : [rest, moved];
+    els.mogiChain.textContent = `${splitValue}を ${firstPart} と ${secondPart} に わけたね`;
     els.mogiChain.classList.add("is-solved");
-    const restSide = state.mogi.doneSide === "left" ? "right" : "left";
+    // のこりがわの番号はオレンジ、10がわに「うつした分」の番号は青。
+    // さくらんぼの丸の色（ball-rest / ball-moved）と対応させる
+    const doneSide = state.mogi.doneSide;
+    const restSide = doneSide === "left" ? "right" : "left";
     [...mogiFrame(restSide).children].filter((cell) => cell.classList.contains("is-block")).forEach((cell, index) => {
-      cell.classList.add("is-counted");
+      cell.classList.add("is-counted", "count-rest");
       cell.dataset.count = index + 1;
     });
+    // 10がわは、うつしてきたブロック（生まれ色が違うもの）だけに1から振る
+    const nativeClass = doneSide === "left" ? "is-filled" : "is-guest";
+    [...mogiFrame(doneSide).children]
+      .filter((cell) => cell.classList.contains("is-block") && !cell.classList.contains(nativeClass))
+      .forEach((cell, index) => {
+        cell.classList.add("is-counted", "count-moved");
+        cell.dataset.count = index + 1;
+      });
   } else {
     els.mogiEquation.textContent = `${problem.big} + ${problem.small} = ${answer}`;
   }

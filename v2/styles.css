@@ -1481,6 +1481,25 @@ body.no-blocks.no-explain .play-area .bridge-board {
   line-height: 1;
 }
 
+/* さくらんぼの丸とブロックの番号バッジを同じ色でひもづける（うつした分=青、のこり=オレンジ） */
+.cherry-ball.ball-moved {
+  border-color: #2f5fd0;
+  color: #2f5fd0;
+}
+
+.cherry-ball.ball-rest {
+  border-color: #f8961e;
+  color: #f8961e;
+}
+
+.frame-cell.is-counted.count-moved[data-count]::before {
+  background: #2f5fd0;
+}
+
+.frame-cell.is-counted.count-rest[data-count]::before {
+  background: #f8961e;
+}
+
 /* もぎダンジョンはブロックを動かすモードなので、ブロックなし設定でも常に表示する */
 body.no-blocks #mogi-mode:not(.is-waiting) .ten-frame,
 body.no-blocks #mogi-mode:not(.is-waiting) .bridge-board,
