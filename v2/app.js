@@ -342,8 +342,9 @@ const state = {
     minus: loadModeRecords(RECORDS_KEYS.minus),
     ice: loadModeRecords(RECORDS_KEYS.ice)
   },
-  // もぎダンジョンの盤面: phase は build(10づくり) → rest(のこり) → sum(こたえ) → done
-  mogi: { phase: "build", left: 0, right: 0, doneSide: "" },
+  // もぎダンジョンの盤面: phase は build(10づくり) → sum(こたえ) → done。
+  // slots は各がわ10マスの中身（"green"/"red"/null）。取られたマスは穴のまま残す
+  mogi: { phase: "build", doneSide: "", slots: { left: [], right: [] } },
   combo: 0,
   stars: 0,
   totalCorrect: Number(localStorage.getItem(TOTAL_KEY) || "0") || 0,
@@ -1607,37 +1608,44 @@ function chooseTenPlus(value, button, problem = state.problem.tenplus) {
 
 /* ---------- もぎダンジョン（じぶんで10づくり） ---------- */
 
-const mogiDrag = { active: false, side: "", flyer: null, cell: null, offsetX: 0, offsetY: 0, homeLeft: 0, homeTop: 0 };
+const mogiDrag = { active: false, side: "", index: -1, color: "", flyer: null, cell: null, offsetX: 0, offsetY: 0, homeLeft: 0, homeTop: 0 };
 
 function mogiFrame(side) {
   return side === "left" ? els.mogiLeftFrame : els.mogiRightFrame;
 }
 
+function mogiCount(side) {
+  return state.mogi.slots[side].filter(Boolean).length;
+}
+
 function renderMogiFrame(side) {
-  const problem = state.problem.mogi;
-  const count = state.mogi[side];
-  const native = Math.min(count, side === "left" ? problem.big : problem.small);
+  const slots = state.mogi.slots[side];
   const container = mogiFrame(side);
   container.replaceChildren();
-  for (let index = 0; index < 10; index += 1) {
+  slots.forEach((color) => {
     const cell = document.createElement("div");
     cell.className = "frame-cell";
-    if (index < count) {
-      cell.classList.add("is-block");
-      // 生まれが左のブロックは緑、右のブロックは赤のまま行き来する
-      const isNative = index < native;
-      const green = side === "left" ? isNative : !isNative;
-      cell.classList.add(green ? "is-filled" : "is-guest");
+    if (color) {
+      // ブロックは生まれた側の色（左=緑・右=赤）のまま行き来する
+      cell.classList.add("is-block", color === "green" ? "is-filled" : "is-guest");
     }
     container.append(cell);
-  }
+  });
+}
+
+// 取られたがわの数字は出さない（問題の数と変わって混乱するので）。
+// ふえていくがわだけ、いまの数を見せて「あといくつで10」を応援する
+function renderMogiLabel(labelEl, side, original) {
+  const count = mogiCount(side);
+  labelEl.textContent = count >= original ? count : "";
 }
 
 function renderMogiBoard() {
+  const problem = state.problem.mogi;
   renderMogiFrame("left");
   renderMogiFrame("right");
-  els.mogiLeftLabel.textContent = state.mogi.left;
-  els.mogiRightLabel.textContent = state.mogi.right;
+  renderMogiLabel(els.mogiLeftLabel, "left", problem.big);
+  renderMogiLabel(els.mogiRightLabel, "right", problem.small);
 }
 
 function mogiDragStart(event, side) {
@@ -1658,6 +1666,8 @@ function mogiDragStart(event, side) {
   cell.classList.add("is-drag-source");
   mogiDrag.active = true;
   mogiDrag.side = side;
+  mogiDrag.index = [...cell.parentElement.children].indexOf(cell);
+  mogiDrag.color = cell.classList.contains("is-filled") ? "green" : "red";
   mogiDrag.flyer = flyer;
   mogiDrag.cell = cell;
   mogiDrag.offsetX = event.clientX - rect.left;
@@ -1688,7 +1698,7 @@ function mogiSnapBack(flyer, homeLeft, homeTop) {
 }
 
 function takeMogiDrag() {
-  const grabbed = { flyer: mogiDrag.flyer, cell: mogiDrag.cell, side: mogiDrag.side, homeLeft: mogiDrag.homeLeft, homeTop: mogiDrag.homeTop };
+  const grabbed = { flyer: mogiDrag.flyer, cell: mogiDrag.cell, side: mogiDrag.side, index: mogiDrag.index, color: mogiDrag.color, homeLeft: mogiDrag.homeLeft, homeTop: mogiDrag.homeTop };
   mogiDrag.active = false;
   mogiDrag.flyer = null;
   mogiDrag.cell = null;
@@ -1698,7 +1708,7 @@ function takeMogiDrag() {
 
 function mogiDragEnd(event) {
   if (!mogiDrag.active) return;
-  const { flyer, side: from, homeLeft, homeTop } = takeMogiDrag();
+  const { flyer, side: from, index, color, homeLeft, homeTop } = takeMogiDrag();
   const to = from === "left" ? "right" : "left";
   const rect = mogiFrame(to).getBoundingClientRect();
   const pad = 24;
@@ -1707,18 +1717,20 @@ function mogiDragEnd(event) {
     event.clientX <= rect.right + pad &&
     event.clientY >= rect.top - pad &&
     event.clientY <= rect.bottom + pad;
-  if (state.mogi.phase !== "build" || !inTarget || state.mogi[to] >= 10) {
+  const landSlot = state.mogi.slots[to].indexOf(null);
+  if (state.mogi.phase !== "build" || !inTarget || landSlot === -1) {
     mogiSnapBack(flyer, homeLeft, homeTop);
     return;
   }
   flyer.remove();
-  state.mogi[from] -= 1;
-  state.mogi[to] += 1;
+  // 取ったマスは穴のまま残す（左詰めすると子どもが混乱する）
+  state.mogi.slots[from][index] = null;
+  state.mogi.slots[to][landSlot] = color;
   playTone("click");
   renderMogiBoard();
-  const landed = mogiFrame(to).children[state.mogi[to] - 1];
+  const landed = mogiFrame(to).children[landSlot];
   if (landed) landed.classList.add("is-pop");
-  if (state.mogi[to] === 10) mogiTenComplete(to);
+  if (mogiCount(to) === 10) mogiTenComplete(to);
 }
 
 function mogiDragCancel() {
@@ -1745,49 +1757,16 @@ function renderMogiEquation(problem, answer = null) {
 }
 
 function mogiTenComplete(side) {
-  state.mogi.phase = "rest";
+  state.mogi.phase = "sum";
   state.mogi.doneSide = side;
   mogiFrame(side).classList.add("is-ten-complete");
   playTone("good");
   burstConfetti(24);
   const problem = state.problem.mogi;
-  const rest = problem.big + problem.small - 10;
-  const splitValue = side === "right" ? problem.big : problem.small;
-  const moved = 10 - (side === "right" ? problem.small : problem.big);
-  renderMogiEquation(problem);
-  els.mogiChain.textContent = `${splitValue}を ${moved} と ${rest} に わけたね`;
   M.mogi.feedback.className = "feedback";
-  M.mogi.feedback.textContent = "10を つくった！ のこりは なんこ かな？";
-  renderChoiceButtons(M.mogi.choices, [1, 2, 3, 4, 5, 6, 7, 8, 9], (value, button) => {
-    chooseMogiRest(value, button, rest);
-  });
-}
-
-function chooseMogiRest(value, button, rest) {
-  if (state.locked.mogi || state.mogi.phase !== "rest") return;
-  if (value !== rest) {
-    button.classList.add("is-wrong");
-    M.mogi.feedback.className = "feedback is-try";
-    M.mogi.feedback.textContent = "もういちど かぞえてみよう";
-    playTone("try");
-    return;
-  }
-  button.classList.add("is-correct");
-  playTone("click");
-  state.mogi.phase = "sum";
-  // のこりがわのブロックに 1, 2… と番号バッジをつけて数えを確かめる
-  const restSide = state.mogi.doneSide === "left" ? "right" : "left";
-  [...mogiFrame(restSide).children].slice(0, state.mogi[restSide]).forEach((cell, index) => {
-    cell.classList.add("is-counted");
-    cell.dataset.count = index + 1;
-  });
-  const problem = state.problem.mogi;
-  els.mogiChain.textContent = `10 と ${rest} だね`;
-  els.mogiChain.classList.add("is-solved");
-  M.mogi.feedback.className = "feedback";
-  M.mogi.feedback.textContent = `じゃあ ${problem.big} + ${problem.small} は いくつかな？`;
-  renderChoiceButtons(M.mogi.choices, [11, 12, 13, 14, 15, 16, 17, 18, 19], (sumValue, sumButton) => {
-    chooseMogiSum(sumValue, sumButton, problem);
+  M.mogi.feedback.textContent = `10を つくった！ ${problem.big} + ${problem.small} は いくつかな？`;
+  renderChoiceButtons(M.mogi.choices, [11, 12, 13, 14, 15, 16, 17, 18, 19], (value, button) => {
+    chooseMogiSum(value, button, problem);
   });
 }
 
@@ -1799,9 +1778,22 @@ function chooseMogiSum(value, button, problem = state.problem.mogi) {
   recordAnswer("mogi", problem, correct);
   state.mogi.phase = "done";
   button.classList.add(correct ? "is-correct" : "is-wrong");
-  renderMogiEquation(problem, answer);
+  if (state.explainEnabled) {
+    // かいせつ: さくらんぼ図と、のこりブロックの番号バッジを見せる
+    renderMogiEquation(problem, answer);
+    const splitValue = state.mogi.doneSide === "right" ? problem.big : problem.small;
+    const moved = 10 - (state.mogi.doneSide === "right" ? problem.small : problem.big);
+    els.mogiChain.textContent = `${splitValue}を ${moved} と ${rest} に わけたね`;
+    els.mogiChain.classList.add("is-solved");
+    const restSide = state.mogi.doneSide === "left" ? "right" : "left";
+    [...mogiFrame(restSide).children].filter((cell) => cell.classList.contains("is-block")).forEach((cell, index) => {
+      cell.classList.add("is-counted");
+      cell.dataset.count = index + 1;
+    });
+  } else {
+    els.mogiEquation.textContent = `${problem.big} + ${problem.small} = ${answer}`;
+  }
   els.mogiEquation.classList.add("is-solved");
-  els.mogiChain.textContent = `10 と ${rest} で ${answer} だね`;
   if (correct) {
     onCorrect("mogi");
   } else {
@@ -1815,7 +1807,8 @@ function nextMogi() {
   const p = pickWeighted("mogi", bridgeProblems, state.lastKey.mogi);
   state.problem.mogi = p;
   state.lastKey.mogi = problemKey(p);
-  state.mogi = { phase: "build", left: p.big, right: p.small, doneSide: "" };
+  const makeSlots = (n, color) => Array.from({ length: 10 }, (_, i) => (i < n ? color : null));
+  state.mogi = { phase: "build", doneSide: "", slots: { left: makeSlots(p.big, "green"), right: makeSlots(p.small, "red") } };
   els.mogiEquation.textContent = `${p.big} + ${p.small}`;
   els.mogiEquation.classList.remove("is-solved");
   els.mogiChain.textContent = "";
