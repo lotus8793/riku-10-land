@@ -1727,6 +1727,23 @@ function mogiDragCancel() {
   mogiSnapBack(flyer, homeLeft, homeTop);
 }
 
+// さくらんぼ図つきの式。10を作った側の反対の数を「わけた数」として2つの丸にわける
+function renderMogiEquation(problem, answer = null) {
+  const total = problem.big + problem.small;
+  const splitLeft = state.mogi.doneSide === "right"; // 右で10を作った→左のかずをわけた
+  const splitValue = splitLeft ? problem.big : problem.small;
+  const keepValue = splitLeft ? problem.small : problem.big;
+  const moved = 10 - keepValue;
+  const rest = total - 10;
+  const cherry =
+    `<span class="cherry-group"><span class="cherry-num">${splitValue}</span>` +
+    `<span class="cherry-arms"></span>` +
+    `<span class="cherry-row"><span class="cherry-ball">${moved}</span><span class="cherry-ball">${rest}</span></span></span>`;
+  const left = splitLeft ? cherry : `<span>${problem.big}</span>`;
+  const right = splitLeft ? `<span>${problem.small}</span>` : cherry;
+  els.mogiEquation.innerHTML = `${left}<span>+</span>${right}${answer !== null ? `<span>=</span><span>${answer}</span>` : ""}`;
+}
+
 function mogiTenComplete(side) {
   state.mogi.phase = "rest";
   state.mogi.doneSide = side;
@@ -1735,7 +1752,10 @@ function mogiTenComplete(side) {
   burstConfetti(24);
   const problem = state.problem.mogi;
   const rest = problem.big + problem.small - 10;
-  els.mogiChain.textContent = "10のかたまりが できた！";
+  const splitValue = side === "right" ? problem.big : problem.small;
+  const moved = 10 - (side === "right" ? problem.small : problem.big);
+  renderMogiEquation(problem);
+  els.mogiChain.textContent = `${splitValue}を ${moved} と ${rest} に わけたね`;
   M.mogi.feedback.className = "feedback";
   M.mogi.feedback.textContent = "10を つくった！ のこりは なんこ かな？";
   renderChoiceButtons(M.mogi.choices, [1, 2, 3, 4, 5, 6, 7, 8, 9], (value, button) => {
@@ -1779,7 +1799,7 @@ function chooseMogiSum(value, button, problem = state.problem.mogi) {
   recordAnswer("mogi", problem, correct);
   state.mogi.phase = "done";
   button.classList.add(correct ? "is-correct" : "is-wrong");
-  els.mogiEquation.textContent = `${problem.big} + ${problem.small} = ${answer}`;
+  renderMogiEquation(problem, answer);
   els.mogiEquation.classList.add("is-solved");
   els.mogiChain.textContent = `10 と ${rest} で ${answer} だね`;
   if (correct) {

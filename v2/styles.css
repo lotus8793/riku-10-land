@@ -1410,6 +1410,72 @@ body.no-blocks.no-explain .play-area .bridge-board {
   animation: friend-pop 320ms cubic-bezier(0.2, 1.4, 0.45, 1) both;
 }
 
+/* さくらんぼ図: 式のなかの「わけた数」の下に丸2つをぶら下げる */
+#mogi-equation {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  column-gap: 14px;
+}
+
+.cherry-group {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cherry-num {
+  line-height: 1.15;
+}
+
+.cherry-arms {
+  position: relative;
+  width: 46px;
+  height: 15px;
+  margin-top: 1px;
+}
+
+.cherry-arms::before,
+.cherry-arms::after {
+  content: "";
+  position: absolute;
+  top: -2px;
+  width: 3px;
+  height: 17px;
+  border-radius: 2px;
+  background: #8a63d2;
+}
+
+.cherry-arms::before {
+  left: 11px;
+  transform: rotate(28deg);
+}
+
+.cherry-arms::after {
+  right: 11px;
+  transform: rotate(-28deg);
+}
+
+.cherry-row {
+  display: flex;
+  gap: 10px;
+}
+
+.cherry-ball {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 3px solid #8a63d2;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 950;
+  line-height: 1;
+}
+
 /* もぎダンジョンはブロックを動かすモードなので、ブロックなし設定でも常に表示する */
 body.no-blocks #mogi-mode:not(.is-waiting) .ten-frame,
 body.no-blocks #mogi-mode:not(.is-waiting) .bridge-board,
