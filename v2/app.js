@@ -1978,7 +1978,6 @@ qs("#cal-next").addEventListener("click", () => {
 qs("#coin-reset").addEventListener("click", () => {
   if (!window.confirm("貯金を0円に戻しますか？（お金を渡したらリセットしてください）")) return;
   state.coins = 0;
-  state.coinProgress = 0;
   state.coinJustEarned = false;
   saveCoins();
   renderCoinGauge();
