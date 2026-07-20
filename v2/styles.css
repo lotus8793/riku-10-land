@@ -1424,6 +1424,11 @@ body.no-blocks.no-explain .play-area .bridge-board {
   column-gap: 14px;
 }
 
+/* IDセレクタが is-waiting の非表示ルールに勝ってしまうので、スタート前は明示的に隠す */
+.play-area.is-waiting #mogi-equation {
+  display: none;
+}
+
 .cherry-group {
   display: inline-flex;
   flex-direction: column;
@@ -1481,15 +1486,15 @@ body.no-blocks.no-explain .play-area .bridge-board {
   line-height: 1;
 }
 
-/* さくらんぼの丸とブロックの番号バッジを同じ色でひもづける（うつした分=青、のこり=オレンジ） */
+/* さくらんぼの丸とブロックの番号バッジを同じ色でひもづける（うつした分=青、のこり=黒） */
 .cherry-ball.ball-moved {
   border-color: #2f5fd0;
   color: #2f5fd0;
 }
 
 .cherry-ball.ball-rest {
-  border-color: #f8961e;
-  color: #f8961e;
+  border-color: #263238;
+  color: #263238;
 }
 
 .frame-cell.is-counted.count-moved[data-count]::before {
@@ -1497,7 +1502,7 @@ body.no-blocks.no-explain .play-area .bridge-board {
 }
 
 .frame-cell.is-counted.count-rest[data-count]::before {
-  background: #f8961e;
+  background: #263238;
 }
 
 /* もぎダンジョンはブロックを動かすモードなので、ブロックなし設定でも常に表示する */
