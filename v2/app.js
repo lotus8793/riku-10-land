@@ -5,7 +5,7 @@ const TIMER_TICK_MS = 100;
 const MAX_RECORDS = 10;
 const STICKER_STEP = 10;
 
-const MODES = ["pair", "tenplus", "simple", "bridge", "minus", "ice"];
+const MODES = ["pair", "tenplus", "simple", "mogi", "bridge", "minus", "ice"];
 // 全ゲージ（ポケモン・フレンダ・ミッション）にカウントするモード。
 // あわせて10と10+Xはミッションのみ、1日各10問（PRACTICE_MISSION_CAP）までカウントする
 const GAUGE_MODES = ["simple", "bridge", "minus", "ice"];
@@ -14,6 +14,7 @@ const RECORDS_KEYS = {
   simple: "riku10v2-records-simple",
   pair: "riku10v2-records-pair",
   tenplus: "riku10v2-records-tenplus",
+  mogi: "riku10v2-records-mogi",
   bridge: "riku10v2-records-bridge",
   minus: "riku10v2-records-minus",
   ice: "riku10v2-records-ice"
@@ -325,21 +326,24 @@ function loadModeRecords(key) {
 }
 
 const state = {
-  problem: { simple: null, pair: null, tenplus: null, bridge: null, minus: null, ice: null },
-  lastKey: { simple: "", pair: "", tenplus: "", bridge: "", minus: "", ice: "" },
-  questionAt: { simple: 0, pair: 0, tenplus: 0, bridge: 0, minus: 0, ice: 0 },
+  problem: { simple: null, pair: null, tenplus: null, mogi: null, bridge: null, minus: null, ice: null },
+  lastKey: { simple: "", pair: "", tenplus: "", mogi: "", bridge: "", minus: "", ice: "" },
+  questionAt: { simple: 0, pair: 0, tenplus: 0, mogi: 0, bridge: 0, minus: 0, ice: 0 },
   stats: loadStats(),
   dayLog: loadDayLog(),
-  started: { simple: false, pair: false, tenplus: false, bridge: false, minus: false, ice: false },
-  locked: { simple: true, pair: true, tenplus: true, bridge: true, minus: true, ice: true },
+  started: { simple: false, pair: false, tenplus: false, mogi: false, bridge: false, minus: false, ice: false },
+  locked: { simple: true, pair: true, tenplus: true, mogi: true, bridge: true, minus: true, ice: true },
   records: {
     simple: loadModeRecords(RECORDS_KEYS.simple),
     pair: loadModeRecords(RECORDS_KEYS.pair),
     tenplus: loadModeRecords(RECORDS_KEYS.tenplus),
+    mogi: loadModeRecords(RECORDS_KEYS.mogi),
     bridge: loadModeRecords(RECORDS_KEYS.bridge),
     minus: loadModeRecords(RECORDS_KEYS.minus),
     ice: loadModeRecords(RECORDS_KEYS.ice)
   },
+  // もぎダンジョンの盤面: phase は build(10づくり) → rest(のこり) → sum(こたえ) → done
+  mogi: { phase: "build", left: 0, right: 0, doneSide: "" },
   combo: 0,
   stars: 0,
   totalCorrect: Number(localStorage.getItem(TOTAL_KEY) || "0") || 0,
@@ -403,6 +407,12 @@ const els = {
   bridgeRightLabel: qs("#bridge-right-label"),
   bridgeFrame: qs("#bridge-frame"),
   donorDots: qs("#donor-dots"),
+  mogiEquation: qs("#mogi-equation"),
+  mogiChain: qs("#mogi-chain"),
+  mogiLeftLabel: qs("#mogi-left-label"),
+  mogiRightLabel: qs("#mogi-right-label"),
+  mogiLeftFrame: qs("#mogi-left-frame"),
+  mogiRightFrame: qs("#mogi-right-frame"),
   tenplusEquation: qs("#tenplus-equation"),
   tenplusFrame: qs("#tenplus-frame"),
   tenplusDots: qs("#tenplus-dots"),
@@ -456,7 +466,7 @@ function problemKey(problem) {
 /* ---------- 成績記録・にがて優先出題 ---------- */
 
 function statKeyFn(mode) {
-  return mode === "pair" || mode === "bridge" ? problemKey : abKey;
+  return mode === "pair" || mode === "bridge" || mode === "mogi" ? problemKey : abKey;
 }
 
 function saveStats() {
@@ -887,7 +897,9 @@ function registerCorrect() {
 }
 
 // あわせて10・10+X の正解は、ミッションの各10問枠にカウントする
+// もぎダンジョンなどそれ以外の練習モードはゲージ・ミッションどちらにもカウントしない
 function registerPracticeCorrect(mode) {
+  if (mode !== "pair" && mode !== "tenplus") return;
   rolloverDaily();
   const usedKey = mode === "pair" ? "pairUsed" : "tenplusUsed";
   const used = state.daily[usedKey] || 0;
@@ -939,7 +951,7 @@ function importBackup(file) {
 
 /* ---------- せいせき（おうちの人向け） ---------- */
 
-const MODE_LABELS = { simple: "たしざんジム", pair: "あわせて10", tenplus: "10+X", bridge: "ほのおのダンジョン", minus: "ひきざんジム", ice: "こおりのダンジョン" };
+const MODE_LABELS = { simple: "たしざんジム", pair: "あわせて10", tenplus: "10+X", mogi: "もぎダンジョン", bridge: "ほのおのダンジョン", minus: "ひきざんジム", ice: "こおりのダンジョン" };
 
 function formatProblemLabel(mode, key) {
   if (mode === "minus" || mode === "ice") return key.replace("-", " − ");
@@ -1444,6 +1456,7 @@ function nextQuestion(mode) {
   state.questionAt[mode] = Date.now();
   if (mode === "pair") nextPair();
   else if (mode === "tenplus") nextTenPlus();
+  else if (mode === "mogi") nextMogi();
   else if (mode === "bridge") nextBridge();
   else if (mode === "minus") nextMinus();
   else if (mode === "ice") nextIce();
@@ -1591,6 +1604,218 @@ function chooseTenPlus(value, button, problem = state.problem.tenplus) {
     onWrong("tenplus", null, answer);
   }
 }
+
+/* ---------- もぎダンジョン（じぶんで10づくり） ---------- */
+
+const mogiDrag = { active: false, side: "", flyer: null, cell: null, offsetX: 0, offsetY: 0, homeLeft: 0, homeTop: 0 };
+
+function mogiFrame(side) {
+  return side === "left" ? els.mogiLeftFrame : els.mogiRightFrame;
+}
+
+function renderMogiFrame(side) {
+  const problem = state.problem.mogi;
+  const count = state.mogi[side];
+  const native = Math.min(count, side === "left" ? problem.big : problem.small);
+  const container = mogiFrame(side);
+  container.replaceChildren();
+  for (let index = 0; index < 10; index += 1) {
+    const cell = document.createElement("div");
+    cell.className = "frame-cell";
+    if (index < count) {
+      cell.classList.add("is-block");
+      // 生まれが左のブロックは緑、右のブロックは赤のまま行き来する
+      const isNative = index < native;
+      const green = side === "left" ? isNative : !isNative;
+      cell.classList.add(green ? "is-filled" : "is-guest");
+    }
+    container.append(cell);
+  }
+}
+
+function renderMogiBoard() {
+  renderMogiFrame("left");
+  renderMogiFrame("right");
+  els.mogiLeftLabel.textContent = state.mogi.left;
+  els.mogiRightLabel.textContent = state.mogi.right;
+}
+
+function mogiDragStart(event, side) {
+  if (state.activeMode !== "mogi" || state.mogi.phase !== "build" || state.locked.mogi) return;
+  if (mogiDrag.active) return;
+  const cell = event.target.closest(".frame-cell.is-block");
+  if (!cell) return;
+  event.preventDefault();
+  const rect = cell.getBoundingClientRect();
+  const flyer = document.createElement("div");
+  flyer.className = "fly-square";
+  if (cell.classList.contains("is-filled")) flyer.classList.add("is-green");
+  flyer.style.left = `${rect.left}px`;
+  flyer.style.top = `${rect.top}px`;
+  flyer.style.width = `${rect.width}px`;
+  flyer.style.height = `${rect.height}px`;
+  els.flyLayer.append(flyer);
+  cell.classList.add("is-drag-source");
+  mogiDrag.active = true;
+  mogiDrag.side = side;
+  mogiDrag.flyer = flyer;
+  mogiDrag.cell = cell;
+  mogiDrag.offsetX = event.clientX - rect.left;
+  mogiDrag.offsetY = event.clientY - rect.top;
+  mogiDrag.homeLeft = rect.left;
+  mogiDrag.homeTop = rect.top;
+}
+
+function mogiDragMove(event) {
+  if (!mogiDrag.active) return;
+  event.preventDefault();
+  mogiDrag.flyer.style.left = `${event.clientX - mogiDrag.offsetX}px`;
+  mogiDrag.flyer.style.top = `${event.clientY - mogiDrag.offsetY}px`;
+}
+
+function mogiSnapBack(flyer, homeLeft, homeTop) {
+  const dx = homeLeft - parseFloat(flyer.style.left);
+  const dy = homeTop - parseFloat(flyer.style.top);
+  if (typeof flyer.animate !== "function") {
+    flyer.remove();
+    return;
+  }
+  const animation = flyer.animate(
+    [{ transform: "translate(0, 0)" }, { transform: `translate(${dx}px, ${dy}px)` }],
+    { duration: 180, easing: "ease-out", fill: "forwards" }
+  );
+  animation.onfinish = () => flyer.remove();
+}
+
+function takeMogiDrag() {
+  const grabbed = { flyer: mogiDrag.flyer, cell: mogiDrag.cell, side: mogiDrag.side, homeLeft: mogiDrag.homeLeft, homeTop: mogiDrag.homeTop };
+  mogiDrag.active = false;
+  mogiDrag.flyer = null;
+  mogiDrag.cell = null;
+  if (grabbed.cell) grabbed.cell.classList.remove("is-drag-source");
+  return grabbed;
+}
+
+function mogiDragEnd(event) {
+  if (!mogiDrag.active) return;
+  const { flyer, side: from, homeLeft, homeTop } = takeMogiDrag();
+  const to = from === "left" ? "right" : "left";
+  const rect = mogiFrame(to).getBoundingClientRect();
+  const pad = 24;
+  const inTarget =
+    event.clientX >= rect.left - pad &&
+    event.clientX <= rect.right + pad &&
+    event.clientY >= rect.top - pad &&
+    event.clientY <= rect.bottom + pad;
+  if (state.mogi.phase !== "build" || !inTarget || state.mogi[to] >= 10) {
+    mogiSnapBack(flyer, homeLeft, homeTop);
+    return;
+  }
+  flyer.remove();
+  state.mogi[from] -= 1;
+  state.mogi[to] += 1;
+  playTone("click");
+  renderMogiBoard();
+  const landed = mogiFrame(to).children[state.mogi[to] - 1];
+  if (landed) landed.classList.add("is-pop");
+  if (state.mogi[to] === 10) mogiTenComplete(to);
+}
+
+function mogiDragCancel() {
+  if (!mogiDrag.active) return;
+  const { flyer, homeLeft, homeTop } = takeMogiDrag();
+  mogiSnapBack(flyer, homeLeft, homeTop);
+}
+
+function mogiTenComplete(side) {
+  state.mogi.phase = "rest";
+  state.mogi.doneSide = side;
+  mogiFrame(side).classList.add("is-ten-complete");
+  playTone("good");
+  burstConfetti(24);
+  const problem = state.problem.mogi;
+  const rest = problem.big + problem.small - 10;
+  els.mogiChain.textContent = "10のかたまりが できた！";
+  M.mogi.feedback.className = "feedback";
+  M.mogi.feedback.textContent = "10を つくった！ のこりは なんこ かな？";
+  renderChoiceButtons(M.mogi.choices, [1, 2, 3, 4, 5, 6, 7, 8, 9], (value, button) => {
+    chooseMogiRest(value, button, rest);
+  });
+}
+
+function chooseMogiRest(value, button, rest) {
+  if (state.locked.mogi || state.mogi.phase !== "rest") return;
+  if (value !== rest) {
+    button.classList.add("is-wrong");
+    M.mogi.feedback.className = "feedback is-try";
+    M.mogi.feedback.textContent = "もういちど かぞえてみよう";
+    playTone("try");
+    return;
+  }
+  button.classList.add("is-correct");
+  playTone("click");
+  state.mogi.phase = "sum";
+  // のこりがわのブロックに 1, 2… と番号バッジをつけて数えを確かめる
+  const restSide = state.mogi.doneSide === "left" ? "right" : "left";
+  [...mogiFrame(restSide).children].slice(0, state.mogi[restSide]).forEach((cell, index) => {
+    cell.classList.add("is-counted");
+    cell.dataset.count = index + 1;
+  });
+  const problem = state.problem.mogi;
+  els.mogiChain.textContent = `10 と ${rest} だね`;
+  els.mogiChain.classList.add("is-solved");
+  M.mogi.feedback.className = "feedback";
+  M.mogi.feedback.textContent = `じゃあ ${problem.big} + ${problem.small} は いくつかな？`;
+  renderChoiceButtons(M.mogi.choices, [11, 12, 13, 14, 15, 16, 17, 18, 19], (sumValue, sumButton) => {
+    chooseMogiSum(sumValue, sumButton, problem);
+  });
+}
+
+function chooseMogiSum(value, button, problem = state.problem.mogi) {
+  if (state.locked.mogi || state.mogi.phase !== "sum") return;
+  const answer = problem.big + problem.small;
+  const rest = answer - 10;
+  const correct = value === answer;
+  recordAnswer("mogi", problem, correct);
+  state.mogi.phase = "done";
+  button.classList.add(correct ? "is-correct" : "is-wrong");
+  els.mogiEquation.textContent = `${problem.big} + ${problem.small} = ${answer}`;
+  els.mogiEquation.classList.add("is-solved");
+  els.mogiChain.textContent = `10 と ${rest} で ${answer} だね`;
+  if (correct) {
+    onCorrect("mogi");
+  } else {
+    onWrong("mogi", null, answer);
+  }
+}
+
+function nextMogi() {
+  if (!guardNext("mogi")) return;
+  els.flyLayer.replaceChildren();
+  const p = pickWeighted("mogi", bridgeProblems, state.lastKey.mogi);
+  state.problem.mogi = p;
+  state.lastKey.mogi = problemKey(p);
+  state.mogi = { phase: "build", left: p.big, right: p.small, doneSide: "" };
+  els.mogiEquation.textContent = `${p.big} + ${p.small}`;
+  els.mogiEquation.classList.remove("is-solved");
+  els.mogiChain.textContent = "";
+  els.mogiChain.classList.remove("is-solved");
+  els.mogiLeftFrame.classList.remove("is-ten-complete");
+  els.mogiRightFrame.classList.remove("is-ten-complete");
+  M.mogi.feedback.className = "feedback";
+  M.mogi.feedback.textContent = "ブロックを うごかして 10 を つくろう";
+  setNextButton("mogi", false);
+  M.mogi.choices.replaceChildren();
+  renderMogiBoard();
+  if (state.activeMode === "mogi") startChallengeTimer();
+}
+
+[["left", els.mogiLeftFrame], ["right", els.mogiRightFrame]].forEach(([side, frame]) => {
+  frame.addEventListener("pointerdown", (event) => mogiDragStart(event, side));
+});
+window.addEventListener("pointermove", mogiDragMove, { passive: false });
+window.addEventListener("pointerup", mogiDragEnd);
+window.addEventListener("pointercancel", mogiDragCancel);
 
 /* ---------- ぼうけん（さくらんぼ） ---------- */
 

@@ -606,6 +606,7 @@ body.no-blocks.no-explain .play-area .bridge-board {
 
 .donor-dot.is-removed[data-count]::before,
 .donor-dot.is-leftover[data-count]::before,
+.frame-cell.is-counted[data-count]::before,
 .frame-cell.is-removed[data-count]::before {
   content: attr(data-count);
   position: absolute;
@@ -1363,6 +1364,58 @@ body.no-blocks.no-explain .play-area .bridge-board {
     transform: translateY(0) scale(1);
     opacity: 1;
   }
+}
+
+/* ---------- もぎダンジョン ---------- */
+
+.mogi-card {
+  border: 2px solid #d9c8f5;
+  background: linear-gradient(160deg, #faf7ff 0%, #f1e9fd 60%, #e7dcfa 100%);
+}
+
+/* 左右2枚の10フレームを常に横ならびに。ドラッグ中のスクロールを防ぐ */
+.mogi-board {
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* あき枠を点線で見せて「あといくつで10」が数えられるように */
+.mogi-board .frame-cell:not(.is-block) {
+  border: 3px dashed rgba(38, 50, 56, 0.14);
+}
+
+.mogi-board .frame-cell.is-block {
+  cursor: grab;
+  position: relative;
+}
+
+/* 生まれが右のブロック（赤）。移動しても色は変わらない */
+.frame-cell.is-guest {
+  border-color: #d92d20;
+  background: radial-gradient(circle at 35% 30%, #ffd1c9 0 22%, var(--red) 23% 66%, #c4322b 67%);
+}
+
+.mogi-board .frame-cell.is-drag-source {
+  opacity: 0.25;
+}
+
+.fly-square.is-green {
+  background: radial-gradient(circle at 35% 30%, #97f5b2 0 22%, var(--green) 23% 64%, #168653 65%);
+}
+
+.frame-cell.is-pop {
+  animation: friend-pop 320ms cubic-bezier(0.2, 1.4, 0.45, 1) both;
+}
+
+/* もぎダンジョンはブロックを動かすモードなので、ブロックなし設定でも常に表示する */
+body.no-blocks #mogi-mode:not(.is-waiting) .ten-frame,
+body.no-blocks #mogi-mode:not(.is-waiting) .bridge-board,
+body.no-blocks.no-explain #mogi-mode:not(.is-waiting) .ten-frame,
+body.no-blocks.no-explain #mogi-mode:not(.is-waiting) .bridge-board {
+  display: grid;
 }
 
 .catch-fill {

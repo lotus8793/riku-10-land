@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=34">
+    <link rel="stylesheet" href="styles.css?v=35">
   </head>
   <body>
     <main class="app-shell">
@@ -46,6 +46,7 @@
         <button class="mode-tab is-active" type="button" data-mode="pair">あわせて10</button>
         <button class="mode-tab" type="button" data-mode="tenplus">10+X</button>
         <button class="mode-tab" type="button" data-mode="simple">たしざんジム</button>
+        <button class="mode-tab" type="button" data-mode="mogi">もぎダンジョン</button>
         <button class="mode-tab" type="button" data-mode="bridge">ほのおのダンジョン</button>
         <button class="mode-tab" type="button" data-mode="minus">ひきざんジム</button>
         <button class="mode-tab" type="button" data-mode="ice">こおりのダンジョン</button>
@@ -161,6 +162,36 @@
         <div class="choice-grid simple-choice-grid" id="tenplus-choices" aria-label="こたえのカード"></div>
       </section>
 
+      <section class="play-area is-hidden is-waiting" id="mogi-mode">
+        <div class="question-card adventure-card mogi-card">
+          <div class="prompt-row">
+            <p class="prompt">ぜんぶで なんこ あるかな？</p>
+          </div>
+          <button class="start-button" type="button" id="mogi-start">スタート</button>
+          <div class="timer-row" id="mogi-timer-row" aria-label="のこりじかん">
+            <div class="timer-track">
+              <div class="timer-fill" id="mogi-timer-fill"></div>
+            </div>
+            <div class="timer-count"><span id="mogi-time">60</span>びょう</div>
+          </div>
+          <div class="equation bridge-equation" id="mogi-equation">8 + 6</div>
+          <div class="equation-chain" id="mogi-chain"></div>
+          <div class="bridge-board mogi-board">
+            <div>
+              <p class="small-label addend-label" id="mogi-left-label">8</p>
+              <div class="ten-frame compact" id="mogi-left-frame" aria-label="ひだりの10マス"></div>
+            </div>
+            <div>
+              <p class="small-label addend-label" id="mogi-right-label">6</p>
+              <div class="ten-frame compact" id="mogi-right-frame" aria-label="みぎの10マス"></div>
+            </div>
+          </div>
+          <p class="feedback" id="mogi-feedback" aria-live="polite">ブロックを うごかして 10 を つくろう</p>
+          <button class="next-button is-hidden" type="button" id="mogi-next">つぎへ</button>
+        </div>
+        <div class="choice-grid simple-choice-grid" id="mogi-choices" aria-label="こたえのカード"></div>
+      </section>
+
       <section class="play-area is-hidden is-waiting" id="bridge-mode">
         <div class="question-card adventure-card fire-card">
           <div class="prompt-row">
@@ -264,6 +295,11 @@
               <p class="records-empty" id="simple-records-empty">まだきろくがないよ</p>
             </div>
             <div class="records-col">
+              <h3 class="records-col-title">もぎダンジョン</h3>
+              <ol class="records-list" id="mogi-records-list" aria-label="もぎダンジョンランキング"></ol>
+              <p class="records-empty" id="mogi-records-empty">まだきろくがないよ</p>
+            </div>
+            <div class="records-col">
               <h3 class="records-col-title">ほのおのダンジョン</h3>
               <ol class="records-list" id="bridge-records-list" aria-label="ほのおのダンジョンランキング"></ol>
               <p class="records-empty" id="bridge-records-empty">まだきろくがないよ</p>
@@ -362,6 +398,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=29"></script>
+    <script src="app.js?v=30"></script>
   </body>
 </html>
