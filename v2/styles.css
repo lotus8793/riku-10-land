@@ -283,6 +283,11 @@ button {
   background: #b388ff;
 }
 
+.mission-seg.seg-mogi,
+.legend-dot.seg-mogi {
+  background: #f8961e;
+}
+
 .mission-seg.seg-main,
 .legend-dot.seg-main {
   background: #2fbf71;

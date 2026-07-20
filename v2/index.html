@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=37">
+    <link rel="stylesheet" href="styles.css?v=38">
   </head>
   <body>
     <main class="app-shell">
@@ -70,9 +70,10 @@
         <div class="mission-track mission-track-segmented" id="mission-track">
           <div class="mission-seg seg-pair" id="mission-seg-pair"></div>
           <div class="mission-seg seg-tenplus" id="mission-seg-tenplus"></div>
+          <div class="mission-seg seg-mogi" id="mission-seg-mogi"></div>
           <div class="mission-seg seg-main" id="mission-seg-main"></div>
         </div>
-        <span class="mission-text" id="mission-text">あと30もん</span>
+        <span class="mission-text" id="mission-text">あと60もん</span>
         <span class="mission-legend" id="mission-legend"></span>
       </section>
 
@@ -166,6 +167,7 @@
         <div class="question-card adventure-card mogi-card">
           <div class="prompt-row">
             <p class="prompt">ぜんぶで なんこ あるかな？</p>
+            <span class="practice-cap" id="mogi-cap"></span>
           </div>
           <button class="start-button" type="button" id="mogi-start">スタート</button>
           <div class="timer-row" id="mogi-timer-row" aria-label="のこりじかん">
@@ -398,6 +400,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=33"></script>
+    <script src="app.js?v=34"></script>
   </body>
 </html>

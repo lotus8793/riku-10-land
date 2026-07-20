@@ -7,8 +7,9 @@ const STICKER_STEP = 10;
 
 const MODES = ["pair", "tenplus", "simple", "mogi", "bridge", "minus", "ice"];
 // 全ゲージ（ポケモン・フレンダ・ミッション）にカウントするモード。
-// あわせて10と10+Xはミッションのみ、1日各10問（PRACTICE_MISSION_CAP）までカウントする
+// あわせて10・10+X・もぎダンジョンはミッションのみ、1日各10問（PRACTICE_MISSION_CAP）までカウントする
 const GAUGE_MODES = ["simple", "bridge", "minus", "ice"];
+const PRACTICE_MODES = ["pair", "tenplus", "mogi"];
 
 const RECORDS_KEYS = {
   simple: "riku10v2-records-simple",
@@ -443,6 +444,7 @@ const els = {
   partnerImg: qs("#partner-img"),
   missionSegPair: qs("#mission-seg-pair"),
   missionSegTenplus: qs("#mission-seg-tenplus"),
+  missionSegMogi: qs("#mission-seg-mogi"),
   missionSegMain: qs("#mission-seg-main"),
   missionLegend: qs("#mission-legend"),
   missionText: qs("#mission-text")
@@ -734,19 +736,20 @@ function catchPokemon(bonus) {
   queueCatchOverlay({ species, shiny, bonus, fled: false });
 }
 
-// ミッションの3枠それぞれの達成数
+// ミッションの4枠それぞれの達成数
 function missionParts() {
   rolloverDaily();
   return {
     pairDone: Math.min(state.daily.pairUsed || 0, PRACTICE_MISSION_CAP),
     tenplusDone: Math.min(state.daily.tenplusUsed || 0, PRACTICE_MISSION_CAP),
+    mogiDone: Math.min(state.daily.mogiUsed || 0, PRACTICE_MISSION_CAP),
     mainDone: Math.min(state.daily.main || 0, SETTINGS.missionGoal)
   };
 }
 
-// あわせて10・10+X が今日あと何問ミッションにカウントできるか
+// 練習モードが今日あと何問ミッションにカウントできるか
 function renderPracticeCaps() {
-  [["pair", "#pair-cap"], ["tenplus", "#tenplus-cap"]].forEach(([mode, selector]) => {
+  [["pair", "#pair-cap"], ["tenplus", "#tenplus-cap"], ["mogi", "#mogi-cap"]].forEach(([mode, selector]) => {
     const left = Math.max(0, PRACTICE_MISSION_CAP - (state.daily[`${mode}Used`] || 0));
     qs(selector).textContent = left > 0 ? `ミッションに あと${left}もん` : "きょうのぶんは クリア！";
   });
@@ -760,20 +763,22 @@ function renderMission() {
   els.catchFill.style.width = `${catchPercent}%`;
   els.catchText.textContent = `あと${remain}もん`;
 
-  // 3色の内訳バー: あわせて10(10問) + 10+X(10問) + ジム・ダンジョン(設定値) の3枠必達
-  const { pairDone, tenplusDone, mainDone } = missionParts();
-  const total = PRACTICE_MISSION_CAP * 2 + SETTINGS.missionGoal;
+  // 4色の内訳バー: あわせて10(10問) + 10+X(10問) + もぎダンジョン(10問) + ジム・ダンジョン(設定値) の4枠必達
+  const { pairDone, tenplusDone, mogiDone, mainDone } = missionParts();
+  const total = PRACTICE_MISSION_CAP * 3 + SETTINGS.missionGoal;
   const toWidth = (value) => `${Math.min(100, (value / total) * 100)}%`;
   els.missionSegPair.style.width = toWidth(pairDone);
   els.missionSegTenplus.style.width = toWidth(tenplusDone);
+  els.missionSegMogi.style.width = toWidth(mogiDone);
   els.missionSegMain.style.width = toWidth(mainDone);
   els.missionLegend.innerHTML =
     `<i class="legend-dot seg-pair"></i>あわせて10 ${pairDone}/${PRACTICE_MISSION_CAP}` +
     `<i class="legend-dot seg-tenplus"></i>10+X ${tenplusDone}/${PRACTICE_MISSION_CAP}` +
+    `<i class="legend-dot seg-mogi"></i>もぎダンジョン ${mogiDone}/${PRACTICE_MISSION_CAP}` +
     `<i class="legend-dot seg-main"></i>ジム・ダンジョン ${mainDone}/${SETTINGS.missionGoal}`;
   els.missionText.textContent = state.daily.done
     ? `クリア！🎉${state.streak.last === todayStr() && state.streak.count > 1 ? ` ${state.streak.count}日れんぞく` : ""}`
-    : `あと ${total - pairDone - tenplusDone - mainDone}もん`;
+    : `あと ${total - pairDone - tenplusDone - mogiDone - mainDone}もん`;
 }
 
 /* ---------- りくのパートナー ---------- */
@@ -866,11 +871,12 @@ function registerWrong() {
 }
 
 function checkMissionGoal() {
-  const { pairDone, tenplusDone, mainDone } = missionParts();
+  const { pairDone, tenplusDone, mogiDone, mainDone } = missionParts();
   if (
     !state.daily.done &&
     pairDone >= PRACTICE_MISSION_CAP &&
     tenplusDone >= PRACTICE_MISSION_CAP &&
+    mogiDone >= PRACTICE_MISSION_CAP &&
     mainDone >= SETTINGS.missionGoal
   ) {
     state.daily.done = true;
@@ -897,12 +903,12 @@ function registerCorrect() {
   renderMission();
 }
 
-// あわせて10・10+X の正解は、ミッションの各10問枠にカウントする
-// もぎダンジョンなどそれ以外の練習モードはゲージ・ミッションどちらにもカウントしない
+// 練習モード（あわせて10・10+X・もぎダンジョン）の正解は、ミッションの各10問枠にカウントする。
+// フレンダ・ポケモンゲージにはカウントしない（それはジム・ダンジョンだけ）
 function registerPracticeCorrect(mode) {
-  if (mode !== "pair" && mode !== "tenplus") return;
+  if (!PRACTICE_MODES.includes(mode)) return;
   rolloverDaily();
-  const usedKey = mode === "pair" ? "pairUsed" : "tenplusUsed";
+  const usedKey = `${mode}Used`;
   const used = state.daily[usedKey] || 0;
   if (used >= PRACTICE_MISSION_CAP) return;
   state.daily[usedKey] = used + 1;
