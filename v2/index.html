@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=47">
+    <link rel="stylesheet" href="styles.css?v=48">
   </head>
   <body>
     <main class="app-shell">
@@ -83,8 +83,8 @@
         <span class="mission-legend" id="mission-legend"></span>
       </section>
 
-      <section class="mission-strip" aria-label="フレンダゲージ">
-        <span class="mission-label">フレンダゲージ</span>
+      <section class="mission-strip" aria-label="コインゲージ">
+        <span class="mission-label">コインゲージ</span>
         <div class="mission-track">
           <div class="mission-fill coin-fill" id="coin-fill"></div>
         </div>
@@ -482,8 +482,11 @@
           <h3 class="stats-heading">ゲージのクリア問題数</h3>
           <div class="stats-settings">
             <label>ポケモンゲット <input type="number" id="set-catch" min="1" max="999"></label>
-            <label>フレンダゲージ <input type="number" id="set-coin" min="1" max="999"></label>
+            <label>コインゲージ <input type="number" id="set-coin" min="1" max="999"></label>
           </div>
+          <h3 class="stats-heading">ゲージに入れるタブ</h3>
+          <p class="settings-note">チェックしたタブの正解だけがそのゲージに進みます。ポケモンゲットにチェックのあるタブは、間違えると進みが1つ戻ります</p>
+          <div class="gauge-matrix" id="gauge-matrix"></div>
           <h3 class="stats-heading">とうし</h3>
           <p class="settings-note">1日ごとの利率。「金利 ± ブレはば」の範囲でランダムに変動します（例: 10% ± 15% → −5%〜+25%）。ブレはばを0にすると必ず増え、金利をマイナスにすると減る体験ができます</p>
           <div class="stats-settings">
@@ -536,6 +539,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=43"></script>
+    <script src="app.js?v=44"></script>
   </body>
 </html>

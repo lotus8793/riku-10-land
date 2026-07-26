@@ -6,10 +6,9 @@ const MAX_RECORDS = 10;
 const STICKER_STEP = 10;
 
 const MODES = ["pair", "tenplus", "flash", "simple", "mogi", "bridge", "minus", "ice"];
-// ポケモン・フレンダゲージにもカウントするモード（ジム・ダンジョン）。
-// それ以外（あわせて10・10+X・かみなりジム・もぎダンジョン）は、きょうのミッションにだけカウントする。
-// ミッションの必要問題数はタブごとに設定できる（MISSION_CAP_DEFAULTS / SETTINGS.missionCaps）
-const GAUGE_MODES = ["simple", "bridge", "minus", "ice"];
+// どのタブがポケモンゲット／コインゲージに進むかは、設定タブでタブごとに切り替えられる
+// （初期値は GAUGE_MODE_DEFAULTS）。ミッションの必要問題数も同様（MISSION_CAP_DEFAULTS）
+const GAUGE_MODE_DEFAULTS = ["simple", "bridge", "minus", "ice"];
 
 const RECORDS_KEYS = {
   simple: "riku10v2-records-simple",
@@ -53,6 +52,14 @@ const MISSION_CAP_DEFAULTS = {
   ice: 5
 };
 
+function defaultGaugeMap() {
+  const map = {};
+  MODES.forEach((mode) => {
+    map[mode] = GAUGE_MODE_DEFAULTS.includes(mode);
+  });
+  return map;
+}
+
 // ゲージのクリア数（設定タブで変更できる）
 function loadSettings() {
   const defaults = {
@@ -62,7 +69,9 @@ function loadSettings() {
     flashMax: 10, // フラッシュで出す最大の数
     investRate: 10, // とうしの1日の金利（%）
     investSwing: 15, // とうしのブレはば（±%）
-    missionCaps: { ...MISSION_CAP_DEFAULTS }
+    missionCaps: { ...MISSION_CAP_DEFAULTS },
+    catchModes: defaultGaugeMap(), // ポケモンゲットに進めるタブ
+    coinModes: defaultGaugeMap() // コインゲージに進めるタブ
   };
   let parsed = null;
   try {
@@ -87,8 +96,8 @@ function loadSettings() {
   // 旧形式の引き継ぎ: ジム・ダンジョン合算だった missionGoal を4タブに配分する
   const legacyGoal = Number(parsed.missionGoal);
   if (Number.isFinite(legacyGoal) && legacyGoal >= 1) {
-    const base = GAUGE_MODES.reduce((sum, mode) => sum + MISSION_CAP_DEFAULTS[mode], 0);
-    GAUGE_MODES.forEach((mode) => {
+    const base = GAUGE_MODE_DEFAULTS.reduce((sum, mode) => sum + MISSION_CAP_DEFAULTS[mode], 0);
+    GAUGE_MODE_DEFAULTS.forEach((mode) => {
       merged.missionCaps[mode] = Math.max(1, Math.round((legacyGoal * MISSION_CAP_DEFAULTS[mode]) / base));
     });
   }
@@ -104,7 +113,22 @@ function loadSettings() {
       if (Number.isFinite(value) && value >= 0 && value <= 999) merged.missionCaps[mode] = Math.round(value);
     });
   }
+  ["catchModes", "coinModes"].forEach((key) => {
+    if (!parsed[key] || typeof parsed[key] !== "object") return;
+    MODES.forEach((mode) => {
+      if (typeof parsed[key][mode] === "boolean") merged[key][mode] = parsed[key][mode];
+    });
+  });
   return merged;
+}
+
+// そのタブの正解がポケモンゲット／コインゲージに進むか
+function catchEnabled(mode) {
+  return SETTINGS.catchModes[mode] === true;
+}
+
+function coinEnabled(mode) {
+  return SETTINGS.coinModes[mode] === true;
 }
 
 // そのタブが今日ミッションに必要な問題数（0 なら必須から外れる）
@@ -716,7 +740,7 @@ function addRecord(score, mode) {
   renderRecords();
 }
 
-/* ---------- フレンダゲージ（ちょきん） ---------- */
+/* ---------- コインゲージ（ちょきん） ---------- */
 
 function saveCoins() {
   localStorage.setItem(WALLET_KEY, String(state.walletYen));
@@ -1220,8 +1244,9 @@ function saveCatchProgress() {
   localStorage.setItem(CATCH_PROGRESS_KEY, String(state.catchProgress));
 }
 
+// 間違えたときのペナルティ。ポケモンゲット対象のタブだけ、進捗が1つ戻る
 function registerWrong(mode) {
-  // ペナルティは「つぎのポケモンまで」の進捗のみ。0未満にはしない
+  if (!catchEnabled(mode)) return;
   state.catchProgress = Math.max(0, state.catchProgress - 1);
   saveCatchProgress();
   rolloverDaily();
@@ -1258,17 +1283,19 @@ function registerMissionProgress(mode) {
   renderMission();
 }
 
-// ジム・ダンジョン（GAUGE_MODES）の正解。ミッションに加えてポケモン・フレンダゲージも進む
+// 正解1問ぶんの処理。どのゲージに進むかは設定タブのタブ別トグルで決まる
 function registerCorrect(mode) {
   state.totalCorrect += 1;
   localStorage.setItem(TOTAL_KEY, String(state.totalCorrect));
-  registerCoinProgress();
-  state.catchProgress += 1;
-  if (state.catchProgress >= SETTINGS.catchStep) {
-    state.catchProgress = 0; // ゲットしたら0から数え直し。間違えても戻らない
-    catchPokemon(false);
+  if (coinEnabled(mode)) registerCoinProgress();
+  if (catchEnabled(mode)) {
+    state.catchProgress += 1;
+    if (state.catchProgress >= SETTINGS.catchStep) {
+      state.catchProgress = 0; // ゲットしたら0から数え直し。間違えても戻らない
+      catchPokemon(false);
+    }
+    saveCatchProgress();
   }
-  saveCatchProgress();
   registerMissionProgress(mode);
 }
 
@@ -1425,7 +1452,57 @@ function renderStatsPanel() {
   renderStatsWeak();
 }
 
+// 「ゲージに入れるタブ」の表。行＝タブ、列＝ポケモンゲット／コインゲージ
+function buildGaugeMatrix() {
+  const wrap = qs("#gauge-matrix");
+  if (!wrap) return;
+  wrap.replaceChildren();
+
+  const head = document.createElement("div");
+  head.className = "gauge-row is-head";
+  ["", "ポケモン", "コイン"].forEach((text) => {
+    const cell = document.createElement("span");
+    cell.textContent = text;
+    head.append(cell);
+  });
+  wrap.append(head);
+
+  MODES.forEach((mode) => {
+    const row = document.createElement("div");
+    row.className = "gauge-row";
+    const name = document.createElement("span");
+    name.className = "gauge-row-name";
+    name.textContent = MODE_LABELS[mode];
+    row.append(name);
+
+    [["catchModes", "catch"], ["coinModes", "coin"]].forEach(([key, prefix]) => {
+      const cell = document.createElement("label");
+      cell.className = "gauge-check";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.id = `set-${prefix}-${mode}`;
+      input.checked = SETTINGS[key][mode] === true;
+      input.setAttribute("aria-label", `${MODE_LABELS[mode]}を${prefix === "catch" ? "ポケモンゲット" : "コインゲージ"}に入れる`);
+      input.addEventListener("change", () => {
+        SETTINGS[key][mode] = input.checked;
+        saveSettings();
+        renderMission();
+        renderCoinGauge();
+      });
+      cell.append(input);
+      row.append(cell);
+    });
+    wrap.append(row);
+  });
+}
+
 function renderSettingsPanel() {
+  MODES.forEach((mode) => {
+    const catchInput = qs(`#set-catch-${mode}`);
+    const coinInput = qs(`#set-coin-${mode}`);
+    if (catchInput) catchInput.checked = catchEnabled(mode);
+    if (coinInput) coinInput.checked = coinEnabled(mode);
+  });
   qs("#set-catch").value = SETTINGS.catchStep;
   qs("#set-coin").value = SETTINGS.coinStep;
   qs("#set-flash-sec").value = (SETTINGS.flashMs / 1000).toFixed(1);
@@ -1652,10 +1729,7 @@ function onCorrect(mode) {
   stopChallengeTimer();
   state.combo += 1;
   countSolvedQuestion();
-  if (!state.challenge.ended) {
-    if (GAUGE_MODES.includes(mode)) registerCorrect(mode);
-    else registerMissionProgress(mode);
-  }
+  if (!state.challenge.ended) registerCorrect(mode);
   const feedback = M[mode].feedback;
   feedback.className = "feedback is-good";
   feedback.textContent = praiseText();
@@ -1677,9 +1751,7 @@ function onWrong(mode, _hint, correctValue) {
   state.locked[mode] = true;
   M[mode].section.classList.add("is-answer-shown");
   stopChallengeTimer();
-  if (!state.challenge.ended && GAUGE_MODES.includes(mode)) {
-    registerWrong(mode);
-  }
+  if (!state.challenge.ended) registerWrong(mode);
   const feedback = M[mode].feedback;
   feedback.className = "feedback is-try";
   feedback.innerHTML = `ふせいかい！<br><span class="feedback-cheer">${pick(CHEERS)}</span>`;
@@ -2929,6 +3001,7 @@ renderTimeToggle();
 renderBlockToggle();
 renderExplainToggle();
 renderRecords();
+buildGaugeMatrix();
 renderMission();
 applyFinanceDays();
 renderCoinGauge();

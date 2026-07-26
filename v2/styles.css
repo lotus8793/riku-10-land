@@ -2262,3 +2262,53 @@ body.no-blocks.no-explain #mogi-mode:not(.is-waiting) .bridge-board {
     grid-template-columns: repeat(4, 1fr);
   }
 }
+
+/* ゲージに入れるタブ（設定タブのチェック表） */
+
+.gauge-matrix {
+  display: grid;
+  gap: 2px;
+  max-width: 420px;
+  margin-top: 6px;
+}
+
+.gauge-row {
+  display: grid;
+  grid-template-columns: 1fr 72px 72px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(38, 50, 56, 0.03);
+}
+
+.gauge-row.is-head {
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.gauge-row.is-head span:first-child {
+  text-align: left;
+}
+
+.gauge-row-name {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.gauge-check {
+  display: grid;
+  place-items: center;
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.gauge-check input {
+  width: 22px;
+  height: 22px;
+  accent-color: #2f5fd0;
+}
