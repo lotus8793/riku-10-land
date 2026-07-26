@@ -1,4 +1,4 @@
-const CACHE = "riku10-v2-61";
+const CACHE = "riku10-v2-69";
 const ASSETS = [
   "./",
   "./index.html",

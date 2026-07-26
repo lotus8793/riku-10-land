@@ -283,14 +283,34 @@ button {
   background: #b388ff;
 }
 
+.mission-seg.seg-flash,
+.legend-dot.seg-flash {
+  background: #f4c318;
+}
+
+.mission-seg.seg-simple,
+.legend-dot.seg-simple {
+  background: #2fbf71;
+}
+
 .mission-seg.seg-mogi,
 .legend-dot.seg-mogi {
   background: #f8961e;
 }
 
-.mission-seg.seg-main,
-.legend-dot.seg-main {
-  background: #2fbf71;
+.mission-seg.seg-bridge,
+.legend-dot.seg-bridge {
+  background: #ff6b6b;
+}
+
+.mission-seg.seg-minus,
+.legend-dot.seg-minus {
+  background: #14b8a6;
+}
+
+.mission-seg.seg-ice,
+.legend-dot.seg-ice {
+  background: #56c2e8;
 }
 
 .mission-legend {
@@ -381,14 +401,18 @@ button {
   box-shadow: inset 0 -8px 0 rgba(0, 0, 0, 0.1);
 }
 
+/* 正解後は「4 + 6 = 10」の式に変わる。まるい緑のバッジではなく、高さなりの式表示にする
+   （高さ112pxのまま影だけ残ると、式の下に謎の枠が浮いて見えるので height: auto にしている） */
 .number-display.is-solved-equation {
   width: min(100%, 340px);
-  border-radius: 22px;
-  background: #fffdf7;
+  height: auto;
+  padding: 10px 14px;
+  border-radius: 18px;
+  background: transparent;
   color: var(--ink);
   font-size: clamp(34px, 7vw, 52px);
-  line-height: 1;
-  box-shadow: 0 8px 0 rgba(38, 50, 56, 0.12);
+  line-height: 1.1;
+  box-shadow: none;
 }
 
 .eq-green {
@@ -451,6 +475,9 @@ button {
 .play-area.is-waiting .equation-chain,
 .play-area.is-waiting .bridge-board,
 .play-area.is-waiting .reverse-reveal,
+.play-area.is-waiting .flash-stage,
+.play-area.is-waiting .flash-explain,
+.play-area.is-waiting .flash-actions,
 .play-area.is-waiting .choice-grid {
   display: none;
 }
@@ -1378,13 +1405,26 @@ body.no-blocks.no-explain .play-area .bridge-board {
   background: linear-gradient(160deg, #faf7ff 0%, #f1e9fd 60%, #e7dcfa 100%);
 }
 
-/* 左右2枚の10フレームを常に横ならびに。ドラッグ中のスクロールを防ぐ */
+/* 左右2枚の10フレームを常に横ならびに。ドラッグ中のスクロールを防ぐ。
+   マス同士のすきま(6px)より広くとって、左右が「別のあつまり」に見えるようにする */
 .mogi-board {
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 20px;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
+}
+
+/* ほのおのダンジョンと同じ発想で、ブロック1つ1つの枠の色を左＝黒・右＝白に分ける。
+   移動すると枠の色も引っこし先に変わるので「どっちのあつまりに入ったか」が見える
+   （中の色は生まれたがわのまま = 緑は左うまれ、赤は右うまれ） */
+#mogi-left-frame .frame-cell.is-block {
+  border-color: #263238;
+}
+
+#mogi-right-frame .frame-cell.is-block {
+  border-color: #fff;
+  box-shadow: 0 4px 10px rgba(38, 50, 56, 0.16);
 }
 
 /* あき枠を点線で見せて「あといくつで10」が数えられるように */
@@ -1530,6 +1570,43 @@ body.no-blocks.no-explain #mogi-mode:not(.is-waiting) .bridge-board {
 
 .settings-actions {
   justify-content: flex-start;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 貯金のせいさん */
+
+.settings-coins {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.settings-coins strong {
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.coin-spend-custom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.coin-spend-custom input {
+  width: 84px;
+  padding: 6px 8px;
+  border: 1px solid rgba(38, 50, 56, 0.2);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 800;
 }
 
 .practice-cap {
@@ -1828,5 +1905,360 @@ body.no-blocks.no-explain #mogi-mode:not(.is-waiting) .bridge-board {
 
   .sticker-grid {
     grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+/* ---------- かみなりジム（フラッシュ暗算） ---------- */
+
+.flash-card {
+  border: 2px solid #ffe28a;
+  background: linear-gradient(160deg, #fffdf3 0%, #fff6d9 60%, #ffeec0 100%);
+}
+
+.flash-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+  margin: 14px 0 0;
+}
+
+.flash-frame {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  column-gap: 8px;
+  /* 上段5マス・下段5マスの区切りをはっきりさせる（5のかたまりを見つけやすくする） */
+  row-gap: 22px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 380px;
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: inset 0 0 0 2px rgba(38, 50, 56, 0.06);
+  opacity: 0;
+  transform: scale(0.98);
+  transition: opacity 80ms linear, transform 80ms linear;
+}
+
+/* 5と5のさかいめ */
+.flash-frame::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 10%;
+  left: 10%;
+  border-top: 2px dashed rgba(38, 50, 56, 0.16);
+  pointer-events: none;
+}
+
+.flash-stage.is-showing .flash-frame {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.flash-frame .frame-cell {
+  position: relative;
+}
+
+/* からのマスもうっすら見せて「5×2のどこに何個あるか」を掴めるようにする */
+.flash-frame .frame-cell:not(.is-filled) {
+  border-color: rgba(38, 50, 56, 0.09);
+  background: rgba(38, 50, 56, 0.03);
+}
+
+/* 答え合わせ: 上段の5個は緑、下段のあまりは赤 */
+.flash-frame .frame-cell.is-filled.is-second-row {
+  border-color: #b2231e;
+  background: radial-gradient(circle at 35% 30%, #ffd1c9 0 22%, var(--red) 23% 66%, #c4322b 67%);
+}
+
+.flash-frame .frame-cell.is-split-pop {
+  animation: friend-pop 360ms cubic-bezier(0.2, 1.4, 0.45, 1) both;
+  animation-delay: var(--pop-delay, 0ms);
+}
+
+.flash-veil {
+  position: absolute;
+  margin: 0;
+  color: #c2a63c;
+  font-size: 46px;
+  font-weight: 950;
+  letter-spacing: 2px;
+  pointer-events: none;
+}
+
+.flash-stage.is-showing .flash-veil {
+  opacity: 0;
+}
+
+.flash-explain {
+  margin: 12px 0 0;
+  color: var(--ink);
+  font-size: 21px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.flash-explain strong {
+  font-size: 27px;
+}
+
+/* 「5より1こすくないだけ！」のような2行目 */
+.flash-explain-sub {
+  display: block;
+  margin-top: 4px;
+  color: #b06d00;
+  font-size: 18px;
+}
+
+.flash-explain-sub strong {
+  font-size: 22px;
+}
+
+/* 5・10まで足りないマス（点線でぽっかり見せる） */
+.flash-frame .frame-cell.is-missing {
+  border-style: dashed;
+  border-color: #f0a500;
+  background: rgba(249, 199, 79, 0.16);
+  animation: missing-blink 900ms ease-in-out 2;
+}
+
+@keyframes missing-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.flash-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.choice-grid.is-dim {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* こたえのカードも5×2に並べて、10マスと同じ形で見せる */
+.flash-choice-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.flash-choice-grid .choice-card {
+  min-height: 64px;
+  font-size: 30px;
+}
+
+@media (max-width: 420px) {
+  .flash-veil {
+    font-size: 40px;
+  }
+
+  .flash-explain {
+    font-size: 18px;
+  }
+
+  .flash-choice-grid .choice-card {
+    min-height: 56px;
+    font-size: 26px;
+  }
+}
+
+@media (min-width: 720px) {
+  .flash-choice-grid .choice-card {
+    min-height: 58px;
+    font-size: 26px;
+  }
+}
+
+/* ---------- ぎんこう・とうし ---------- */
+
+.bank-card {
+  border: 2px solid #cfe8d5;
+  background: linear-gradient(160deg, #f8fffb 0%, #eef9f1 60%, #e3f4e9 100%);
+}
+
+.bank-balances {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.bank-balance {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 2px solid rgba(38, 50, 56, 0.08);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.bank-balance strong {
+  font-size: 26px;
+  font-weight: 950;
+  line-height: 1.1;
+}
+
+.bank-balance-label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.bank-balance-note {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.bank-balance-note.is-up {
+  color: #168653;
+}
+
+.bank-balance-note.is-down {
+  color: #d92d20;
+}
+
+.bank-balance.is-wallet {
+  border-color: #ffdf9e;
+}
+
+.bank-balance.is-seed {
+  border-color: #b7d7f5;
+}
+
+.bank-balance.is-invest {
+  border-color: #f5c3b7;
+}
+
+.bank-balance.is-total {
+  border-color: #263238;
+}
+
+.bank-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.bank-actions input {
+  width: 110px;
+  min-height: 50px;
+  padding: 6px 10px;
+  border: 2px solid rgba(38, 50, 56, 0.2);
+  border-radius: 12px;
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 900;
+  text-align: right;
+}
+
+.bank-button {
+  min-height: 50px;
+  padding: 0 18px;
+  border: 3px solid rgba(38, 50, 56, 0.08);
+  border-radius: 14px;
+  font-size: 17px;
+  font-weight: 900;
+  box-shadow: 0 5px 0 rgba(38, 50, 56, 0.14);
+}
+
+.bank-button:active {
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 rgba(38, 50, 56, 0.14);
+}
+
+.bank-button.is-in {
+  background: var(--green);
+  color: #fff;
+}
+
+.bank-button.is-out {
+  background: #fff;
+  color: var(--ink);
+}
+
+/* グラフ */
+
+.bank-chart {
+  margin-top: 10px;
+}
+
+.bank-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.bank-grid {
+  stroke: rgba(38, 50, 56, 0.1);
+  stroke-width: 1;
+}
+
+.bank-axis {
+  fill: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.bank-line {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bank-line.is-bankline,
+.bank-dot.is-bankline,
+.legend-dot.seg-bankline {
+  stroke: #3b82f6;
+  fill: none;
+}
+
+.bank-dot.is-bankline {
+  fill: #3b82f6;
+}
+
+.legend-dot.seg-bankline {
+  background: #3b82f6;
+}
+
+.bank-line.is-investline,
+.bank-dot.is-investline {
+  stroke: #f8961e;
+}
+
+.bank-dot.is-investline {
+  fill: #f8961e;
+}
+
+.legend-dot.seg-investline {
+  background: #f8961e;
+}
+
+.bank-chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+@media (min-width: 720px) {
+  .bank-balances {
+    grid-template-columns: repeat(4, 1fr);
   }
 }

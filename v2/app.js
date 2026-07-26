@@ -5,16 +5,17 @@ const TIMER_TICK_MS = 100;
 const MAX_RECORDS = 10;
 const STICKER_STEP = 10;
 
-const MODES = ["pair", "tenplus", "simple", "mogi", "bridge", "minus", "ice"];
-// 全ゲージ（ポケモン・フレンダ・ミッション）にカウントするモード。
-// あわせて10・10+X・もぎダンジョンはミッションのみ、1日各10問（PRACTICE_MISSION_CAP）までカウントする
+const MODES = ["pair", "tenplus", "flash", "simple", "mogi", "bridge", "minus", "ice"];
+// ポケモン・フレンダゲージにもカウントするモード（ジム・ダンジョン）。
+// それ以外（あわせて10・10+X・かみなりジム・もぎダンジョン）は、きょうのミッションにだけカウントする。
+// ミッションの必要問題数はタブごとに設定できる（MISSION_CAP_DEFAULTS / SETTINGS.missionCaps）
 const GAUGE_MODES = ["simple", "bridge", "minus", "ice"];
-const PRACTICE_MODES = ["pair", "tenplus", "mogi"];
 
 const RECORDS_KEYS = {
   simple: "riku10v2-records-simple",
   pair: "riku10v2-records-pair",
   tenplus: "riku10v2-records-tenplus",
+  flash: "riku10v2-records-flash",
   mogi: "riku10v2-records-mogi",
   bridge: "riku10v2-records-bridge",
   minus: "riku10v2-records-minus",
@@ -28,31 +29,88 @@ const DAILY_KEY = "riku10v2-daily";
 const STATS_KEY = "riku10v2-stats";
 const DAYLOG_KEY = "riku10v2-daylog";
 const BACKUP_PREFIX = "riku10v2-";
-const COINS_KEY = "riku10v2-coins";
+const COINS_KEY = "riku10v2-coins"; // 旧形式（100円が何枚か）。いまは移行用にだけ読む
+const WALLET_KEY = "riku10v2-wallet-yen";
+const FINANCE_KEY = "riku10v2-finance";
 const COIN_PROGRESS_KEY = "riku10v2-coin-progress";
 const COIN_VALUE = 100;
+const FINANCE_HISTORY_MAX = 120; // グラフに使う日ごとの記録の上限
+const FINANCE_MAX_CATCHUP_DAYS = 60; // 久しぶりに開いたとき、まとめて計算する日数の上限
 const STREAK_KEY = "riku10v2-mission-streak";
 const PARTNER_KEY = "riku10v2-partner";
 const STREAK_BONUS_DAYS = 7;
 const SETTINGS_KEY = "riku10v2-settings";
-// あわせて10・10+X がミッションにカウントできる1日あたりの上限
-const PRACTICE_MISSION_CAP = 10;
 
-// ゲージのクリア数（とうけいタブの設定で変更できる）
+// きょうのミッションで各タブに必要な問題数の初期値（設定タブでタブごとに変更できる）
+const MISSION_CAP_DEFAULTS = {
+  pair: 10,
+  tenplus: 10,
+  flash: 20,
+  simple: 10,
+  mogi: 10,
+  bridge: 10,
+  minus: 5,
+  ice: 5
+};
+
+// ゲージのクリア数（設定タブで変更できる）
 function loadSettings() {
-  const defaults = { catchStep: STICKER_STEP, missionGoal: 30, coinStep: 75 };
+  const defaults = {
+    catchStep: STICKER_STEP,
+    coinStep: 75,
+    flashMs: 1500, // フラッシュでブロックが見えている時間（ミリ秒）
+    flashMax: 10, // フラッシュで出す最大の数
+    investRate: 10, // とうしの1日の金利（%）
+    investSwing: 15, // とうしのブレはば（±%）
+    missionCaps: { ...MISSION_CAP_DEFAULTS }
+  };
+  let parsed = null;
   try {
-    const parsed = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      const merged = { ...defaults };
-      ["catchStep", "missionGoal", "coinStep"].forEach((key) => {
-        const value = Number(parsed[key]);
-        if (Number.isFinite(value) && value >= 1 && value <= 999) merged[key] = Math.round(value);
-      });
-      return merged;
-    }
+    parsed = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
   } catch {}
-  return { ...defaults };
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return defaults;
+
+  const merged = { ...defaults, missionCaps: { ...MISSION_CAP_DEFAULTS } };
+  ["catchStep", "coinStep"].forEach((key) => {
+    const value = Number(parsed[key]);
+    if (Number.isFinite(value) && value >= 1 && value <= 999) merged[key] = Math.round(value);
+  });
+  const ms = Number(parsed.flashMs);
+  if (Number.isFinite(ms) && ms >= 200 && ms <= 10000) merged.flashMs = Math.round(ms);
+  const max = Number(parsed.flashMax);
+  if (Number.isFinite(max) && max >= 3 && max <= 10) merged.flashMax = Math.round(max);
+  [["investRate", -50, 100], ["investSwing", 0, 100]].forEach(([key, min, top]) => {
+    const value = Number(parsed[key]);
+    if (Number.isFinite(value) && value >= min && value <= top) merged[key] = value;
+  });
+
+  // 旧形式の引き継ぎ: ジム・ダンジョン合算だった missionGoal を4タブに配分する
+  const legacyGoal = Number(parsed.missionGoal);
+  if (Number.isFinite(legacyGoal) && legacyGoal >= 1) {
+    const base = GAUGE_MODES.reduce((sum, mode) => sum + MISSION_CAP_DEFAULTS[mode], 0);
+    GAUGE_MODES.forEach((mode) => {
+      merged.missionCaps[mode] = Math.max(1, Math.round((legacyGoal * MISSION_CAP_DEFAULTS[mode]) / base));
+    });
+  }
+  const legacyFlash = Number(parsed.flashCap);
+  if (Number.isFinite(legacyFlash) && legacyFlash >= 0 && legacyFlash <= 999) {
+    merged.missionCaps.flash = Math.round(legacyFlash);
+  }
+
+  // 新形式
+  if (parsed.missionCaps && typeof parsed.missionCaps === "object") {
+    MODES.forEach((mode) => {
+      const value = Number(parsed.missionCaps[mode]);
+      if (Number.isFinite(value) && value >= 0 && value <= 999) merged.missionCaps[mode] = Math.round(value);
+    });
+  }
+  return merged;
+}
+
+// そのタブが今日ミッションに必要な問題数（0 なら必須から外れる）
+function missionCap(mode) {
+  const value = SETTINGS.missionCaps[mode];
+  return Number.isFinite(value) ? value : 0;
 }
 
 const SETTINGS = loadSettings();
@@ -234,6 +292,49 @@ function loadDayLog() {
   return {};
 }
 
+// 旧「ぎんこう」に残っていた金額。読み込み時にさいふへ戻す
+let pendingBankRefund = 0;
+
+// さいふは円で持つ。旧形式（100円が何枚か）からは ×100 して引き継ぐ
+function loadWalletYen() {
+  const raw = localStorage.getItem(WALLET_KEY);
+  if (raw !== null) return Math.max(0, Math.round(Number(raw) || 0));
+  const coins = Math.max(0, Number(localStorage.getItem(COINS_KEY) || "0") || 0);
+  return coins * COIN_VALUE;
+}
+
+// とうしの残高と、日ごとの記録。history は { d: 日付, p: もとで, v: いまのねだん }
+function loadFinance() {
+  const empty = { invest: 0, invested: 0, lastDay: todayStr(), history: [] };
+  try {
+    const parsed = JSON.parse(localStorage.getItem(FINANCE_KEY) || "null");
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const invest = Math.max(0, Math.round(Number(parsed.invest) || 0));
+      // 旧「ぎんこう」に置いていたぶんは、さいふに戻す（ぎんこうは廃止したため）
+      const legacyBank = Math.max(0, Math.round(Number(parsed.bank) || 0));
+      if (legacyBank > 0) pendingBankRefund = legacyBank;
+      const history = Array.isArray(parsed.history)
+        ? parsed.history
+            .filter((row) => row && typeof row.d === "string")
+            .map((row) => ({
+              d: row.d,
+              p: Math.max(0, Math.round(Number(row.p ?? row.i) || 0)),
+              v: Math.max(0, Math.round(Number(row.v ?? row.i) || 0))
+            }))
+            .slice(-FINANCE_HISTORY_MAX)
+        : [];
+      return {
+        invest,
+        // とうしに入れた元手の合計（もうけがいくらかを出すため）
+        invested: Math.max(0, Math.round(Number(parsed.invested) || 0)),
+        lastDay: typeof parsed.lastDay === "string" ? parsed.lastDay : todayStr(),
+        history
+      };
+    }
+  } catch {}
+  return empty;
+}
+
 const PRAISES = ["できた！", "すごい！", "やったね！", "てんさい！", "かんぺき！", "ナイス！"];
 const CHEERS = ["つぎはがんばろう", "あといっぽ", "りくならできるよ", "てきとうにやってる？", "かんがえてますか？", "しゅうちゅうして！", "こんなのおぼえるだけだからね！"];
 
@@ -308,6 +409,23 @@ function makeIceProblems() {
   return problems;
 }
 
+// かみなりジム（フラッシュ）: 10マスに n 個。5のかたまり＋いくつ、で見る練習。
+// 主役は5〜10（上の段が5でうまって、下の段があといくつ）。1〜4はごくまれ（20問に1問くらい）
+const FLASH_CORE_MIN = 5;
+const FLASH_CORE_MAX = 10;
+const FLASH_CORE_WEIGHT = 12;
+
+function makeFlashProblems() {
+  const problems = [];
+  for (let n = 1; n <= SETTINGS.flashMax; n += 1) {
+    const times = n >= FLASH_CORE_MIN && n <= FLASH_CORE_MAX ? FLASH_CORE_WEIGHT : 1;
+    for (let i = 0; i < times; i += 1) problems.push({ n });
+  }
+  return problems;
+}
+
+let flashProblems = makeFlashProblems();
+
 const bridgeProblems = makeBridgeProblems();
 const simpleProblems = makeSimpleProblems();
 const tenPlusProblems = makeTenPlusProblems();
@@ -327,22 +445,25 @@ function loadModeRecords(key) {
 }
 
 const state = {
-  problem: { simple: null, pair: null, tenplus: null, mogi: null, bridge: null, minus: null, ice: null },
-  lastKey: { simple: "", pair: "", tenplus: "", mogi: "", bridge: "", minus: "", ice: "" },
-  questionAt: { simple: 0, pair: 0, tenplus: 0, mogi: 0, bridge: 0, minus: 0, ice: 0 },
+  problem: { simple: null, pair: null, tenplus: null, flash: null, mogi: null, bridge: null, minus: null, ice: null },
+  lastKey: { simple: "", pair: "", tenplus: "", flash: "", mogi: "", bridge: "", minus: "", ice: "" },
+  questionAt: { simple: 0, pair: 0, tenplus: 0, flash: 0, mogi: 0, bridge: 0, minus: 0, ice: 0 },
   stats: loadStats(),
   dayLog: loadDayLog(),
-  started: { simple: false, pair: false, tenplus: false, mogi: false, bridge: false, minus: false, ice: false },
-  locked: { simple: true, pair: true, tenplus: true, mogi: true, bridge: true, minus: true, ice: true },
+  started: { simple: false, pair: false, tenplus: false, flash: false, mogi: false, bridge: false, minus: false, ice: false },
+  locked: { simple: true, pair: true, tenplus: true, flash: true, mogi: true, bridge: true, minus: true, ice: true },
   records: {
     simple: loadModeRecords(RECORDS_KEYS.simple),
     pair: loadModeRecords(RECORDS_KEYS.pair),
     tenplus: loadModeRecords(RECORDS_KEYS.tenplus),
+    flash: loadModeRecords(RECORDS_KEYS.flash),
     mogi: loadModeRecords(RECORDS_KEYS.mogi),
     bridge: loadModeRecords(RECORDS_KEYS.bridge),
     minus: loadModeRecords(RECORDS_KEYS.minus),
     ice: loadModeRecords(RECORDS_KEYS.ice)
   },
+  // かみなりジム: timers はフラッシュ表示の setTimeout 群、replays は今の問題で見直した回数
+  flash: { timers: [], replays: 0, shown: false },
   // もぎダンジョンの盤面: phase は build(10づくり) → sum(こたえ) → done。
   // slots は各がわ10マスの中身（"green"/"red"/null）。取られたマスは穴のまま残す
   mogi: { phase: "build", doneSide: "", slots: { left: [], right: [] } },
@@ -354,7 +475,8 @@ const state = {
   caught: loadCaught(),
   daily: loadDaily(),
   revealTimeout: { ice: null, minus: null },
-  coins: Math.max(0, Number(localStorage.getItem(COINS_KEY) || "0") || 0),
+  walletYen: loadWalletYen(),
+  finance: loadFinance(),
   coinProgress: Math.min(SETTINGS.coinStep - 1, Math.max(0, Number(localStorage.getItem(COIN_PROGRESS_KEY) || "0") || 0)),
   coinJustEarned: false,
   streak: loadStreak(),
@@ -424,6 +546,11 @@ const els = {
   iceDots: qs("#ice-dots"),
   iceLeftLabel: qs("#ice-left-label"),
   iceRightLabel: qs("#ice-right-label"),
+  flashStage: qs("#flash-stage"),
+  flashFrame: qs("#flash-frame"),
+  flashVeil: qs("#flash-veil"),
+  flashExplain: qs("#flash-explain"),
+  flashReplay: qs("#flash-replay"),
   simpleEquation: qs("#simple-equation"),
   simpleFrame: qs("#simple-frame"),
   minusEquation: qs("#minus-equation"),
@@ -442,10 +569,7 @@ const els = {
   catchText: qs("#catch-text"),
   partnerCard: qs("#partner-card"),
   partnerImg: qs("#partner-img"),
-  missionSegPair: qs("#mission-seg-pair"),
-  missionSegTenplus: qs("#mission-seg-tenplus"),
-  missionSegMogi: qs("#mission-seg-mogi"),
-  missionSegMain: qs("#mission-seg-main"),
+  missionSegs: Object.fromEntries(MODES.map((mode) => [mode, qs(`#mission-seg-${mode}`)])),
   missionLegend: qs("#mission-legend"),
   missionText: qs("#mission-text")
 };
@@ -468,7 +592,12 @@ function problemKey(problem) {
 
 /* ---------- 成績記録・にがて優先出題 ---------- */
 
+function flashKey(problem) {
+  return String(problem.n);
+}
+
 function statKeyFn(mode) {
+  if (mode === "flash") return flashKey;
   return mode === "pair" || mode === "bridge" || mode === "mogi" ? problemKey : abKey;
 }
 
@@ -590,15 +719,29 @@ function addRecord(score, mode) {
 /* ---------- フレンダゲージ（ちょきん） ---------- */
 
 function saveCoins() {
-  localStorage.setItem(COINS_KEY, String(state.coins));
+  localStorage.setItem(WALLET_KEY, String(state.walletYen));
   localStorage.setItem(COIN_PROGRESS_KEY, String(state.coinProgress));
 }
 
 function renderCoinGauge() {
-  els.savings.textContent = `${state.coins * COIN_VALUE}円`;
+  els.savings.textContent = `${state.walletYen}円`;
   const percent = Math.min(100, (state.coinProgress / SETTINGS.coinStep) * 100);
   els.coinFill.style.width = `${percent}%`;
   els.coinText.textContent = `あと${SETTINGS.coinStep - state.coinProgress}もんで100円`;
+  const current = qs("#coin-current");
+  if (current) current.textContent = `${state.walletYen}円`;
+  renderBankPanel();
+}
+
+// 渡したぶんの貯金を減らす。0円未満にはしない
+function spendYen(yen) {
+  const spend = Math.min(state.walletYen, Math.max(0, Math.round(yen)));
+  if (spend <= 0) return false;
+  state.walletYen -= spend;
+  state.coinJustEarned = false;
+  saveCoins();
+  renderCoinGauge();
+  return true;
 }
 
 // ミッションクリアの連続日数。7日ごとにボーナス100円
@@ -613,7 +756,7 @@ function registerMissionClear() {
   state.dayLog[todayStr()] = day;
   saveDayLog();
   if (state.streak.count % STREAK_BONUS_DAYS === 0) {
-    state.coins += 1;
+    state.walletYen += COIN_VALUE;
     state.streakBonusJust = true;
     saveCoins();
     renderCoinGauge();
@@ -625,12 +768,221 @@ function registerCoinProgress() {
   state.coinProgress += 1;
   if (state.coinProgress >= SETTINGS.coinStep) {
     state.coinProgress = 0;
-    state.coins += 1;
+    state.walletYen += COIN_VALUE;
     state.coinJustEarned = true;
     burstConfetti(48);
   }
   saveCoins();
   renderCoinGauge();
+}
+
+/* ---------- とうし ---------- */
+
+function saveFinance() {
+  localStorage.setItem(FINANCE_KEY, JSON.stringify(state.finance));
+}
+
+function dayKeyToDate(key) {
+  const [y, m, d] = String(key).split("-").map(Number);
+  const date = new Date(y, (m || 1) - 1, d || 1);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function dateToDayKey(date) {
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
+function daysBetween(fromKey, toKey) {
+  const a = dayKeyToDate(fromKey);
+  const b = dayKeyToDate(toKey);
+  if (!a || !b) return 0;
+  return Math.round((b - a) / 86400000);
+}
+
+// その日の「もとで」と「いまのねだん」を記録する（同じ日が2回来たら上書き）
+function pushFinanceHistory(dayKey) {
+  const last = state.finance.history[state.finance.history.length - 1];
+  const entry = { d: dayKey, p: state.finance.invested, v: state.finance.invest };
+  if (last && last.d === dayKey) state.finance.history[state.finance.history.length - 1] = entry;
+  else state.finance.history.push(entry);
+  if (state.finance.history.length > FINANCE_HISTORY_MAX) {
+    state.finance.history = state.finance.history.slice(-FINANCE_HISTORY_MAX);
+  }
+}
+
+// 前に開いた日から今日までの値動きをまとめて反映する。1日ごとに 金利±ブレはば で変わる
+function applyFinanceDays() {
+  if (pendingBankRefund > 0) {
+    state.walletYen += pendingBankRefund;
+    pendingBankRefund = 0;
+    saveCoins();
+  }
+
+  const today = todayStr();
+  const elapsed = daysBetween(state.finance.lastDay, today);
+
+  if (elapsed > 0) {
+    const cursor = dayKeyToDate(state.finance.lastDay);
+    const skip = Math.max(0, elapsed - FINANCE_MAX_CATCHUP_DAYS);
+    if (skip > 0) cursor.setDate(cursor.getDate() + skip);
+    for (let i = skip; i < elapsed; i += 1) {
+      cursor.setDate(cursor.getDate() + 1);
+      if (state.finance.invest > 0) {
+        const swing = (Math.random() * 2 - 1) * SETTINGS.investSwing;
+        state.finance.invest = Math.max(0, Math.round(state.finance.invest * (1 + (SETTINGS.investRate + swing) / 100)));
+      }
+      pushFinanceHistory(dateToDayKey(cursor));
+    }
+  }
+
+  state.finance.lastDay = today;
+  pushFinanceHistory(today);
+  saveFinance();
+}
+
+// 100円たんいかどうかを確かめる。だめなら理由を返す
+function checkYenInput(yen, available, whatIsMissing) {
+  if (!Number.isFinite(yen) || yen <= 0) return "きんがくを いれてね";
+  if (yen % COIN_VALUE !== 0) return "100円たんいで いれてね";
+  if (yen > available) return `${whatIsMissing}に ${yen}円 ありません（いまは ${available}円）`;
+  return "";
+}
+
+function investBuy(yen) {
+  const error = checkYenInput(yen, state.walletYen, "さいふ");
+  if (error) return error;
+  state.walletYen -= yen;
+  state.finance.invest += yen;
+  state.finance.invested += yen;
+  saveCoins();
+  pushFinanceHistory(todayStr());
+  saveFinance();
+  renderCoinGauge();
+  return "";
+}
+
+// うるときは、へらす割合とおなじだけ元手も減らす（もうけの計算をあわせるため）
+function investSell(yen) {
+  const error = checkYenInput(yen, state.finance.invest, "とうし");
+  if (error) return error;
+  sellInvestment(yen);
+  return "";
+}
+
+function sellInvestment(yen) {
+  const ratio = state.finance.invest > 0 ? yen / state.finance.invest : 1;
+  state.finance.invest = Math.max(0, state.finance.invest - yen);
+  state.finance.invested = state.finance.invest === 0 ? 0 : Math.max(0, Math.round(state.finance.invested * (1 - ratio)));
+  state.walletYen += yen;
+  saveCoins();
+  pushFinanceHistory(todayStr());
+  saveFinance();
+  renderCoinGauge();
+}
+
+/* ---------- とうしタブの描画 ---------- */
+
+const BANK_CHART_DAYS = 30;
+
+function bankFeedback(message, good) {
+  const el = qs("#bank-feedback");
+  if (!el) return;
+  el.className = `feedback${good ? " is-good" : message ? " is-try" : ""}`;
+  el.textContent = message || "100円たんいで とうしできるよ";
+}
+
+function renderBankPanel() {
+  const wallet = qs("#bank-wallet");
+  if (!wallet) return;
+  const { invest, invested } = state.finance;
+  wallet.textContent = `${state.walletYen}円`;
+  qs("#bank-seed").textContent = `${invested}円`;
+  qs("#bank-invest").textContent = `${invest}円`;
+  qs("#bank-total").textContent = `${state.walletYen + invest}円`;
+
+  // もとでといまの金額を比べて、もうけ／そんを見せる
+  const profit = invest - invested;
+  const note = qs("#bank-invest-note");
+  if (invest === 0) {
+    note.textContent = "ふえたり へったり";
+    note.className = "bank-balance-note";
+  } else if (profit > 0) {
+    note.textContent = `もとでより +${profit}円`;
+    note.className = "bank-balance-note is-up";
+  } else if (profit < 0) {
+    note.textContent = `もとでより ${profit}円`;
+    note.className = "bank-balance-note is-down";
+  } else {
+    note.textContent = "もとでと おなじ";
+    note.className = "bank-balance-note";
+  }
+
+  const low = Math.round((SETTINGS.investRate - SETTINGS.investSwing) * 10) / 10;
+  const high = Math.round((SETTINGS.investRate + SETTINGS.investSwing) * 10) / 10;
+  qs("#invest-rate-cap").textContent = SETTINGS.investSwing > 0 ? `1日 ${low}%〜${high}%` : `1日 +${SETTINGS.investRate}%`;
+
+  renderBankChart();
+}
+
+// もとで と いまのねだん の2本の折れ線（ライブラリなしのSVG）。
+// 2本のひらきが そのまま もうけ／そん になる
+function renderBankChart() {
+  const box = qs("#bank-chart");
+  if (!box) return;
+  const empty = qs("#bank-chart-empty");
+  const points = state.finance.history.slice(-BANK_CHART_DAYS);
+  const hasMoney = points.some((p) => p.p > 0 || p.v > 0);
+
+  if (points.length < 2 || !hasMoney) {
+    box.replaceChildren();
+    box.classList.add("is-hidden");
+    empty.classList.remove("is-hidden");
+    qs("#bank-chart-range").textContent = "";
+    return;
+  }
+  box.classList.remove("is-hidden");
+  empty.classList.add("is-hidden");
+  qs("#bank-chart-range").textContent = `${points.length}日ぶん`;
+
+  const W = 600;
+  const H = 240;
+  const PAD = { top: 16, right: 12, bottom: 26, left: 56 };
+  const innerW = W - PAD.left - PAD.right;
+  const innerH = H - PAD.top - PAD.bottom;
+  const maxYen = Math.max(100, ...points.map((p) => Math.max(p.p, p.v)));
+  // 目盛りは100円きざみのきりのいい数に切り上げる
+  const step = maxYen <= 500 ? 100 : maxYen <= 2000 ? 500 : maxYen <= 10000 ? 1000 : 5000;
+  const top = Math.ceil(maxYen / step) * step;
+  const x = (index) => PAD.left + (points.length === 1 ? innerW / 2 : (index / (points.length - 1)) * innerW);
+  const y = (yen) => PAD.top + innerH - (yen / top) * innerH;
+  const line = (key) => points.map((p, index) => `${index === 0 ? "M" : "L"}${x(index).toFixed(1)} ${y(p[key]).toFixed(1)}`).join(" ");
+
+  const gridRows = [];
+  for (let value = 0; value <= top; value += step) {
+    gridRows.push(
+      `<line class="bank-grid" x1="${PAD.left}" y1="${y(value)}" x2="${W - PAD.right}" y2="${y(value)}"></line>` +
+      `<text class="bank-axis" x="${PAD.left - 8}" y="${y(value) + 4}" text-anchor="end">${value}円</text>`
+    );
+  }
+
+  const label = (index) => {
+    const [, m, d] = points[index].d.split("-");
+    return `${m}/${d}`;
+  };
+  const lastIndex = points.length - 1;
+  const dots =
+    `<circle class="bank-dot is-bankline" cx="${x(lastIndex)}" cy="${y(points[lastIndex].p)}" r="5"></circle>` +
+    `<circle class="bank-dot is-investline" cx="${x(lastIndex)}" cy="${y(points[lastIndex].v)}" r="5"></circle>`;
+
+  box.innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">` +
+    gridRows.join("") +
+    `<path class="bank-line is-bankline" d="${line("p")}"></path>` +
+    `<path class="bank-line is-investline" d="${line("v")}"></path>` +
+    dots +
+    `<text class="bank-axis" x="${PAD.left}" y="${H - 8}" text-anchor="start">${label(0)}</text>` +
+    `<text class="bank-axis" x="${W - PAD.right}" y="${H - 8}" text-anchor="end">${label(lastIndex)}</text>` +
+    `</svg>`;
 }
 
 /* ---------- ポケモン ---------- */
@@ -739,46 +1091,57 @@ function catchPokemon(bonus) {
 // ミッションの4枠それぞれの達成数
 function missionParts() {
   rolloverDaily();
-  return {
-    pairDone: Math.min(state.daily.pairUsed || 0, PRACTICE_MISSION_CAP),
-    tenplusDone: Math.min(state.daily.tenplusUsed || 0, PRACTICE_MISSION_CAP),
-    mogiDone: Math.min(state.daily.mogiUsed || 0, PRACTICE_MISSION_CAP),
-    mainDone: Math.min(state.daily.main || 0, SETTINGS.missionGoal)
-  };
+  const done = {};
+  MODES.forEach((mode) => {
+    done[mode] = Math.min(state.daily[`${mode}Used`] || 0, missionCap(mode));
+  });
+  return done;
 }
 
-// 練習モードが今日あと何問ミッションにカウントできるか
-function renderPracticeCaps() {
-  [["pair", "#pair-cap"], ["tenplus", "#tenplus-cap"], ["mogi", "#mogi-cap"]].forEach(([mode, selector]) => {
-    const left = Math.max(0, PRACTICE_MISSION_CAP - (state.daily[`${mode}Used`] || 0));
-    qs(selector).textContent = left > 0 ? `ミッションに あと${left}もん` : "きょうのぶんは クリア！";
+function missionTotal() {
+  return MODES.reduce((sum, mode) => sum + missionCap(mode), 0);
+}
+
+// 各タブが今日あと何問ミッションに必要か
+function renderMissionCaps() {
+  MODES.forEach((mode) => {
+    const el = qs(`#${mode}-cap`);
+    if (!el) return;
+    const cap = missionCap(mode);
+    if (cap <= 0) {
+      el.textContent = "きょうは おやすみ";
+      return;
+    }
+    const left = Math.max(0, cap - (state.daily[`${mode}Used`] || 0));
+    el.textContent = left > 0 ? `ミッションに あと${left}もん` : "きょうのぶんは クリア！";
   });
 }
 
 function renderMission() {
   rolloverDaily();
-  renderPracticeCaps();
+  renderMissionCaps();
   const remain = SETTINGS.catchStep - state.catchProgress;
   const catchPercent = (state.catchProgress / SETTINGS.catchStep) * 100;
   els.catchFill.style.width = `${catchPercent}%`;
   els.catchText.textContent = `あと${remain}もん`;
 
-  // 4色の内訳バー: あわせて10(10問) + 10+X(10問) + もぎダンジョン(10問) + ジム・ダンジョン(設定値) の4枠必達
-  const { pairDone, tenplusDone, mogiDone, mainDone } = missionParts();
-  const total = PRACTICE_MISSION_CAP * 3 + SETTINGS.missionGoal;
-  const toWidth = (value) => `${Math.min(100, (value / total) * 100)}%`;
-  els.missionSegPair.style.width = toWidth(pairDone);
-  els.missionSegTenplus.style.width = toWidth(tenplusDone);
-  els.missionSegMogi.style.width = toWidth(mogiDone);
-  els.missionSegMain.style.width = toWidth(mainDone);
-  els.missionLegend.innerHTML =
-    `<i class="legend-dot seg-pair"></i>あわせて10 ${pairDone}/${PRACTICE_MISSION_CAP}` +
-    `<i class="legend-dot seg-tenplus"></i>10+X ${tenplusDone}/${PRACTICE_MISSION_CAP}` +
-    `<i class="legend-dot seg-mogi"></i>もぎダンジョン ${mogiDone}/${PRACTICE_MISSION_CAP}` +
-    `<i class="legend-dot seg-main"></i>ジム・ダンジョン ${mainDone}/${SETTINGS.missionGoal}`;
+  // タブごとの内訳バー。必要数が0のタブはバーにも凡例にも出さない
+  const done = missionParts();
+  const total = missionTotal();
+  const toWidth = (value) => (total > 0 ? `${Math.min(100, (value / total) * 100)}%` : "0%");
+  let legend = "";
+  MODES.forEach((mode) => {
+    const cap = missionCap(mode);
+    els.missionSegs[mode].style.width = toWidth(done[mode]);
+    if (cap > 0) {
+      legend += `<i class="legend-dot seg-${mode}"></i>${MODE_LABELS[mode]} ${done[mode]}/${cap}`;
+    }
+  });
+  els.missionLegend.innerHTML = legend || "ぜんぶのタブが おやすみに なっているよ（設定タブで もんだいすうを きめてね）";
+  const left = total - MODES.reduce((sum, mode) => sum + done[mode], 0);
   els.missionText.textContent = state.daily.done
     ? `クリア！🎉${state.streak.last === todayStr() && state.streak.count > 1 ? ` ${state.streak.count}日れんぞく` : ""}`
-    : `あと ${total - pairDone - tenplusDone - mogiDone - mainDone}もん`;
+    : `あと ${left}もん`;
 }
 
 /* ---------- りくのパートナー ---------- */
@@ -857,28 +1220,24 @@ function saveCatchProgress() {
   localStorage.setItem(CATCH_PROGRESS_KEY, String(state.catchProgress));
 }
 
-function registerWrong() {
+function registerWrong(mode) {
   // ペナルティは「つぎのポケモンまで」の進捗のみ。0未満にはしない
   state.catchProgress = Math.max(0, state.catchProgress - 1);
   saveCatchProgress();
   rolloverDaily();
-  // ミッションのジム・ダンジョン枠もペナルティ。ただしクリア後は固定で減らさない
+  // そのタブのミッション進捗もペナルティ。ただしクリア後は固定で減らさない
   if (!state.daily.done) {
-    state.daily.main = Math.max(0, (state.daily.main || 0) - 1);
+    const usedKey = `${mode}Used`;
+    state.daily[usedKey] = Math.max(0, (state.daily[usedKey] || 0) - 1);
     saveDaily();
   }
   renderMission();
 }
 
 function checkMissionGoal() {
-  const { pairDone, tenplusDone, mogiDone, mainDone } = missionParts();
-  if (
-    !state.daily.done &&
-    pairDone >= PRACTICE_MISSION_CAP &&
-    tenplusDone >= PRACTICE_MISSION_CAP &&
-    mogiDone >= PRACTICE_MISSION_CAP &&
-    mainDone >= SETTINGS.missionGoal
-  ) {
+  const done = missionParts();
+  const cleared = MODES.every((mode) => done[mode] >= missionCap(mode));
+  if (!state.daily.done && cleared && missionTotal() > 0) {
     state.daily.done = true;
     saveDaily();
     registerMissionClear();
@@ -886,12 +1245,23 @@ function checkMissionGoal() {
   }
 }
 
-function registerCorrect() {
+// 正解1問ぶんを、そのタブのミッション枠に足す（上限に達したらそれ以上は増えない）
+function registerMissionProgress(mode) {
+  rolloverDaily();
+  const usedKey = `${mode}Used`;
+  const used = state.daily[usedKey] || 0;
+  if (used < missionCap(mode)) {
+    state.daily[usedKey] = used + 1;
+    saveDaily();
+  }
+  checkMissionGoal();
+  renderMission();
+}
+
+// ジム・ダンジョン（GAUGE_MODES）の正解。ミッションに加えてポケモン・フレンダゲージも進む
+function registerCorrect(mode) {
   state.totalCorrect += 1;
   localStorage.setItem(TOTAL_KEY, String(state.totalCorrect));
-  rolloverDaily();
-  state.daily.main = (state.daily.main || 0) + 1;
-  saveDaily();
   registerCoinProgress();
   state.catchProgress += 1;
   if (state.catchProgress >= SETTINGS.catchStep) {
@@ -899,22 +1269,7 @@ function registerCorrect() {
     catchPokemon(false);
   }
   saveCatchProgress();
-  checkMissionGoal();
-  renderMission();
-}
-
-// 練習モード（あわせて10・10+X・もぎダンジョン）の正解は、ミッションの各10問枠にカウントする。
-// フレンダ・ポケモンゲージにはカウントしない（それはジム・ダンジョンだけ）
-function registerPracticeCorrect(mode) {
-  if (!PRACTICE_MODES.includes(mode)) return;
-  rolloverDaily();
-  const usedKey = `${mode}Used`;
-  const used = state.daily[usedKey] || 0;
-  if (used >= PRACTICE_MISSION_CAP) return;
-  state.daily[usedKey] = used + 1;
-  saveDaily();
-  checkMissionGoal();
-  renderMission();
+  registerMissionProgress(mode);
 }
 
 /* ---------- バックアップ ---------- */
@@ -958,9 +1313,10 @@ function importBackup(file) {
 
 /* ---------- せいせき（おうちの人向け） ---------- */
 
-const MODE_LABELS = { simple: "たしざんジム", pair: "あわせて10", tenplus: "10+X", mogi: "もぎダンジョン", bridge: "ほのおのダンジョン", minus: "ひきざんジム", ice: "こおりのダンジョン" };
+const MODE_LABELS = { simple: "たしざんジム", pair: "あわせて10", tenplus: "10+X", flash: "かみなりジム", mogi: "もぎダンジョン", bridge: "ほのおのダンジョン", minus: "ひきざんジム", ice: "こおりのダンジョン" };
 
 function formatProblemLabel(mode, key) {
+  if (mode === "flash") return `${key}こ`;
   if (mode === "minus" || mode === "ice") return key.replace("-", " − ");
   if (mode === "simple" || mode === "tenplus") return key.replace("-", " + ");
   return key.replace("+", " + ");
@@ -1071,8 +1427,18 @@ function renderStatsPanel() {
 
 function renderSettingsPanel() {
   qs("#set-catch").value = SETTINGS.catchStep;
-  qs("#set-mission").value = SETTINGS.missionGoal;
   qs("#set-coin").value = SETTINGS.coinStep;
+  qs("#set-flash-sec").value = (SETTINGS.flashMs / 1000).toFixed(1);
+  qs("#set-flash-max").value = SETTINGS.flashMax;
+  qs("#set-invest-rate").value = SETTINGS.investRate;
+  qs("#set-invest-swing").value = SETTINGS.investSwing;
+  MODES.forEach((mode) => {
+    qs(`#set-cap-${mode}`).value = missionCap(mode);
+  });
+  const total = missionTotal();
+  const active = MODES.filter((mode) => missionCap(mode) > 0).length;
+  qs("#mission-cap-total").textContent = `合計 ${total}問（${active}タブ）でミッションクリア`;
+  renderCoinGauge();
 }
 
 function bindSettingInput(selector, key, onApply) {
@@ -1096,14 +1462,72 @@ bindSettingInput("#set-catch", "catchStep", () => {
   renderMission();
 });
 
-bindSettingInput("#set-mission", "missionGoal", () => {
-  renderMission();
-});
-
 bindSettingInput("#set-coin", "coinStep", () => {
   state.coinProgress = Math.min(state.coinProgress, SETTINGS.coinStep - 1);
   saveCoins();
   renderCoinGauge();
+});
+
+// タブごとのミッション問題数（0 = きょうは必須から外す）
+MODES.forEach((mode) => {
+  const input = qs(`#set-cap-${mode}`);
+  input.addEventListener("change", () => {
+    const value = Math.round(Number(input.value));
+    if (!Number.isFinite(value) || value < 0 || value > 999) {
+      input.value = missionCap(mode);
+      return;
+    }
+    SETTINGS.missionCaps[mode] = value;
+    input.value = value;
+    saveSettings();
+    checkMissionGoal();
+    renderMission();
+    renderSettingsPanel();
+  });
+});
+
+// 表示時間は「秒」で入力してもらい、内部はミリ秒で持つ
+qs("#set-flash-sec").addEventListener("change", () => {
+  const input = qs("#set-flash-sec");
+  const seconds = Number(input.value);
+  if (!Number.isFinite(seconds) || seconds < 0.2 || seconds > 10) {
+    input.value = (SETTINGS.flashMs / 1000).toFixed(1);
+    return;
+  }
+  SETTINGS.flashMs = Math.round(seconds * 1000);
+  input.value = (SETTINGS.flashMs / 1000).toFixed(1);
+  saveSettings();
+});
+
+// とうしの利率（小数OK）
+[["#set-invest-rate", "investRate", -50, 100], ["#set-invest-swing", "investSwing", 0, 100]].forEach(
+  ([selector, key, min, max]) => {
+    const input = qs(selector);
+    input.addEventListener("change", () => {
+      const value = Number(input.value);
+      if (!Number.isFinite(value) || value < min || value > max) {
+        input.value = SETTINGS[key];
+        return;
+      }
+      SETTINGS[key] = value;
+      input.value = value;
+      saveSettings();
+      renderBankPanel();
+    });
+  }
+);
+
+qs("#set-flash-max").addEventListener("change", () => {
+  const input = qs("#set-flash-max");
+  const max = Math.round(Number(input.value));
+  if (!Number.isFinite(max) || max < 3 || max > 10) {
+    input.value = SETTINGS.flashMax;
+    return;
+  }
+  SETTINGS.flashMax = max;
+  input.value = max;
+  saveSettings();
+  flashProblems = makeFlashProblems();
 });
 
 /* ---------- カレンダー ---------- */
@@ -1197,7 +1621,9 @@ function playTone(kind, combo = 0) {
           ? [392, 293.66]
           : kind === "click"
             ? [987.77]
-            : [330, 220];
+            : kind === "flash"
+              ? [1318.5] // かみなりジムでブロックが出た合図
+              : [330, 220];
 
   notes.forEach((freq, index) => {
     const osc = ctx.createOscillator();
@@ -1227,8 +1653,8 @@ function onCorrect(mode) {
   state.combo += 1;
   countSolvedQuestion();
   if (!state.challenge.ended) {
-    if (GAUGE_MODES.includes(mode)) registerCorrect();
-    else registerPracticeCorrect(mode);
+    if (GAUGE_MODES.includes(mode)) registerCorrect(mode);
+    else registerMissionProgress(mode);
   }
   const feedback = M[mode].feedback;
   feedback.className = "feedback is-good";
@@ -1252,7 +1678,7 @@ function onWrong(mode, _hint, correctValue) {
   M[mode].section.classList.add("is-answer-shown");
   stopChallengeTimer();
   if (!state.challenge.ended && GAUGE_MODES.includes(mode)) {
-    registerWrong();
+    registerWrong(mode);
   }
   const feedback = M[mode].feedback;
   feedback.className = "feedback is-try";
@@ -1338,6 +1764,7 @@ function resetModeStart(mode) {
   state.locked[mode] = true;
   M[mode].section.classList.remove("is-answer-shown");
   setNextButton(mode, false);
+  if (mode === "flash") resetFlashStage();
 }
 
 function clearNextQuestion() {
@@ -1345,6 +1772,7 @@ function clearNextQuestion() {
     clearTimeout(state.nextQuestionTimeoutId);
     state.nextQuestionTimeoutId = null;
   }
+  clearFlashTimers();
   clearBridgeReveal();
   clearRemovalReveal("ice");
   clearRemovalReveal("minus");
@@ -1383,6 +1811,8 @@ function handleChallengeEnd() {
   MODES.forEach((mode) => {
     state.locked[mode] = true;
   });
+  clearFlashTimers();
+  els.flashReplay.classList.add("is-hidden");
   stopChallengeTimer();
   renderTimerRows();
   addRecord(finalScore, state.activeMode);
@@ -1455,7 +1885,8 @@ function startMode(mode) {
   state.started[mode] = true;
   setModeWaiting(mode, false);
   nextQuestion(mode);
-  startChallengeTimer();
+  // かみなりジムはブロックを見せているあいだタイマーを止めるので、ここでは動かさない
+  if (mode !== "flash") startChallengeTimer();
 }
 
 function nextQuestion(mode) {
@@ -1463,6 +1894,7 @@ function nextQuestion(mode) {
   state.questionAt[mode] = Date.now();
   if (mode === "pair") nextPair();
   else if (mode === "tenplus") nextTenPlus();
+  else if (mode === "flash") nextFlash();
   else if (mode === "mogi") nextMogi();
   else if (mode === "bridge") nextBridge();
   else if (mode === "minus") nextMinus();
@@ -1483,6 +1915,163 @@ function guardNext(mode) {
   }
   state.locked[mode] = false;
   return true;
+}
+
+/* ---------- かみなりジム（フラッシュ） ---------- */
+
+const FLASH_MAX_REPLAYS = 2;
+
+function clearFlashTimers() {
+  state.flash.timers.forEach(clearTimeout);
+  state.flash.timers = [];
+}
+
+function flashLater(fn, ms) {
+  state.flash.timers.push(setTimeout(fn, ms));
+}
+
+// n にいちばん近い「きりのいい数（5 か 10）」まであといくつ足りないか。
+// 4 → 5より1こすくない、9 → 10より1こすくない、のように見せるために使う
+function flashShortOf(n) {
+  if (n === 3 || n === 4) return { anchor: 5, gap: 5 - n };
+  if (n === 8 || n === 9) return { anchor: 10, gap: 10 - n };
+  return null;
+}
+
+// 10マス（5×2）に n 個。split=true で上段5個を緑・下段のあまりを赤にして「5といくつ」を見せる。
+// missingTo を渡すと、そこまでの足りないマスを点線で見せる（「あと1こで10」の可視化）
+function renderFlashFrame(container, n, { counted = false, split = false, missingTo = 0 } = {}) {
+  container.replaceChildren();
+  for (let index = 0; index < 10; index += 1) {
+    const cell = document.createElement("div");
+    cell.className = "frame-cell";
+    if (index < n) {
+      cell.classList.add("is-filled");
+      if (split) {
+        if (index >= 5) cell.classList.add("is-second-row");
+        cell.style.setProperty("--pop-delay", `${index * 45}ms`);
+        cell.classList.add("is-split-pop");
+      }
+      if (counted) {
+        cell.classList.add("is-counted");
+        cell.dataset.count = String(index + 1);
+      }
+    } else if (index < missingTo) {
+      cell.classList.add("is-missing");
+    }
+    container.append(cell);
+  }
+}
+
+function resetFlashStage() {
+  clearFlashTimers();
+  if (!els.flashStage) return;
+  els.flashStage.classList.remove("is-ready", "is-showing", "is-revealed");
+  els.flashVeil.textContent = "よ〜い…";
+  els.flashExplain.classList.add("is-hidden");
+  els.flashExplain.textContent = "";
+  els.flashReplay.classList.add("is-hidden");
+  els.flashFrame.replaceChildren();
+  M.flash.choices.classList.add("is-dim");
+}
+
+// ブロックをパッと見せて隠す。隠し終わってはじめて答えを選べるようになる。
+// 60秒チャレンジのタイマーは「見ているあいだ」は止めて、考えはじめてから動かす
+function showFlash(problem) {
+  clearFlashTimers();
+  stopChallengeTimer();
+  state.locked.flash = true;
+  M.flash.choices.classList.add("is-dim");
+  els.flashReplay.classList.add("is-hidden");
+  els.flashStage.classList.remove("is-showing", "is-revealed");
+  els.flashStage.classList.add("is-ready");
+  els.flashVeil.textContent = "よ〜い…";
+  renderFlashFrame(els.flashFrame, problem.n);
+
+  flashLater(() => {
+    els.flashStage.classList.remove("is-ready");
+    els.flashStage.classList.add("is-showing");
+    playTone("flash");
+
+    flashLater(() => {
+      els.flashStage.classList.remove("is-showing");
+      els.flashVeil.textContent = "？";
+      state.flash.shown = true;
+      // 考えはじめた時点から計測する（フラッシュを見ている時間は含めない）
+      state.questionAt.flash = Date.now();
+      if (!(state.timedEnabled && state.challenge.ended)) {
+        state.locked.flash = false;
+        M.flash.choices.classList.remove("is-dim");
+        if (state.flash.replays < FLASH_MAX_REPLAYS) els.flashReplay.classList.remove("is-hidden");
+        M.flash.feedback.className = "feedback";
+        M.flash.feedback.textContent = "なんこ だった？";
+        if (state.activeMode === "flash") startChallengeTimer();
+      }
+    }, SETTINGS.flashMs);
+  }, 700);
+}
+
+function flashExplainHtml(n) {
+  let main;
+  if (n < 5) main = `うえのだんに <strong>${n}</strong>こ`;
+  else if (n === 5) main = `うえのだんが ちょうど <strong>5</strong>こ`;
+  else if (n === 10) main = `<span class="eq-green">5</span> と <span class="eq-red">5</span> で <strong>10</strong>`;
+  else main = `うえのだん <span class="eq-green">5</span>こ と したのだん <span class="eq-red">${n - 5}</span>こ で <strong>${n}</strong>`;
+
+  // 「あと1こで10」のような、きりのいい数との差でも見えるようにする
+  const short = flashShortOf(n);
+  let sub = "";
+  if (n === 10) sub = "10マス ぜんぶ うまったね";
+  else if (short) sub = `<strong>${short.anchor}</strong>より <strong>${short.gap}</strong>こ すくないだけ！ あと${short.gap}こで ${short.anchor}`;
+
+  return sub ? `${main}<span class="flash-explain-sub">${sub}</span>` : main;
+}
+
+function nextFlash() {
+  if (!guardNext("flash")) return;
+  const p = pickWeighted("flash", flashProblems, state.lastKey.flash);
+  state.problem.flash = p;
+  state.lastKey.flash = flashKey(p);
+  state.flash.replays = 0;
+  state.flash.shown = false;
+  els.flashExplain.classList.add("is-hidden");
+  els.flashExplain.textContent = "";
+  setNextButton("flash", false);
+  M.flash.feedback.className = "feedback";
+  M.flash.feedback.textContent = "よく みててね";
+  renderChoiceButtons(M.flash.choices, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], (value, button) => {
+    chooseFlash(value, button, p);
+  });
+  // タイマーは showFlash がブロックを隠したあとに動きはじめる
+  showFlash(p);
+}
+
+function chooseFlash(value, button, problem = state.problem.flash) {
+  if (state.locked.flash || !problem) return;
+  clearFlashTimers();
+  const correct = value === problem.n;
+  recordAnswer("flash", problem, correct);
+  button.classList.add(correct ? "is-correct" : "is-wrong");
+  els.flashReplay.classList.add("is-hidden");
+  els.flashStage.classList.remove("is-ready");
+  els.flashStage.classList.add("is-showing", "is-revealed");
+  els.flashVeil.textContent = "";
+  // 答え合わせでは「5のかたまり＋いくつ」に塗り分け、5・10まで足りないマスは点線で見せる
+  const short = state.explainEnabled ? flashShortOf(problem.n) : null;
+  renderFlashFrame(els.flashFrame, problem.n, {
+    counted: state.explainEnabled,
+    split: true,
+    missingTo: short ? short.anchor : 0
+  });
+  if (state.explainEnabled) {
+    els.flashExplain.innerHTML = flashExplainHtml(problem.n);
+    els.flashExplain.classList.remove("is-hidden");
+  }
+  if (correct) {
+    onCorrect("flash");
+  } else {
+    onWrong("flash", null, problem.n);
+  }
 }
 
 /* ---------- しゅぎょう（たしざん） ---------- */
@@ -2164,12 +2753,18 @@ function switchMode(mode) {
   MODES.forEach((m) => {
     M[m].section.classList.toggle("is-hidden", m !== mode);
   });
+  qs("#invest-mode").classList.toggle("is-hidden", mode !== "invest");
   qs("#records-mode").classList.toggle("is-hidden", mode !== "records");
   qs("#dex-mode").classList.toggle("is-hidden", mode !== "dex");
   qs("#stats-panel").classList.toggle("is-hidden", mode !== "stats");
   qs("#settings-mode").classList.toggle("is-hidden", mode !== "settings");
   qs("#calendar-mode").classList.toggle("is-hidden", mode !== "calendar");
 
+  if (mode === "invest") {
+    applyFinanceDays();
+    bankFeedback("", false);
+    renderBankPanel();
+  }
   if (mode === "records") renderRecords();
   if (mode === "dex") renderDex();
   if (mode === "stats") renderStatsPanel();
@@ -2188,6 +2783,13 @@ MODES.forEach((mode) => {
   qs(`#new-${mode}`)?.addEventListener("click", () => nextQuestion(mode));
   M[mode].next.addEventListener("click", () => nextQuestion(mode));
   M[mode].start.addEventListener("click", () => startMode(mode));
+});
+
+els.flashReplay.addEventListener("click", () => {
+  const problem = state.problem.flash;
+  if (!problem || state.locked.flash || state.flash.replays >= FLASH_MAX_REPLAYS) return;
+  state.flash.replays += 1;
+  showFlash(problem);
 });
 
 els.blockToggle.addEventListener("click", () => {
@@ -2236,12 +2838,77 @@ qs("#cal-next").addEventListener("click", () => {
   renderCalendar();
 });
 
+// 100円・500円・1000円のクイックボタン
+document.querySelectorAll("[data-coin-spend]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const yen = Number(button.dataset.coinSpend) * COIN_VALUE;
+    if (state.walletYen < yen) {
+      window.alert(`さいふに ${yen}円 ありません（いまは ${state.walletYen}円）`);
+      return;
+    }
+    spendYen(yen);
+  });
+});
+
+// 金額を打ち込んで減らす
+const coinSpendInput = qs("#coin-spend-amount");
+qs("#coin-spend-run").addEventListener("click", () => {
+  const yen = Number(coinSpendInput.value);
+  if (!Number.isFinite(yen) || yen <= 0) return;
+  if (yen % COIN_VALUE !== 0) {
+    window.alert("100円たんいで入力してください");
+    return;
+  }
+  if (state.walletYen < yen) {
+    window.alert(`さいふに ${yen}円 ありません（いまは ${state.walletYen}円）`);
+    return;
+  }
+  spendYen(yen);
+  coinSpendInput.value = "";
+});
+
 qs("#coin-reset").addEventListener("click", () => {
-  if (!window.confirm("貯金を0円に戻しますか？（お金を渡したらリセットしてください）")) return;
-  state.coins = 0;
+  if (!window.confirm("さいふを0円に戻しますか？（とうししているぶんはそのまま）")) return;
+  state.walletYen = 0;
   state.coinJustEarned = false;
   saveCoins();
   renderCoinGauge();
+});
+
+/* ---------- とうしの操作 ---------- */
+
+function runMoneyAction(inputSelector, action, successText) {
+  const input = qs(inputSelector);
+  const yen = Math.round(Number(input.value));
+  const error = action(yen);
+  if (error) {
+    bankFeedback(error, false);
+    return;
+  }
+  input.value = "";
+  bankFeedback(successText(yen), true);
+  playTone("click");
+}
+
+qs("#invest-buy").addEventListener("click", () => {
+  runMoneyAction("#invest-amount", investBuy, (yen) => `${yen}円 とうししたよ。あしたどうなるかな？`);
+});
+
+qs("#invest-sell").addEventListener("click", () => {
+  runMoneyAction("#invest-amount", investSell, (yen) => `とうしを ${yen}円ぶん うって さいふに いれたよ`);
+});
+
+qs("#invest-sell-all").addEventListener("click", () => {
+  const all = state.finance.invest;
+  if (all <= 0) {
+    bankFeedback("とうししている おかねが ないよ", false);
+    return;
+  }
+  const profit = all - state.finance.invested;
+  sellInvestment(all);
+  const tail = profit > 0 ? `${profit}円 ふえてたね！` : profit < 0 ? `${-profit}円 へっちゃった…` : "ぴったり おなじだったね";
+  bankFeedback(`ぜんぶ うって ${all}円。${tail}`, profit >= 0);
+  playTone(profit >= 0 ? "good" : "click");
 });
 
 qs("#backup-export").addEventListener("click", exportBackup);
@@ -2263,6 +2930,7 @@ renderBlockToggle();
 renderExplainToggle();
 renderRecords();
 renderMission();
+applyFinanceDays();
 renderCoinGauge();
 renderPartner();
 MODES.forEach(resetModeStart);
