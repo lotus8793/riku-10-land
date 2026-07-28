@@ -27,6 +27,8 @@ const CAUGHT_KEY = "riku10v2-caught";
 const DAILY_KEY = "riku10v2-daily";
 const STATS_KEY = "riku10v2-stats";
 const DAYLOG_KEY = "riku10v2-daylog";
+const WEEKLY_SNAPSHOT_KEY = "riku10v2-weekly-snapshot";
+const WEEKLY_SNAPSHOT_DAYS = 7; // このミリ秒×日数より古いスナップショットは作り直す
 const BACKUP_PREFIX = "riku10v2-";
 const COINS_KEY = "riku10v2-coins"; // 旧形式（100円が何枚か）。いまは移行用にだけ読む
 const WALLET_KEY = "riku10v2-wallet-yen";
@@ -314,6 +316,21 @@ function loadDayLog() {
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
   } catch {}
   return {};
+}
+
+// レポートタブの「できるようになった問題」用。7日以上前のスナップショットが無ければ今のstatsで作り直す
+function getWeeklySnapshot() {
+  let snap = null;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(WEEKLY_SNAPSHOT_KEY) || "null");
+    if (parsed && typeof parsed.takenAt === "string" && parsed.stats && typeof parsed.stats === "object") snap = parsed;
+  } catch {}
+  const age = snap ? Date.now() - new Date(snap.takenAt).getTime() : Infinity;
+  if (!snap || !Number.isFinite(age) || age >= WEEKLY_SNAPSHOT_DAYS * 86400000) {
+    snap = { takenAt: new Date().toISOString(), stats: JSON.parse(JSON.stringify(state.stats)) };
+    localStorage.setItem(WEEKLY_SNAPSHOT_KEY, JSON.stringify(snap));
+  }
+  return snap;
 }
 
 // 旧「ぎんこう」に残っていた金額。読み込み時にさいふへ戻す
@@ -1462,6 +1479,137 @@ function renderStatsWeak() {
     }
     wrap.append(column);
   });
+}
+
+/* ---------- 1しゅうかんレポート ---------- */
+
+// startDaysAgo〜endDaysAgo（今日=0）の範囲でdayLogを合計する
+function weekRangeTotals(startDaysAgo, endDaysAgo) {
+  let c = 0;
+  let w = 0;
+  let activeDays = 0;
+  for (let i = startDaysAgo; i <= endDaysAgo; i += 1) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    const log = state.dayLog[key];
+    if (!log) continue;
+    c += log.c || 0;
+    w += log.w || 0;
+    if ((log.c || 0) + (log.w || 0) > 0) activeDays += 1;
+  }
+  return { c, w, activeDays };
+}
+
+// スナップショット時点では苦手だったが、今はすっかり得意になった問題を探す
+function computeWeeklyImproved(snapshotStats) {
+  const results = [];
+  MODES.forEach((mode) => {
+    const before = (snapshotStats && snapshotStats[mode]) || {};
+    const current = state.stats[mode] || {};
+    Object.entries(current).forEach(([key, stat]) => {
+      const tries = stat.c + stat.w;
+      if (tries < 2) return;
+      const currentRate = stat.w / tries;
+      const beforeStat = before[key];
+      const beforeTries = beforeStat ? beforeStat.c + beforeStat.w : 0;
+      if (beforeTries < 2) return; // 今週はじめて出てきた問題は比較できない
+      const beforeRate = beforeStat.w / beforeTries;
+      const practicedSince = tries - beforeTries;
+      if (beforeRate >= 0.4 && currentRate <= 0.15 && practicedSince >= 1) {
+        results.push({ mode, key, beforeRate, currentRate });
+      }
+    });
+  });
+  return results
+    .sort((a, b) => (b.beforeRate - b.currentRate) - (a.beforeRate - a.currentRate))
+    .slice(0, 6);
+}
+
+// 全モードを横断して、いま一番れんしゅうすると良い問題を探す（統計タブの苦手ロジックと同じ重み）
+function computeWeeklyPractice() {
+  const results = [];
+  MODES.forEach((mode) => {
+    Object.entries(state.stats[mode] || {}).forEach(([key, stat]) => {
+      const tries = stat.c + stat.w;
+      if (tries < 2 || !(stat.w > 0 || stat.t > 6000)) return;
+      results.push({ mode, key, ...stat, tries, weight: problemWeight(stat) });
+    });
+  });
+  return results.sort((a, b) => b.weight - a.weight).slice(0, 6);
+}
+
+function renderReportBadgeList(containerId, items, emptyText) {
+  const wrap = qs(`#${containerId}`);
+  wrap.replaceChildren();
+  if (!items.length) {
+    const empty = document.createElement("p");
+    empty.className = "records-empty";
+    empty.textContent = emptyText;
+    wrap.append(empty);
+    return;
+  }
+  items.forEach((item) => {
+    const badge = document.createElement("div");
+    badge.className = "report-badge";
+    const mode = document.createElement("span");
+    mode.className = "report-badge-mode";
+    mode.textContent = MODE_LABELS[item.mode];
+    const eq = document.createElement("strong");
+    eq.className = "report-badge-eq";
+    eq.textContent = formatProblemLabel(item.mode, item.key);
+    const detail = document.createElement("span");
+    detail.className = "report-badge-detail";
+    if (typeof item.beforeRate === "number") {
+      const before = Math.round((1 - item.beforeRate) * 100);
+      const after = Math.round((1 - item.currentRate) * 100);
+      detail.textContent = `正答率 ${before}% → ${after}%`;
+    } else {
+      const accuracy = Math.round((item.c / item.tries) * 100);
+      detail.textContent = `正答${accuracy}%${item.t ? `・約${Math.round(item.t / 1000)}秒` : ""}`;
+    }
+    badge.append(mode, eq, detail);
+    wrap.append(badge);
+  });
+}
+
+function renderReport() {
+  const snapshot = getWeeklySnapshot();
+  const thisWeek = weekRangeTotals(0, 6);
+  const lastWeek = weekRangeTotals(7, 13);
+  const streakAlive = state.streak.last === todayStr() || state.streak.last === yesterdayStr() ? state.streak.count : 0;
+
+  qs("#report-hero-num").textContent = `${thisWeek.c}もん せいかい！`;
+  const diff = thisWeek.c - lastWeek.c;
+  let sub;
+  if (lastWeek.c === 0 && thisWeek.c === 0) sub = "きょうから はじめよう！";
+  else if (diff > 0) sub = `先週より ${diff}もん おおい！すごい！`;
+  else if (diff === 0) sub = "先週と おなじペースで がんばってるね！";
+  else sub = "今週も コツコツ れんしゅうしよう！";
+  qs("#report-hero-sub").textContent = sub;
+
+  const statsWrap = qs("#report-hero-stats");
+  statsWrap.replaceChildren();
+  const pills = [
+    { label: "あそんだ日", value: `${thisWeek.activeDays}／7日` },
+    { label: "れんぞくきろく", value: `${streakAlive}日` },
+    { label: "ずかん", value: `${speciesCaught()}／${STICKERS.length}しゅるい` }
+  ];
+  pills.forEach((pill) => {
+    const el = document.createElement("div");
+    el.className = "report-pill";
+    const value = document.createElement("strong");
+    value.textContent = pill.value;
+    const label = document.createElement("span");
+    label.textContent = pill.label;
+    el.append(value, label);
+    statsWrap.append(el);
+  });
+
+  renderReportBadgeList("report-improved", computeWeeklyImproved(snapshot.stats), "れんしゅうを つづけると ここに でてくるよ！");
+  renderReportBadgeList("report-practice", computeWeeklyPractice(), "いまは にがてな もんだい なし！すごい！");
+
+  qs("#report-footer").textContent = `これまでの るいけい せいかい数は ${state.totalCorrect}もん だよ`;
 }
 
 function renderStatsPanel() {
@@ -2847,6 +2995,7 @@ function switchMode(mode) {
   qs("#records-mode").classList.toggle("is-hidden", mode !== "records");
   qs("#dex-mode").classList.toggle("is-hidden", mode !== "dex");
   qs("#stats-panel").classList.toggle("is-hidden", mode !== "stats");
+  qs("#report-mode").classList.toggle("is-hidden", mode !== "report");
   qs("#settings-mode").classList.toggle("is-hidden", mode !== "settings");
   qs("#calendar-mode").classList.toggle("is-hidden", mode !== "calendar");
 
@@ -2858,6 +3007,7 @@ function switchMode(mode) {
   if (mode === "records") renderRecords();
   if (mode === "dex") renderDex();
   if (mode === "stats") renderStatsPanel();
+  if (mode === "report") renderReport();
   if (mode === "settings") renderSettingsPanel();
   if (mode === "calendar") {
     calendarOffset = 0;

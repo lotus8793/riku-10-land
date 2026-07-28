@@ -57,6 +57,7 @@
         <button class="mode-tab" type="button" data-mode="calendar">カレンダー</button>
         <button class="mode-tab" type="button" data-mode="records">きろく</button>
         <button class="mode-tab" type="button" data-mode="stats">統計</button>
+        <button class="mode-tab" type="button" data-mode="report">レポート</button>
         <button class="mode-tab" type="button" data-mode="settings">設定</button>
       </nav>
 
@@ -466,6 +467,27 @@
           <div class="stats-chart" id="stats-chart" role="img" aria-label="日別の正解数グラフ"></div>
           <h3 class="stats-heading">苦手な問題（誤答、または回答に時間がかかったもの）</h3>
           <div class="records-columns six" id="stats-weak"></div>
+        </div>
+      </section>
+
+      <section class="records-panel is-hidden" id="report-mode" aria-labelledby="report-title">
+        <div class="question-card">
+          <div class="prompt-row">
+            <p class="prompt" id="report-title">1しゅうかんレポート</p>
+          </div>
+          <div class="report-hero" id="report-hero">
+            <p class="report-hero-num" id="report-hero-num">0もん</p>
+            <p class="report-hero-sub" id="report-hero-sub"></p>
+            <div class="report-hero-stats" id="report-hero-stats"></div>
+          </div>
+
+          <h3 class="stats-heading">🌟 できるようになった もんだい</h3>
+          <div class="report-badge-list" id="report-improved"></div>
+
+          <h3 class="stats-heading">💪 つぎ がんばる もんだい</h3>
+          <div class="report-badge-list" id="report-practice"></div>
+
+          <p class="report-footer" id="report-footer"></p>
         </div>
       </section>
 
