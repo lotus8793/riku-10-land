@@ -1626,6 +1626,13 @@ body.no-blocks.no-explain #mogi-mode:not(.is-waiting) .bridge-board {
   font-size: 12px;
 }
 
+.settings-note-total {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(38, 50, 56, 0.2);
+  font-weight: 700;
+}
+
 .stats-settings {
   display: flex;
   flex-wrap: wrap;

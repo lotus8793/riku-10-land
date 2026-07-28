@@ -1514,7 +1514,7 @@ function renderSettingsPanel() {
   });
   const total = missionTotal();
   const active = MODES.filter((mode) => missionCap(mode) > 0).length;
-  qs("#mission-cap-total").textContent = `合計 ${total}問（${active}タブ）でミッションクリア`;
+  qs("#mission-cap-total").textContent = `↑ 上の${MODES.length}タブぜんぶの合計：${total}問（必須${active}タブ）でミッションクリア`;
   renderCoinGauge();
 }
 
