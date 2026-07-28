@@ -116,6 +116,14 @@ button {
   filter: drop-shadow(0 4px 8px rgba(10, 40, 90, 0.3));
 }
 
+.partner-name {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  text-shadow: 0 1px 3px rgba(10, 40, 90, 0.5);
+  white-space: nowrap;
+}
+
 .sticker-cell:not(.is-locked) {
   cursor: pointer;
 }
@@ -980,6 +988,40 @@ body.no-blocks.no-explain .play-area .bridge-board {
   color: var(--muted);
   font-size: 15px;
   font-weight: 800;
+}
+
+.sticker-detail {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: #fff1c2;
+}
+
+.sticker-detail.is-hidden {
+  display: none;
+}
+
+.sticker-detail-img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+}
+
+.sticker-detail-name {
+  margin: 0;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.sticker-detail-meta {
+  margin: 2px 0 0;
+  color: #8a5a00;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .sticker-grid {

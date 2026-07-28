@@ -589,10 +589,15 @@ const els = {
   dexCount: qs("#dex-count"),
   dexProgress: qs("#dex-progress"),
   dexGrid: qs("#dex-grid"),
+  dexDetail: qs("#dex-detail"),
+  dexDetailImg: qs("#dex-detail-img"),
+  dexDetailName: qs("#dex-detail-name"),
+  dexDetailMeta: qs("#dex-detail-meta"),
   catchFill: qs("#catch-fill"),
   catchText: qs("#catch-text"),
   partnerCard: qs("#partner-card"),
   partnerImg: qs("#partner-img"),
+  partnerName: qs("#partner-name"),
   missionSegs: Object.fromEntries(MODES.map((mode) => [mode, qs(`#mission-seg-${mode}`)])),
   missionLegend: qs("#mission-legend"),
   missionText: qs("#mission-text")
@@ -1179,12 +1184,24 @@ function renderPartner() {
   els.partnerImg.src = stickerImageUrl(species.id, (entry.s || 0) > 0);
   els.partnerImg.alt = species.name;
   els.partnerCard.title = species.name;
+  els.partnerName.textContent = species.name;
 }
 
 function setPartner(id) {
   state.partner = id;
   localStorage.setItem(PARTNER_KEY, String(id));
   renderPartner();
+}
+
+// ずかんでタップしたポケモンの名前・図鑑番号・ゲット数を表示
+function renderDexDetail(entry) {
+  els.dexDetail.classList.remove("is-hidden");
+  els.dexDetailImg.src = stickerImageUrl(entry.id, entry.shinyCount > 0);
+  els.dexDetailImg.alt = entry.name;
+  els.dexDetailName.textContent = entry.name;
+  const meta = [`ずかんばんごう ${entry.id}`, `${entry.count}ひき ゲット`];
+  if (entry.shinyCount > 0) meta.push(`✨いろちがい ${entry.shinyCount}ひき`);
+  els.dexDetailMeta.textContent = meta.join(" ・ ");
 }
 
 function renderDex() {
@@ -1218,6 +1235,7 @@ function renderDex() {
       cell.classList.toggle("is-partner", entry.id === state.partner);
       cell.addEventListener("click", () => {
         setPartner(entry.id);
+        renderDexDetail(entry);
         renderDex();
       });
       if (entry.count >= 2) {
