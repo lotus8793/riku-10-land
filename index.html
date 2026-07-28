@@ -399,7 +399,7 @@
           </div>
           <p class="settings-note">とうしした おかねは 1日ごとに ふえたり へったりする。ながく おいておくほど ふえやすい</p>
           <div class="bank-actions">
-            <input type="number" id="invest-amount" min="100" step="100" placeholder="100" aria-label="うごかす きんがく">
+            <input type="number" id="invest-amount" min="100" step="100" placeholder="100" aria-label="うごかす きんがく" inputmode="numeric" pattern="[0-9]*">
             <button class="bank-button is-in" type="button" id="invest-buy">とうしする</button>
             <button class="bank-button is-out" type="button" id="invest-sell">うる</button>
             <button class="quiet-button" type="button" id="invest-sell-all">ぜんぶ うる</button>
@@ -469,20 +469,20 @@
           <h3 class="stats-heading">きょうのミッション（タブごとの問題数）</h3>
           <p class="settings-note">全部のタブで指定した問題数を正解すると、ミッションクリアでポケモン1匹。<strong>0</strong>にするとそのタブは今日の必須から外れます</p>
           <div class="stats-settings" id="mission-cap-settings">
-            <label>あわせて10 <input type="number" id="set-cap-pair" min="0" max="999"></label>
-            <label>10+X <input type="number" id="set-cap-tenplus" min="0" max="999"></label>
-            <label>かみなりジム <input type="number" id="set-cap-flash" min="0" max="999"></label>
-            <label>たしざんジム <input type="number" id="set-cap-simple" min="0" max="999"></label>
-            <label>もぎダンジョン <input type="number" id="set-cap-mogi" min="0" max="999"></label>
-            <label>ほのおのダンジョン <input type="number" id="set-cap-bridge" min="0" max="999"></label>
-            <label>ひきざんジム <input type="number" id="set-cap-minus" min="0" max="999"></label>
-            <label>こおりのダンジョン <input type="number" id="set-cap-ice" min="0" max="999"></label>
+            <label>あわせて10 <input type="number" id="set-cap-pair" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
+            <label>10+X <input type="number" id="set-cap-tenplus" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
+            <label>かみなりジム <input type="number" id="set-cap-flash" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
+            <label>たしざんジム <input type="number" id="set-cap-simple" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
+            <label>もぎダンジョン <input type="number" id="set-cap-mogi" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
+            <label>ほのおのダンジョン <input type="number" id="set-cap-bridge" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
+            <label>ひきざんジム <input type="number" id="set-cap-minus" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
+            <label>こおりのダンジョン <input type="number" id="set-cap-ice" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
           </div>
           <p class="settings-note settings-note-total" id="mission-cap-total"></p>
           <h3 class="stats-heading">ゲージのクリア問題数</h3>
           <div class="stats-settings">
-            <label>ポケモンゲット <input type="number" id="set-catch" min="1" max="999"></label>
-            <label>コインゲージ <input type="number" id="set-coin" min="1" max="999"></label>
+            <label>ポケモンゲット <input type="number" id="set-catch" min="1" max="999" inputmode="numeric" pattern="[0-9]*"></label>
+            <label>コインゲージ <input type="number" id="set-coin" min="1" max="999" inputmode="numeric" pattern="[0-9]*"></label>
           </div>
           <h3 class="stats-heading">ゲージに入れるタブ</h3>
           <p class="settings-note">チェックしたタブの正解だけがそのゲージに進みます。ポケモンゲットにチェックのあるタブは、間違えると進みが1つ戻ります</p>
@@ -490,14 +490,14 @@
           <h3 class="stats-heading">とうし</h3>
           <p class="settings-note">1日ごとの利率。「金利 ± ブレはば」の範囲でランダムに変動します（例: 10% ± 15% → −5%〜+25%）。ブレはばを0にすると必ず増え、金利をマイナスにすると減る体験ができます</p>
           <div class="stats-settings">
-            <label>とうしの金利（%/日） <input type="number" id="set-invest-rate" min="-50" max="100" step="0.5"></label>
-            <label>とうしのブレはば（±%） <input type="number" id="set-invest-swing" min="0" max="100" step="0.5"></label>
+            <label>とうしの金利（%/日） <input type="number" id="set-invest-rate" min="-50" max="100" step="0.5" inputmode="decimal"></label>
+            <label>とうしのブレはば（±%） <input type="number" id="set-invest-swing" min="0" max="100" step="0.5" inputmode="decimal"></label>
           </div>
           <h3 class="stats-heading">かみなりジム（フラッシュ）</h3>
           <p class="settings-note">ブロックが見えている時間。短くするほど「数える」から「パッと見て分かる」に近づきます</p>
           <div class="stats-settings">
-            <label>表示時間（秒） <input type="number" id="set-flash-sec" min="0.2" max="10" step="0.1"></label>
-            <label>最大の数（3〜10） <input type="number" id="set-flash-max" min="3" max="10"></label>
+            <label>表示時間（秒） <input type="number" id="set-flash-sec" min="0.2" max="10" step="0.1" inputmode="decimal"></label>
+            <label>最大の数（3〜10） <input type="number" id="set-flash-max" min="3" max="10" inputmode="numeric" pattern="[0-9]*"></label>
           </div>
           <h3 class="stats-heading">図鑑データの保存・読み込み</h3>
           <p class="settings-note">図鑑のほかに、貯金・記録・統計のデータも一緒に保存されます</p>
@@ -514,7 +514,7 @@
             <button class="quiet-button" type="button" data-coin-spend="5">−500円</button>
             <button class="quiet-button" type="button" data-coin-spend="10">−1000円</button>
             <label class="coin-spend-custom">
-              <input type="number" id="coin-spend-amount" min="100" step="100" placeholder="300">円
+              <input type="number" id="coin-spend-amount" min="100" step="100" placeholder="300" inputmode="numeric" pattern="[0-9]*">円
               <button class="quiet-button" type="button" id="coin-spend-run">わたした</button>
             </label>
           </div>
