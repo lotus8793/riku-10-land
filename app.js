@@ -41,13 +41,14 @@ const STREAK_KEY = "riku10v2-mission-streak";
 const PARTNER_KEY = "riku10v2-partner";
 const STREAK_BONUS_DAYS = 7;
 const SETTINGS_KEY = "riku10v2-settings";
+const SETTINGS_VERSION = 2;
 
 // きょうのミッションで各タブに必要な問題数の初期値（設定タブでタブごとに変更できる）
 const MISSION_CAP_DEFAULTS = {
   pair: 10,
   tenplus: 10,
   flash: 20,
-  simple: 10,
+  simple: 20,
   mogi: 10,
   bridge: 10,
   minus: 5,
@@ -65,6 +66,7 @@ function defaultGaugeMap() {
 // ゲージのクリア数（設定タブで変更できる）
 function loadSettings() {
   const defaults = {
+    version: SETTINGS_VERSION,
     catchStep: STICKER_STEP,
     coinStep: 75,
     flashMs: 1500, // フラッシュでブロックが見えている時間（ミリ秒）
@@ -115,6 +117,13 @@ function loadSettings() {
       if (Number.isFinite(value) && value >= 0 && value <= 999) merged.missionCaps[mode] = Math.round(value);
     });
   }
+  // v2: たしざんジムを答え10まで広げたため、従来の初期値10問を20問へ移行する。
+  // それ以外の値に変更していた場合は、その設定をそのまま尊重する。
+  const parsedVersion = Number(parsed.version) || 1;
+  if (parsedVersion < 2 && Number(parsed.missionCaps?.simple) === 10) {
+    merged.missionCaps.simple = MISSION_CAP_DEFAULTS.simple;
+  }
+  merged.version = SETTINGS_VERSION;
   ["catchModes", "coinModes"].forEach((key) => {
     if (!parsed[key] || typeof parsed[key] !== "object") return;
     MODES.forEach((mode) => {
@@ -411,9 +420,9 @@ function makeBridgeProblems() {
 
 function makeSimpleProblems() {
   const problems = [];
-  for (let a = 1; a <= 8; a += 1) {
-    for (let b = 1; b <= 8; b += 1) {
-      if (a + b <= 9) {
+  for (let a = 1; a <= 9; a += 1) {
+    for (let b = 1; b <= 9; b += 1) {
+      if (a + b <= 10) {
         problems.push({ a, b });
       }
     }
@@ -505,6 +514,8 @@ const state = {
   },
   // かみなりジム: timers はフラッシュ表示の setTimeout 群、replays は今の問題で見直した回数
   flash: { timers: [], replays: 0, shown: false },
+  // たしざんジム: 答え10の直後に、片方を1減らした答え9の比較問題を出す
+  simpleFollowUp: null,
   // もぎダンジョンの盤面: phase は build(10づくり) → sum(こたえ) → done。
   // slots は各がわ10マスの中身（"green"/"red"/null）。取られたマスは穴のまま残す
   mogi: { phase: "build", doneSide: "", slots: { left: [], right: [] } },
@@ -594,6 +605,7 @@ const els = {
   flashReplay: qs("#flash-replay"),
   simpleEquation: qs("#simple-equation"),
   simpleFrame: qs("#simple-frame"),
+  simpleCompare: qs("#simple-compare"),
   minusEquation: qs("#minus-equation"),
   minusFrame: qs("#minus-frame"),
   confetti: qs("#confetti"),
@@ -2314,19 +2326,57 @@ function chooseFlash(value, button, problem = state.problem.flash) {
 
 /* ---------- しゅぎょう（たしざん） ---------- */
 
+function makeSimpleFollowUp(problem) {
+  if (problem.a + problem.b !== 10) return null;
+  const changedPart = problem.b > 1 ? "b" : "a";
+  return {
+    a: problem.a - (changedPart === "a" ? 1 : 0),
+    b: problem.b - (changedPart === "b" ? 1 : 0),
+    compareFrom: { a: problem.a, b: problem.b },
+    changedPart
+  };
+}
+
+function renderSimpleComparison(problem) {
+  const before = problem.compareFrom;
+  if (!before) return;
+  const changedPart = problem.changedPart;
+  const beforePart = before[changedPart];
+  const afterPart = problem[changedPart];
+  const changedA = changedPart === "a";
+  const changedB = changedPart === "b";
+
+  els.simpleCompare.innerHTML =
+    `<div class="simple-compare-equations" aria-hidden="true">` +
+      `<span class="${changedA ? "is-before" : ""}">${before.a}</span><span>＋</span><span class="${changedB ? "is-before" : ""}">${before.b}</span><span>＝</span><span class="is-before">10</span>` +
+      `<span class="${changedA ? "is-arrow" : ""}">${changedA ? "↓" : ""}</span><span></span><span class="${changedB ? "is-arrow" : ""}">${changedB ? "↓" : ""}</span><span></span><span class="is-arrow">↓</span>` +
+      `<span class="${changedA ? "is-after" : ""}">${problem.a}</span><span>＋</span><span class="${changedB ? "is-after" : ""}">${problem.b}</span><span>＝</span><span class="is-after">9</span>` +
+    `</div>` +
+    `<p><strong>${beforePart} → ${afterPart}</strong> に 1つ へったから、<br>こたえも <strong>10 → 9</strong> に 1つ へったね。</p>`;
+  els.simpleCompare.setAttribute(
+    "aria-label",
+    `${before.a}たす${before.b}は10。${problem.a}たす${problem.b}は9。${beforePart}から${afterPart}に1つへったから、こたえも10から9に1つへったね。`
+  );
+  els.simpleCompare.classList.remove("is-hidden");
+}
+
 function nextSimple() {
   if (!guardNext("simple")) return;
-  const p = pickWeighted("simple", simpleProblems, state.lastKey.simple);
+  const p = state.simpleFollowUp || pickWeighted("simple", simpleProblems, state.lastKey.simple);
+  state.simpleFollowUp = null;
   state.problem.simple = p;
   state.lastKey.simple = abKey(p);
   els.simpleEquation.classList.remove("is-solved");
   els.simpleEquation.textContent = `${p.a} + ${p.b}`;
+  els.simpleCompare.classList.add("is-hidden");
+  els.simpleCompare.replaceChildren();
+  els.simpleCompare.removeAttribute("aria-label");
   M.simple.feedback.className = "feedback";
   M.simple.feedback.textContent = "こたえを えらんでね";
   setNextButton("simple", false);
   // ブロックありなら出題中から a + b をブロックで見せる（なしの場合はCSSで隠れる）
   renderTenFrame(els.simpleFrame, p.a, p.b, true);
-  renderChoiceButtons(M.simple.choices, [1, 2, 3, 4, 5, 6, 7, 8, 9], (value, button) => {
+  renderChoiceButtons(M.simple.choices, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], (value, button) => {
     chooseSimple(value, button, p);
   });
   if (state.activeMode === "simple") startChallengeTimer();
@@ -2337,11 +2387,13 @@ function chooseSimple(value, button, problem = state.problem.simple) {
   const answer = problem.a + problem.b;
   const correct = value === answer;
   recordAnswer("simple", problem, correct);
+  state.simpleFollowUp = makeSimpleFollowUp(problem);
   button.classList.add(correct ? "is-correct" : "is-wrong");
   els.simpleEquation.innerHTML = `<span class="eq-green">${problem.a}</span><span> + </span><span class="eq-red">${problem.b}</span><span> = ${answer}</span>`;
   els.simpleEquation.classList.add("is-solved");
   if (state.explainEnabled) {
     renderTenFrame(els.simpleFrame, problem.a, problem.b, true);
+    renderSimpleComparison(problem);
   }
   if (correct) {
     onCorrect("simple");

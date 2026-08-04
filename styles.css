@@ -878,6 +878,61 @@ body.no-blocks.no-explain .play-area .bridge-board {
   color: var(--ink);
 }
 
+.simple-compare {
+  display: grid;
+  gap: 10px;
+  max-width: 390px;
+  margin: 14px auto 0;
+  padding: 14px 16px;
+  border: 3px solid #f4c318;
+  border-radius: 18px;
+  background: #fffbea;
+  box-shadow: 0 5px 0 rgba(180, 136, 0, 0.12);
+}
+
+.simple-compare.is-hidden {
+  display: none;
+}
+
+.simple-compare-equations {
+  display: grid;
+  grid-template-columns: minmax(34px, 1fr) 28px minmax(34px, 1fr) 28px minmax(42px, 1fr);
+  align-items: center;
+  color: var(--ink);
+  font-size: clamp(27px, 7vw, 40px);
+  font-weight: 950;
+  line-height: 1;
+  text-align: center;
+}
+
+.simple-compare-equations .is-before {
+  color: #c25b00;
+}
+
+.simple-compare-equations .is-after {
+  color: #13734c;
+}
+
+.simple-compare-equations .is-arrow {
+  padding: 3px 0;
+  color: #667085;
+  font-size: 24px;
+}
+
+.simple-compare p {
+  margin: 0;
+  color: #475467;
+  font-size: clamp(17px, 4.5vw, 21px);
+  font-weight: 850;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.simple-compare strong {
+  color: #13734c;
+  font-weight: 950;
+}
+
 .records-col-title {
   margin: 0 0 6px;
   font-size: 17px;
