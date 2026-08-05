@@ -34,6 +34,7 @@ const COINS_KEY = "riku10v2-coins"; // 旧形式（100円が何枚か）。い�
 const WALLET_KEY = "riku10v2-wallet-yen";
 const FINANCE_KEY = "riku10v2-finance";
 const COIN_PROGRESS_KEY = "riku10v2-coin-progress";
+const MAX_COMBO_KEY = "riku10v2-max-combo";
 const COIN_VALUE = 100;
 const FINANCE_HISTORY_MAX = 120; // グラフに使う日ごとの記録の上限
 const FINANCE_MAX_CATCHUP_DAYS = 60; // 久しぶりに開いたとき、まとめて計算する日数の上限
@@ -520,6 +521,7 @@ const state = {
   // slots は各がわ10マスの中身（"green"/"red"/null）。取られたマスは穴のまま残す
   mogi: { phase: "build", doneSide: "", slots: { left: [], right: [] } },
   combo: 0,
+  maxCombo: Math.max(0, Number(localStorage.getItem(MAX_COMBO_KEY) || "0") || 0),
   stars: 0,
   totalCorrect: Number(localStorage.getItem(TOTAL_KEY) || "0") || 0,
   catchProgress: loadCatchProgress(),
@@ -564,6 +566,8 @@ MODES.forEach((mode) => {
 
 const els = {
   savings: qs("#savings"),
+  maxCombo: qs("#max-combo"),
+  missionStreakDays: qs("#mission-streak-days"),
   coinFill: qs("#coin-fill"),
   coinText: qs("#coin-text"),
   timeToggle: qs("#time-toggle"),
@@ -604,6 +608,13 @@ const els = {
   flashExplain: qs("#flash-explain"),
   flashReplay: qs("#flash-replay"),
   simpleEquation: qs("#simple-equation"),
+  simpleJoinBoard: qs("#simple-join-board"),
+  simpleLeftLabel: qs("#simple-left-label"),
+  simpleRightLabel: qs("#simple-right-label"),
+  simpleLeftDots: qs("#simple-left-dots"),
+  simpleRightDots: qs("#simple-right-dots"),
+  simpleJoinArrow: qs("#simple-join-arrow"),
+  simpleJoinText: qs("#simple-join-text"),
   simpleFrame: qs("#simple-frame"),
   simpleCompare: qs("#simple-compare"),
   minusEquation: qs("#minus-equation"),
@@ -789,6 +800,15 @@ function renderCoinGauge() {
   const current = qs("#coin-current");
   if (current) current.textContent = `${state.walletYen}円`;
   renderBankPanel();
+}
+
+function currentMissionStreak() {
+  return state.streak.last === todayStr() || state.streak.last === yesterdayStr() ? state.streak.count : 0;
+}
+
+function renderHeroStats() {
+  els.maxCombo.textContent = state.maxCombo;
+  els.missionStreakDays.textContent = currentMissionStreak();
 }
 
 // 渡したぶんの貯金を減らす。0円未満にはしない
@@ -1177,6 +1197,7 @@ function renderMissionCaps() {
 
 function renderMission() {
   rolloverDaily();
+  renderHeroStats();
   renderMissionCaps();
   const remain = SETTINGS.catchStep - state.catchProgress;
   const catchPercent = (state.catchProgress / SETTINGS.catchStep) * 100;
@@ -1906,6 +1927,11 @@ function onCorrect(mode) {
   M[mode].section.classList.add("is-answer-shown");
   stopChallengeTimer();
   state.combo += 1;
+  if (state.combo > state.maxCombo) {
+    state.maxCombo = state.combo;
+    localStorage.setItem(MAX_COMBO_KEY, String(state.maxCombo));
+    renderHeroStats();
+  }
   countSolvedQuestion();
   if (!state.challenge.ended) registerCorrect(mode);
   const feedback = M[mode].feedback;
@@ -2043,7 +2069,7 @@ function renderTimerRows() {
 function renderTimeToggle() {
   els.timeToggle.classList.toggle("is-on", state.timedEnabled);
   els.timeToggle.setAttribute("aria-pressed", String(state.timedEnabled));
-  els.timeToggleLabel.textContent = state.timedEnabled ? "じかんあり" : "じかんなし";
+  els.timeToggleLabel.textContent = state.timedEnabled ? "時間あり" : "時間なし";
   renderTimerRows();
 }
 
@@ -2104,7 +2130,7 @@ function setBlockDisplay(enabled) {
 function renderExplainToggle() {
   els.explainToggle.classList.toggle("is-on", state.explainEnabled);
   els.explainToggle.setAttribute("aria-pressed", String(state.explainEnabled));
-  els.explainToggleLabel.textContent = state.explainEnabled ? "かいせつあり" : "かいせつなし";
+  els.explainToggleLabel.textContent = state.explainEnabled ? "解説あり" : "解説なし";
   document.body.classList.toggle("no-explain", !state.explainEnabled);
 }
 
@@ -2360,8 +2386,125 @@ function renderSimpleComparison(problem) {
   els.simpleCompare.classList.remove("is-hidden");
 }
 
+const SIMPLE_JOIN_PAUSE_MS = 900;
+const SIMPLE_JOIN_MOVE_MS = 760;
+const SIMPLE_JOIN_STAGGER_MS = 130;
+
+function renderSimpleSourceDots(container, count, side) {
+  container.replaceChildren();
+  for (let index = 0; index < 10; index += 1) {
+    const cell = document.createElement("div");
+    cell.className = "frame-cell";
+    if (index < count) {
+      cell.classList.add("is-block", side === "left" ? "is-filled" : "is-guest");
+    }
+    container.append(cell);
+  }
+}
+
+function prepareSimpleJoin(problem) {
+  els.simpleLeftLabel.textContent = problem.a;
+  els.simpleRightLabel.textContent = problem.b;
+  renderSimpleSourceDots(els.simpleLeftDots, problem.a, "left");
+  renderSimpleSourceDots(els.simpleRightDots, problem.b, "right");
+  renderTenFrame(els.simpleFrame, 0, 0);
+  els.simpleFrame.classList.remove("is-join-complete", "is-ten-complete");
+  els.simpleFrame.setAttribute("aria-label", `${problem.a}こと${problem.b}をあわせる10マスのボード`);
+  els.simpleJoinArrow.textContent = "↓ 下で あわせよう";
+  els.simpleJoinText.textContent = "";
+}
+
+function completeSimpleJoin(problem) {
+  const answer = problem.a + problem.b;
+  [...els.simpleLeftDots.children, ...els.simpleRightDots.children]
+    .filter((cell) => cell.classList.contains("is-block"))
+    .forEach((cell) => {
+      cell.classList.remove("is-block", "is-filled", "is-guest");
+      cell.classList.add("is-source-vacated");
+    });
+  renderTenFrame(els.simpleFrame, problem.a, problem.b, true);
+  els.simpleFrame.classList.add(answer === 10 ? "is-ten-complete" : "is-join-complete");
+  els.simpleJoinArrow.textContent = "↓ あわせると";
+  els.simpleJoinText.textContent = `${problem.a}こと ${problem.b}こを あわせて ${answer}こ！`;
+  els.simpleFrame.setAttribute("aria-label", `${problem.a}こと${problem.b}こをあわせて${answer}こ`);
+}
+
+function animateSimpleJoin(problem) {
+  const leftDots = [...els.simpleLeftDots.children].filter((cell) => cell.classList.contains("is-block"));
+  const rightDots = [...els.simpleRightDots.children].filter((cell) => cell.classList.contains("is-block"));
+  const dots = [...leftDots, ...rightDots];
+  const cells = [...els.simpleFrame.children].slice(0, dots.length);
+  const dotRects = dots.map((dot) => dot.getBoundingClientRect());
+  const cellRects = cells.map((cell) => cell.getBoundingClientRect());
+  const canAnimate =
+    typeof document.createElement("div").animate === "function" &&
+    dots.length === cells.length &&
+    dotRects.every((rect) => rect.width > 0) &&
+    cellRects.every((rect) => rect.width > 0);
+
+  els.simpleJoinArrow.textContent = "↓ あわせると";
+  els.simpleJoinText.textContent = `${problem.a}こと ${problem.b}こを あわせて ${problem.a + problem.b}こ！`;
+
+  if (!canAnimate) {
+    completeSimpleJoin(problem);
+    return;
+  }
+
+  setNextButton("simple", false);
+  let landed = 0;
+  dots.forEach((dot, index) => {
+    const from = dotRects[index];
+    const to = cellRects[index];
+    const cell = cells[index];
+    const flyer = document.createElement("div");
+    flyer.className = `fly-square${index < leftDots.length ? " is-green" : ""}`;
+    flyer.style.left = `${from.left}px`;
+    flyer.style.top = `${from.top}px`;
+    flyer.style.width = `${from.width}px`;
+    flyer.style.height = `${from.height}px`;
+    els.flyLayer.append(flyer);
+    dot.classList.remove("is-block", "is-filled", "is-guest");
+    dot.classList.add("is-source-vacated");
+
+    const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+    const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+    const scale = to.width / from.width;
+    const animation = flyer.animate(
+      [
+        { transform: "translate(0, 0) scale(1)", opacity: 1 },
+        { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: 1 }
+      ],
+      {
+        duration: SIMPLE_JOIN_MOVE_MS,
+        delay: SIMPLE_JOIN_PAUSE_MS + index * SIMPLE_JOIN_STAGGER_MS,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        fill: "backwards"
+      }
+    );
+
+    animation.onfinish = () => {
+      flyer.remove();
+      if (state.problem.simple !== problem) return;
+      if (index < leftDots.length) {
+        cell.classList.add("is-filled", "is-pop");
+      } else {
+        cell.classList.add("is-friend-filled", "is-landed");
+        cell.style.setProperty("--pop-delay", "0ms");
+      }
+      landed += 1;
+      if (landed === cells.length) {
+        const answer = problem.a + problem.b;
+        els.simpleFrame.classList.add(answer === 10 ? "is-ten-complete" : "is-join-complete");
+        els.simpleFrame.setAttribute("aria-label", `${problem.a}こと${problem.b}こをあわせて${answer}こ`);
+        setNextButton("simple", true);
+      }
+    };
+  });
+}
+
 function nextSimple() {
   if (!guardNext("simple")) return;
+  els.flyLayer.replaceChildren();
   const p = state.simpleFollowUp || pickWeighted("simple", simpleProblems, state.lastKey.simple);
   state.simpleFollowUp = null;
   state.problem.simple = p;
@@ -2374,8 +2517,8 @@ function nextSimple() {
   M.simple.feedback.className = "feedback";
   M.simple.feedback.textContent = "こたえを えらんでね";
   setNextButton("simple", false);
-  // ブロックありなら出題中から a + b をブロックで見せる（なしの場合はCSSで隠れる）
-  renderTenFrame(els.simpleFrame, p.a, p.b, true);
+  // 左右を別のあつまりで見せ、答え合わせで下の10マスへ合流させる
+  prepareSimpleJoin(p);
   renderChoiceButtons(M.simple.choices, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], (value, button) => {
     chooseSimple(value, button, p);
   });
@@ -2391,14 +2534,16 @@ function chooseSimple(value, button, problem = state.problem.simple) {
   button.classList.add(correct ? "is-correct" : "is-wrong");
   els.simpleEquation.innerHTML = `<span class="eq-green">${problem.a}</span><span> + </span><span class="eq-red">${problem.b}</span><span> = ${answer}</span>`;
   els.simpleEquation.classList.add("is-solved");
-  if (state.explainEnabled) {
-    renderTenFrame(els.simpleFrame, problem.a, problem.b, true);
-    renderSimpleComparison(problem);
-  }
   if (correct) {
     onCorrect("simple");
   } else {
     onWrong("simple", null, answer);
+  }
+  if (state.explainEnabled) {
+    animateSimpleJoin(problem);
+    renderSimpleComparison(problem);
+  } else {
+    completeSimpleJoin(problem);
   }
 }
 

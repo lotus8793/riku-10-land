@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=49">
+    <link rel="stylesheet" href="styles.css?v=52">
   </head>
   <body>
     <main class="app-shell">
@@ -25,20 +25,16 @@
           <div class="score-stack" aria-live="polite">
             <div class="score-pill">
               <span id="savings">0円</span>
-              <span>ちょきん</span>
+              <span>さいふ</span>
             </div>
-            <button class="time-toggle" type="button" id="time-toggle" aria-pressed="false">
-              <span class="toggle-knob" aria-hidden="true"></span>
-              <span id="time-toggle-label">じかんなし</span>
-            </button>
-            <button class="time-toggle" type="button" id="block-toggle" aria-pressed="true">
-              <span class="toggle-knob" aria-hidden="true"></span>
-              <span id="block-toggle-label">ブロックあり</span>
-            </button>
-            <button class="time-toggle" type="button" id="explain-toggle" aria-pressed="true">
-              <span class="toggle-knob" aria-hidden="true"></span>
-              <span id="explain-toggle-label">かいせつあり</span>
-            </button>
+            <div class="score-pill hero-stat-pill">
+              <span id="max-combo">0</span>
+              <span>MAXコンボ</span>
+            </div>
+            <div class="score-pill hero-stat-pill">
+              <span id="mission-streak-days">0</span>
+              <span>ミッション連続日数</span>
+            </div>
           </div>
         </div>
       </section>
@@ -134,7 +130,22 @@
             <div class="timer-count"><span id="simple-time">60</span>びょう</div>
           </div>
           <div class="equation simple-equation" id="simple-equation">3 + 4</div>
-          <div class="ten-frame" id="simple-frame" aria-label="10マスのボード"></div>
+          <div class="simple-join-board" id="simple-join-board">
+            <div class="simple-source-row">
+              <div class="simple-source-group">
+                <p class="simple-source-label"><span id="simple-left-label">3</span>こ</p>
+                <div class="ten-frame simple-source-frame is-left" id="simple-left-dots" aria-label="左の10マス"></div>
+              </div>
+              <span class="simple-source-plus" aria-hidden="true">＋</span>
+              <div class="simple-source-group">
+                <p class="simple-source-label"><span id="simple-right-label">4</span>こ</p>
+                <div class="ten-frame simple-source-frame is-right" id="simple-right-dots" aria-label="右の10マス"></div>
+              </div>
+            </div>
+            <p class="simple-join-arrow" id="simple-join-arrow">↓ 下で あわせよう</p>
+            <div class="ten-frame simple-target-frame" id="simple-frame" aria-label="あわせる10マスのボード"></div>
+            <p class="simple-join-text" id="simple-join-text"></p>
+          </div>
           <div class="simple-compare is-hidden" id="simple-compare" role="note"></div>
           <p class="feedback" id="simple-feedback" aria-live="polite">こたえを えらんでね</p>
           <button class="next-button is-hidden" type="button" id="simple-next">つぎへ</button>
@@ -497,6 +508,22 @@
           <div class="prompt-row">
             <p class="prompt" id="settings-title">設定（保護者向け）</p>
           </div>
+          <h3 class="stats-heading">問題画面の表示</h3>
+          <p class="settings-note">時間・ブロック・解説は、ここで設定します</p>
+          <div class="settings-display-toggles">
+            <button class="time-toggle settings-display-toggle" type="button" id="time-toggle" aria-pressed="false">
+              <span class="toggle-knob" aria-hidden="true"></span>
+              <span id="time-toggle-label">時間なし</span>
+            </button>
+            <button class="time-toggle settings-display-toggle" type="button" id="block-toggle" aria-pressed="true">
+              <span class="toggle-knob" aria-hidden="true"></span>
+              <span id="block-toggle-label">ブロックあり</span>
+            </button>
+            <button class="time-toggle settings-display-toggle" type="button" id="explain-toggle" aria-pressed="true">
+              <span class="toggle-knob" aria-hidden="true"></span>
+              <span id="explain-toggle-label">解説あり</span>
+            </button>
+          </div>
           <h3 class="stats-heading">きょうのミッション（タブごとの問題数）</h3>
           <p class="settings-note">全部のタブで指定した問題数を正解すると、ミッションクリアでポケモン1匹。<strong>0</strong>にするとそのタブは今日の必須から外れます</p>
           <div class="stats-settings" id="mission-cap-settings">
@@ -570,6 +597,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=45"></script>
+    <script src="app.js?v=47"></script>
   </body>
 </html>

@@ -166,6 +166,15 @@ button {
   font-size: 12px;
 }
 
+.hero-stat-pill span:first-child {
+  font-size: 22px;
+}
+
+.hero-stat-pill span:last-child {
+  font-size: 10px;
+  white-space: nowrap;
+}
+
 .time-toggle {
   grid-template-columns: auto 1fr;
   gap: 7px;
@@ -481,6 +490,7 @@ button {
 .play-area.is-waiting .next-button,
 .play-area.is-waiting .equation,
 .play-area.is-waiting .equation-chain,
+.play-area.is-waiting .simple-join-board,
 .play-area.is-waiting .bridge-board,
 .play-area.is-waiting .reverse-reveal,
 .play-area.is-waiting .flash-stage,
@@ -492,6 +502,7 @@ button {
 
 body.no-blocks .play-area:not(.is-answer-shown) .ten-frame,
 body.no-blocks .play-area:not(.is-answer-shown) .donor-dots,
+body.no-blocks .play-area:not(.is-answer-shown) .simple-join-board,
 body.no-blocks .play-area:not(.is-answer-shown) .bridge-board {
   display: none;
 }
@@ -499,6 +510,7 @@ body.no-blocks .play-area:not(.is-answer-shown) .bridge-board {
 /* かいせつなし: ブロックなしなら答え表示のときもブロックを出さない */
 body.no-blocks.no-explain .play-area .ten-frame,
 body.no-blocks.no-explain .play-area .donor-dots,
+body.no-blocks.no-explain .play-area .simple-join-board,
 body.no-blocks.no-explain .play-area .bridge-board {
   display: none;
 }
@@ -876,6 +888,99 @@ body.no-blocks.no-explain .play-area .bridge-board {
 
 .simple-equation.is-solved {
   color: var(--ink);
+}
+
+.simple-join-board {
+  display: grid;
+  gap: 8px;
+  max-width: 390px;
+  margin: 0 auto;
+}
+
+.simple-source-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.simple-source-group {
+  min-width: 0;
+}
+
+.simple-source-label {
+  margin: 0 0 5px;
+  color: var(--ink);
+  font-size: 19px;
+  font-weight: 950;
+  text-align: center;
+}
+
+.simple-source-plus {
+  color: var(--ink);
+  font-size: 30px;
+  font-weight: 950;
+}
+
+.simple-source-frame,
+.simple-target-frame {
+  grid-template-columns: repeat(5, minmax(0, 34px));
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+.simple-source-frame .frame-cell:not(.is-block),
+.simple-target-frame .frame-cell:not(.is-filled):not(.is-friend-filled) {
+  border: 3px dashed rgba(38, 50, 56, 0.18);
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.simple-source-frame .frame-cell.is-block {
+  box-shadow: 0 3px 8px rgba(38, 50, 56, 0.14);
+}
+
+.simple-source-frame.is-right .frame-cell.is-block {
+  border-color: #fff;
+  box-shadow: 0 4px 10px rgba(38, 50, 56, 0.16);
+}
+
+.simple-join-arrow,
+.simple-join-text {
+  margin: 0;
+  color: #667085;
+  font-size: 16px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.simple-join-text {
+  min-height: 24px;
+  color: #13734c;
+  font-size: 18px;
+}
+
+.simple-target-frame {
+  justify-self: center;
+  width: calc((100% - 50px) / 2);
+}
+
+.simple-target-frame.is-join-complete {
+  animation: simple-join-glow 620ms ease-out both;
+}
+
+@keyframes simple-join-glow {
+  0% {
+    filter: drop-shadow(0 0 0 rgba(47, 191, 113, 0));
+  }
+  55% {
+    filter: drop-shadow(0 0 10px rgba(47, 191, 113, 0.55));
+  }
+  100% {
+    filter: drop-shadow(0 0 3px rgba(47, 191, 113, 0.2));
+  }
 }
 
 .simple-compare {
@@ -1670,6 +1775,36 @@ body.no-blocks.no-explain #mogi-mode:not(.is-waiting) .bridge-board {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+
+.settings-display-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.settings-display-toggle {
+  min-width: 160px;
+  min-height: 52px;
+  border-color: rgba(38, 50, 56, 0.14);
+  background: #eef2f6;
+  color: #475467;
+  font-size: 15px;
+  box-shadow: 0 4px 0 rgba(38, 50, 56, 0.1);
+}
+
+.settings-display-toggle.is-on {
+  background: #e9f8ef;
+  color: #13734c;
+}
+
+.settings-display-toggle .toggle-knob {
+  background: #b8c0cc;
+}
+
+.settings-display-toggle.is-on .toggle-knob {
+  background: var(--green);
 }
 
 /* 貯金のせいさん */
