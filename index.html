@@ -557,14 +557,14 @@
           </div>
           <input type="file" id="backup-import-file" accept="application/json,.json" hidden>
           <h3 class="stats-heading">貯金のせいさん</h3>
-          <p class="settings-note">お金を渡したぶんだけ減らせます（100円単位）</p>
+          <p class="settings-note">お金を渡したぶんだけ、1円単位で減らせます</p>
           <p class="settings-coins">いまの貯金 <strong id="coin-current">0円</strong></p>
           <div class="stats-buttons settings-actions">
             <button class="quiet-button" type="button" data-coin-spend="1">−100円</button>
             <button class="quiet-button" type="button" data-coin-spend="5">−500円</button>
             <button class="quiet-button" type="button" data-coin-spend="10">−1000円</button>
             <label class="coin-spend-custom">
-              <input type="number" id="coin-spend-amount" min="100" step="100" placeholder="300" inputmode="numeric" pattern="[0-9]*">円
+              <input type="number" id="coin-spend-amount" min="1" step="1" placeholder="123" inputmode="numeric" pattern="[0-9]*">円
               <button class="quiet-button" type="button" id="coin-spend-run">わたした</button>
             </label>
           </div>
@@ -589,6 +589,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=55"></script>
+    <script src="app.js?v=56"></script>
   </body>
 </html>

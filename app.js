@@ -3516,8 +3516,8 @@ const coinSpendInput = qs("#coin-spend-amount");
 qs("#coin-spend-run").addEventListener("click", () => {
   const yen = Number(coinSpendInput.value);
   if (!Number.isFinite(yen) || yen <= 0) return;
-  if (yen % COIN_VALUE !== 0) {
-    window.alert("100円たんいで入力してください");
+  if (!Number.isInteger(yen)) {
+    window.alert("1円たんいの せいすうで入力してください");
     return;
   }
   if (state.walletYen < yen) {
