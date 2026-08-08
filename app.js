@@ -915,6 +915,10 @@ function renderGameTimeShop() {
     ? `あと${short}円で 1時間かえるよ`
     : "いま 1時間かえるよ！";
   qs("#game-time-buy").classList.toggle("can-buy", short === 0);
+  const useButton = qs("#game-time-use");
+  const canUse = state.gameTimeMinutes >= GAME_TIME_MINUTES_PER_PURCHASE;
+  useButton.disabled = !canUse;
+  useButton.textContent = canUse ? "1時間つかった" : "つかえるチケットがない";
 }
 
 function buyGameTime() {
@@ -938,6 +942,22 @@ function buyGameTime() {
   setTimeout(() => card.classList.remove("is-purchased"), 1200);
   burstConfetti(28);
   playCashRegisterSound();
+  return true;
+}
+
+function useGameTime() {
+  if (state.gameTimeMinutes < GAME_TIME_MINUTES_PER_PURCHASE) {
+    gameTimeFeedback("つかえる ゲーム時間が ないよ");
+    return false;
+  }
+  if (!window.confirm("ゲーム時間を1時間つかいますか？")) return false;
+
+  state.gameTimeMinutes -= GAME_TIME_MINUTES_PER_PURCHASE;
+  saveGameTime();
+  renderGameTimeShop();
+  renderHeroStats();
+  gameTimeFeedback(`ゲーム時間を 1時間つかったよ。のこり ${formatGameTime(state.gameTimeMinutes)}`, true);
+  playTone("click");
   return true;
 }
 
@@ -3499,25 +3519,13 @@ qs("#cal-next").addEventListener("click", () => {
   renderCalendar();
 });
 
-// 100円・500円・1000円のクイックボタン
-document.querySelectorAll("[data-coin-spend]").forEach((button) => {
-  button.addEventListener("click", () => {
-    const yen = Number(button.dataset.coinSpend) * COIN_VALUE;
-    if (state.walletYen < yen) {
-      window.alert(`さいふに ${yen}円 ありません（いまは ${state.walletYen}円）`);
-      return;
-    }
-    spendYen(yen);
-  });
-});
-
 // 金額を打ち込んで減らす
 const coinSpendInput = qs("#coin-spend-amount");
 qs("#coin-spend-run").addEventListener("click", () => {
   const yen = Number(coinSpendInput.value);
   if (!Number.isFinite(yen) || yen <= 0) return;
   if (!Number.isInteger(yen)) {
-    window.alert("1円たんいの せいすうで入力してください");
+    window.alert("金額は整数で入力してください。");
     return;
   }
   if (state.walletYen < yen) {
@@ -3537,6 +3545,7 @@ qs("#coin-reset").addEventListener("click", () => {
 });
 
 qs("#game-time-buy").addEventListener("click", buyGameTime);
+qs("#game-time-use").addEventListener("click", useGameTime);
 
 qs("#backup-export").addEventListener("click", exportBackup);
 
@@ -3549,7 +3558,16 @@ backupImportInput.addEventListener("change", () => {
 });
 
 if ("serviceWorker" in navigator && location.protocol !== "file:") {
-  navigator.serviceWorker.register("sw.js");
+  let reloadingForUpdate = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloadingForUpdate) return;
+    reloadingForUpdate = true;
+    window.location.reload();
+  });
+  navigator.serviceWorker
+    .register("sw.js?v=92", { updateViaCache: "none" })
+    .then((registration) => registration.update())
+    .catch(() => {});
 }
 
 renderTimeToggle();

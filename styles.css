@@ -2633,6 +2633,32 @@ body.no-blocks.no-explain #bridge-mode:not(.is-waiting) .bridge-mogi-helper .ten
   font-weight: 950;
 }
 
+.game-time-use {
+  min-height: 46px;
+  margin-top: 9px;
+  padding: 8px 18px;
+  border: 2px solid #5b3ac7;
+  border-radius: 14px;
+  background: #6f52d3;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 900;
+  box-shadow: 0 4px 0 #4d379a;
+}
+
+.game-time-use:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #4d379a;
+}
+
+.game-time-use:disabled {
+  border-color: #c7c2d8;
+  background: #e2dfeb;
+  color: #817b91;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
 .game-time-ticket.is-purchased {
   animation: ticket-purchase 760ms ease-out both;
 }

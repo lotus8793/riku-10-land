@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=58">
+    <link rel="stylesheet" href="styles.css?v=59">
   </head>
   <body>
     <main class="app-shell">
@@ -414,6 +414,7 @@
             <span>もっている ゲーム時間</span>
             <strong id="game-time-balance">0時間</strong>
             <span id="game-time-wallet">さいふ：0円</span>
+            <button class="game-time-use" type="button" id="game-time-use" disabled>1時間つかった</button>
           </div>
           <p class="feedback" id="game-time-feedback" aria-live="polite">500円で ゲーム1時間と こうかんできるよ</p>
         </div>
@@ -560,11 +561,9 @@
           <p class="settings-note">お金を渡したぶんだけ、1円単位で減らせます</p>
           <p class="settings-coins">いまの貯金 <strong id="coin-current">0円</strong></p>
           <div class="stats-buttons settings-actions">
-            <button class="quiet-button" type="button" data-coin-spend="1">−100円</button>
-            <button class="quiet-button" type="button" data-coin-spend="5">−500円</button>
-            <button class="quiet-button" type="button" data-coin-spend="10">−1000円</button>
             <label class="coin-spend-custom">
-              <input type="number" id="coin-spend-amount" min="1" step="1" placeholder="123" inputmode="numeric" pattern="[0-9]*">円
+              渡した金額
+              <input type="number" id="coin-spend-amount" min="1" step="1" placeholder="37" inputmode="numeric" pattern="[0-9]*">円
               <button class="quiet-button" type="button" id="coin-spend-run">わたした</button>
             </label>
           </div>
@@ -589,6 +588,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=56"></script>
+    <script src="app.js?v=60"></script>
   </body>
 </html>
