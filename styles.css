@@ -492,6 +492,9 @@ button {
 .play-area.is-waiting .equation-chain,
 .play-area.is-waiting .simple-join-board,
 .play-area.is-waiting .bridge-board,
+.play-area.is-waiting .bridge-mogi-help-area,
+.play-area.is-waiting .bridge-mogi-help-button,
+.play-area.is-waiting .bridge-mogi-helper,
 .play-area.is-waiting .reverse-reveal,
 .play-area.is-waiting .flash-stage,
 .play-area.is-waiting .flash-explain,
@@ -1515,6 +1518,94 @@ body.no-blocks.no-explain .play-area .bridge-board {
   min-height: 164px;
 }
 
+/* DOMでは移動先が先。移動元を左（モバイルでは上）にするときだけ表示順を入れ替える */
+.bridge-board.is-source-left > div:first-child {
+  order: 2;
+}
+
+.bridge-board.is-source-left > div:last-child {
+  order: 1;
+}
+
+.bridge-mogi-help-area {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+  text-align: center;
+}
+
+.bridge-mogi-help-button {
+  display: block;
+  min-height: 30px;
+  margin: 0 auto;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #74669d;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  box-shadow: none;
+}
+
+.bridge-mogi-help-button:active {
+  color: #5139a5;
+  transform: translateY(1px);
+}
+
+.bridge-mogi-helper {
+  margin-top: 12px;
+  padding: 12px;
+  border: 2px solid #d5c9fa;
+  border-radius: 16px;
+  background: #faf8ff;
+}
+
+.bridge-mogi-helper.is-hidden,
+#bridge-mode.is-answer-shown .bridge-mogi-help-area {
+  display: none;
+}
+
+.bridge-mogi-helper-title,
+.bridge-mogi-helper-feedback {
+  margin: 0 0 10px;
+  color: #5139a5;
+  font-size: 16px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.bridge-mogi-helper-board {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.bridge-mogi-helper-board .ten-frame {
+  grid-template-columns: repeat(5, minmax(0, 44px));
+  justify-content: center;
+  gap: 6px;
+  max-width: none;
+}
+
+#bridge-mogi-left-frame .frame-cell.is-block {
+  border-color: #263238;
+}
+
+#bridge-mogi-right-frame .frame-cell.is-block {
+  border-color: #fff;
+  box-shadow: 0 4px 10px rgba(38, 50, 56, 0.16);
+}
+
+.bridge-mogi-helper .quiet-button {
+  display: block;
+  margin: 0 auto;
+}
+
 .adventure-card .feedback {
   min-height: 34px;
   margin-top: 10px;
@@ -1751,7 +1842,9 @@ body.no-blocks.no-explain .play-area .bridge-board {
 body.no-blocks #mogi-mode:not(.is-waiting) .ten-frame,
 body.no-blocks #mogi-mode:not(.is-waiting) .bridge-board,
 body.no-blocks.no-explain #mogi-mode:not(.is-waiting) .ten-frame,
-body.no-blocks.no-explain #mogi-mode:not(.is-waiting) .bridge-board {
+body.no-blocks.no-explain #mogi-mode:not(.is-waiting) .bridge-board,
+body.no-blocks #bridge-mode:not(.is-waiting) .bridge-mogi-helper .ten-frame,
+body.no-blocks.no-explain #bridge-mode:not(.is-waiting) .bridge-mogi-helper .ten-frame {
   display: grid;
 }
 
@@ -2422,188 +2515,133 @@ body.no-blocks.no-explain #mogi-mode:not(.is-waiting) .bridge-board {
   }
 }
 
-/* ---------- ぎんこう・とうし ---------- */
+/* ---------- ゲームじかんやさん ---------- */
 
-.bank-card {
-  border: 2px solid #cfe8d5;
-  background: linear-gradient(160deg, #f8fffb 0%, #eef9f1 60%, #e3f4e9 100%);
+.game-time-card {
+  overflow: hidden;
+  border: 3px solid #7c5ce7;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(255, 255, 255, 0.9) 0 8%, transparent 9%),
+    linear-gradient(160deg, #f7f1ff 0%, #ebe4ff 55%, #def4ff 100%);
 }
 
-.bank-balances {
+.game-time-shop-icon {
+  font-size: 34px;
+  filter: drop-shadow(0 4px 3px rgba(69, 46, 130, 0.2));
+}
+
+.game-time-ticket {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  margin-top: 14px;
+  justify-items: center;
+  gap: 12px;
+  max-width: 520px;
+  margin: 18px auto 0;
+  padding: 22px 18px;
+  border: 4px dashed #7c5ce7;
+  border-radius: 22px;
+  background: #fffef8;
+  box-shadow: 0 10px 24px rgba(80, 60, 150, 0.16);
 }
 
-.bank-balance {
-  display: grid;
-  gap: 2px;
-  padding: 10px 12px;
-  border: 2px solid rgba(38, 50, 56, 0.08);
-  border-radius: 14px;
-  background: #fff;
-}
-
-.bank-balance strong {
-  font-size: 26px;
+.game-time-ticket-label {
+  margin: 0;
+  color: #5a3fb1;
+  font-size: 16px;
   font-weight: 950;
-  line-height: 1.1;
+  letter-spacing: 0.08em;
 }
 
-.bank-balance-label {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 900;
-}
-
-.bank-balance-note {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.bank-balance-note.is-up {
-  color: #168653;
-}
-
-.bank-balance-note.is-down {
-  color: #d92d20;
-}
-
-.bank-balance.is-wallet {
-  border-color: #ffdf9e;
-}
-
-.bank-balance.is-seed {
-  border-color: #b7d7f5;
-}
-
-.bank-balance.is-invest {
-  border-color: #f5c3b7;
-}
-
-.bank-balance.is-total {
-  border-color: #263238;
-}
-
-.bank-actions {
+.game-time-exchange {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.bank-actions input {
-  width: 110px;
-  min-height: 50px;
-  padding: 6px 10px;
-  border: 2px solid rgba(38, 50, 56, 0.2);
-  border-radius: 12px;
-  color: var(--ink);
-  font-size: 22px;
-  font-weight: 900;
-  text-align: right;
-}
-
-.bank-button {
-  min-height: 50px;
-  padding: 0 18px;
-  border: 3px solid rgba(38, 50, 56, 0.08);
-  border-radius: 14px;
-  font-size: 17px;
-  font-weight: 900;
-  box-shadow: 0 5px 0 rgba(38, 50, 56, 0.14);
-}
-
-.bank-button:active {
-  transform: translateY(3px);
-  box-shadow: 0 2px 0 rgba(38, 50, 56, 0.14);
-}
-
-.bank-button.is-in {
-  background: var(--green);
-  color: #fff;
-}
-
-.bank-button.is-out {
-  background: #fff;
-  color: var(--ink);
-}
-
-/* グラフ */
-
-.bank-chart {
-  margin-top: 10px;
-}
-
-.bank-chart svg {
-  display: block;
+  justify-content: center;
+  gap: 14px;
   width: 100%;
-  height: auto;
 }
 
-.bank-grid {
-  stroke: rgba(38, 50, 56, 0.1);
-  stroke-width: 1;
+.game-time-exchange strong {
+  color: #3d2a78;
+  font-size: clamp(30px, 8vw, 48px);
+  font-weight: 950;
+  line-height: 1;
 }
 
-.bank-axis {
-  fill: var(--muted);
-  font-size: 12px;
-  font-weight: 800;
+.game-time-exchange ruby {
+  ruby-position: over;
 }
 
-.bank-line {
-  fill: none;
-  stroke-width: 4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.game-time-exchange rt {
+  font-size: 0.28em;
+  font-weight: 900;
+  letter-spacing: 0.08em;
 }
 
-.bank-line.is-bankline,
-.bank-dot.is-bankline,
-.legend-dot.seg-bankline {
-  stroke: #3b82f6;
-  fill: none;
+.game-time-exchange span {
+  color: var(--orange);
+  font-size: 38px;
+  font-weight: 950;
 }
 
-.bank-dot.is-bankline {
-  fill: #3b82f6;
-}
-
-.legend-dot.seg-bankline {
-  background: #3b82f6;
-}
-
-.bank-line.is-investline,
-.bank-dot.is-investline {
-  stroke: #f8961e;
-}
-
-.bank-dot.is-investline {
-  fill: #f8961e;
-}
-
-.legend-dot.seg-investline {
-  background: #f8961e;
-}
-
-.bank-chart-legend {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin: 8px 0 0;
+.game-time-price-note {
+  min-height: 22px;
+  margin: 0;
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 15px;
+  font-weight: 850;
 }
 
-@media (min-width: 720px) {
-  .bank-balances {
-    grid-template-columns: repeat(4, 1fr);
-  }
+.game-time-buy {
+  width: min(100%, 330px);
+  min-height: 64px;
+  padding: 10px 18px;
+  border: 3px solid #5b3ac7;
+  border-radius: 18px;
+  background: #b9addf;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 950;
+  box-shadow: 0 7px 0 #4d379a;
+}
+
+.game-time-buy.can-buy {
+  background: linear-gradient(180deg, #8d70ef 0%, #6749ce 100%);
+}
+
+.game-time-buy:active {
+  transform: translateY(4px);
+  box-shadow: 0 3px 0 #4d379a;
+}
+
+.game-time-status {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  margin-top: 18px;
+  padding: 14px;
+  border: 2px solid rgba(91, 58, 199, 0.18);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.75);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.game-time-status strong {
+  color: #4d379a;
+  font-size: 34px;
+  font-weight: 950;
+}
+
+.game-time-ticket.is-purchased {
+  animation: ticket-purchase 760ms ease-out both;
+}
+
+@keyframes ticket-purchase {
+  0% { transform: scale(1); }
+  35% { transform: scale(0.96) rotate(-1deg); }
+  65% { transform: scale(1.05) rotate(1deg); box-shadow: 0 0 0 10px rgba(249, 199, 79, 0.3); }
+  100% { transform: scale(1); }
 }
 
 /* ゲージに入れるタブ（設定タブのチェック表） */

@@ -32,17 +32,18 @@ const WEEKLY_SNAPSHOT_DAYS = 7; // このミリ秒×日数より古いスナッ�
 const BACKUP_PREFIX = "riku10v2-";
 const COINS_KEY = "riku10v2-coins"; // 旧形式（100円が何枚か）。いまは移行用にだけ読む
 const WALLET_KEY = "riku10v2-wallet-yen";
-const FINANCE_KEY = "riku10v2-finance";
+const LEGACY_FINANCE_KEY = "riku10v2-finance"; // 廃止した「とうし」の残高を返金するためにだけ読む
+const LEGACY_FINANCE_REFUND_KEY = "riku10v2-finance-refunded";
+const GAME_TIME_KEY = "riku10v2-game-time-minutes";
 const COIN_PROGRESS_KEY = "riku10v2-coin-progress";
-const MAX_COMBO_KEY = "riku10v2-max-combo";
 const COIN_VALUE = 100;
-const FINANCE_HISTORY_MAX = 120; // グラフに使う日ごとの記録の上限
-const FINANCE_MAX_CATCHUP_DAYS = 60; // 久しぶりに開いたとき、まとめて計算する日数の上限
+const GAME_TIME_PRICE_YEN = 500;
+const GAME_TIME_MINUTES_PER_PURCHASE = 60;
 const STREAK_KEY = "riku10v2-mission-streak";
 const PARTNER_KEY = "riku10v2-partner";
 const STREAK_BONUS_DAYS = 7;
 const SETTINGS_KEY = "riku10v2-settings";
-const SETTINGS_VERSION = 2;
+const SETTINGS_VERSION = 4;
 
 // きょうのミッションで各タブに必要な問題数の初期値（設定タブでタブごとに変更できる）
 const MISSION_CAP_DEFAULTS = {
@@ -72,8 +73,8 @@ function loadSettings() {
     coinStep: 75,
     flashMs: 1500, // フラッシュでブロックが見えている時間（ミリ秒）
     flashMax: 10, // フラッシュで出す最大の数
-    investRate: 10, // とうしの1日の金利（%）
-    investSwing: 15, // とうしのブレはば（±%）
+    fireLeftToRight: false, // ほのお: false=小→大、true=左→右に固定
+    waitForExplanation: true, // 解説が終わるまで「つぎへ」を表示しない
     missionCaps: { ...MISSION_CAP_DEFAULTS },
     catchModes: defaultGaugeMap(), // ポケモンゲットに進めるタブ
     coinModes: defaultGaugeMap() // コインゲージに進めるタブ
@@ -93,10 +94,8 @@ function loadSettings() {
   if (Number.isFinite(ms) && ms >= 200 && ms <= 10000) merged.flashMs = Math.round(ms);
   const max = Number(parsed.flashMax);
   if (Number.isFinite(max) && max >= 3 && max <= 10) merged.flashMax = Math.round(max);
-  [["investRate", -50, 100], ["investSwing", 0, 100]].forEach(([key, min, top]) => {
-    const value = Number(parsed[key]);
-    if (Number.isFinite(value) && value >= min && value <= top) merged[key] = value;
-  });
+  if (typeof parsed.fireLeftToRight === "boolean") merged.fireLeftToRight = parsed.fireLeftToRight;
+  if (typeof parsed.waitForExplanation === "boolean") merged.waitForExplanation = parsed.waitForExplanation;
 
   // 旧形式の引き継ぎ: ジム・ダンジョン合算だった missionGoal を4タブに配分する
   const legacyGoal = Number(parsed.missionGoal);
@@ -343,47 +342,33 @@ function getWeeklySnapshot() {
   return snap;
 }
 
-// 旧「ぎんこう」に残っていた金額。読み込み時にさいふへ戻す
-let pendingBankRefund = 0;
-
 // さいふは円で持つ。旧形式（100円が何枚か）からは ×100 して引き継ぐ
 function loadWalletYen() {
   const raw = localStorage.getItem(WALLET_KEY);
-  if (raw !== null) return Math.max(0, Math.round(Number(raw) || 0));
-  const coins = Math.max(0, Number(localStorage.getItem(COINS_KEY) || "0") || 0);
-  return coins * COIN_VALUE;
+  let wallet = raw !== null
+    ? Math.max(0, Math.round(Number(raw) || 0))
+    : Math.max(0, Number(localStorage.getItem(COINS_KEY) || "0") || 0) * COIN_VALUE;
+
+  // 「とうし」廃止時に、現在価値と旧ぎんこう残高を一度だけさいふへ戻す。
+  if (localStorage.getItem(LEGACY_FINANCE_REFUND_KEY) !== "true") {
+    let refund = 0;
+    try {
+      const finance = JSON.parse(localStorage.getItem(LEGACY_FINANCE_KEY) || "null");
+      if (finance && typeof finance === "object" && !Array.isArray(finance)) {
+        refund += Math.max(0, Math.round(Number(finance.invest) || 0));
+        refund += Math.max(0, Math.round(Number(finance.bank) || 0));
+      }
+    } catch {}
+    wallet += refund;
+    localStorage.setItem(LEGACY_FINANCE_REFUND_KEY, "true");
+    localStorage.setItem(WALLET_KEY, String(wallet));
+  }
+
+  return wallet;
 }
 
-// とうしの残高と、日ごとの記録。history は { d: 日付, p: もとで, v: いまのねだん }
-function loadFinance() {
-  const empty = { invest: 0, invested: 0, lastDay: todayStr(), history: [] };
-  try {
-    const parsed = JSON.parse(localStorage.getItem(FINANCE_KEY) || "null");
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      const invest = Math.max(0, Math.round(Number(parsed.invest) || 0));
-      // 旧「ぎんこう」に置いていたぶんは、さいふに戻す（ぎんこうは廃止したため）
-      const legacyBank = Math.max(0, Math.round(Number(parsed.bank) || 0));
-      if (legacyBank > 0) pendingBankRefund = legacyBank;
-      const history = Array.isArray(parsed.history)
-        ? parsed.history
-            .filter((row) => row && typeof row.d === "string")
-            .map((row) => ({
-              d: row.d,
-              p: Math.max(0, Math.round(Number(row.p ?? row.i) || 0)),
-              v: Math.max(0, Math.round(Number(row.v ?? row.i) || 0))
-            }))
-            .slice(-FINANCE_HISTORY_MAX)
-        : [];
-      return {
-        invest,
-        // とうしに入れた元手の合計（もうけがいくらかを出すため）
-        invested: Math.max(0, Math.round(Number(parsed.invested) || 0)),
-        lastDay: typeof parsed.lastDay === "string" ? parsed.lastDay : todayStr(),
-        history
-      };
-    }
-  } catch {}
-  return empty;
+function loadGameTimeMinutes() {
+  return Math.max(0, Math.round(Number(localStorage.getItem(GAME_TIME_KEY) || "0") || 0));
 }
 
 const PRAISES = ["できた！", "すごい！", "やったね！", "てんさい！", "かんぺき！", "ナイス！"];
@@ -417,6 +402,32 @@ function makeBridgeProblems() {
     }
   }
   return problems;
+}
+
+// ほのおは「小＋大」「大＋小」を同じ基礎頻度で出す。
+function makeFireProblems() {
+  const problems = [];
+  for (let a = 2; a <= 9; a += 1) {
+    for (let b = 2; b <= 9; b += 1) {
+      const answer = a + b;
+      if (answer >= 11 && answer <= 18) {
+        problems.push({ displayA: a, displayB: b });
+      }
+    }
+  }
+  return problems;
+}
+
+function orientFireProblem(problem, leftToRightFixed) {
+  const sourceOnLeft = leftToRightFixed || problem.displayA <= problem.displayB;
+  const source = sourceOnLeft ? problem.displayA : problem.displayB;
+  const target = sourceOnLeft ? problem.displayB : problem.displayA;
+  return {
+    ...problem,
+    big: target,
+    small: source,
+    sourceOnLeft
+  };
 }
 
 function makeSimpleProblems() {
@@ -478,6 +489,7 @@ function makeFlashProblems() {
 let flashProblems = makeFlashProblems();
 
 const bridgeProblems = makeBridgeProblems();
+const fireProblems = makeFireProblems();
 const simpleProblems = makeSimpleProblems();
 const tenPlusProblems = makeTenPlusProblems();
 const minusProblems = makeMinusProblems();
@@ -520,8 +532,9 @@ const state = {
   // もぎダンジョンの盤面: phase は build(10づくり) → sum(こたえ) → done。
   // slots は各がわ10マスの中身（"green"/"red"/null）。取られたマスは穴のまま残す
   mogi: { phase: "build", doneSide: "", slots: { left: [], right: [] } },
+  // ほのおで困ったときに、同じ式をもぎダンジョン方式で試す補助盤面
+  bridgeMogi: { open: false, used: false, solved: false, original: { left: 0, right: 0 }, slots: { left: [], right: [] } },
   combo: 0,
-  maxCombo: Math.max(0, Number(localStorage.getItem(MAX_COMBO_KEY) || "0") || 0),
   stars: 0,
   totalCorrect: Number(localStorage.getItem(TOTAL_KEY) || "0") || 0,
   catchProgress: loadCatchProgress(),
@@ -530,13 +543,14 @@ const state = {
   daily: loadDaily(),
   revealTimeout: { ice: null, minus: null },
   walletYen: loadWalletYen(),
-  finance: loadFinance(),
+  gameTimeMinutes: loadGameTimeMinutes(),
   coinProgress: Math.min(SETTINGS.coinStep - 1, Math.max(0, Number(localStorage.getItem(COIN_PROGRESS_KEY) || "0") || 0)),
   coinJustEarned: false,
   streak: loadStreak(),
   streakBonusJust: false,
   partner: Number(localStorage.getItem(PARTNER_KEY)) || null,
   nextQuestionTimeoutId: null,
+  explanationReadyTimeoutId: null,
   bridgeRevealTimeoutId: null,
   timedEnabled: localStorage.getItem(TIMED_KEY) === "true",
   blocksEnabled: localStorage.getItem("riku10v2-blocks-enabled") === "true",
@@ -566,7 +580,7 @@ MODES.forEach((mode) => {
 
 const els = {
   savings: qs("#savings"),
-  maxCombo: qs("#max-combo"),
+  purchasedGameTime: qs("#purchased-game-time"),
   missionStreakDays: qs("#mission-streak-days"),
   coinFill: qs("#coin-fill"),
   coinText: qs("#coin-text"),
@@ -581,12 +595,25 @@ const els = {
   blockToggleLabel: qs("#block-toggle-label"),
   explainToggle: qs("#explain-toggle"),
   explainToggleLabel: qs("#explain-toggle-label"),
+  explanationWaitToggle: qs("#explanation-wait-toggle"),
+  explanationWaitToggleLabel: qs("#explanation-wait-toggle-label"),
+  fireDirectionToggle: qs("#fire-direction-toggle"),
+  fireDirectionToggleLabel: qs("#fire-direction-toggle-label"),
   bridgeEquation: qs("#bridge-equation"),
+  bridgeBoard: qs("#bridge-board"),
   bridgeChain: qs("#bridge-chain"),
   bridgeLeftLabel: qs("#bridge-left-label"),
   bridgeRightLabel: qs("#bridge-right-label"),
   bridgeFrame: qs("#bridge-frame"),
   donorDots: qs("#donor-dots"),
+  bridgeMogiHelpToggle: qs("#bridge-mogi-help-toggle"),
+  bridgeMogiHelper: qs("#bridge-mogi-helper"),
+  bridgeMogiLeftLabel: qs("#bridge-mogi-left-label"),
+  bridgeMogiRightLabel: qs("#bridge-mogi-right-label"),
+  bridgeMogiLeftFrame: qs("#bridge-mogi-left-frame"),
+  bridgeMogiRightFrame: qs("#bridge-mogi-right-frame"),
+  bridgeMogiHelpFeedback: qs("#bridge-mogi-help-feedback"),
+  bridgeMogiHelpReset: qs("#bridge-mogi-help-reset"),
   mogiEquation: qs("#mogi-equation"),
   mogiChain: qs("#mogi-chain"),
   mogiLeftLabel: qs("#mogi-left-label"),
@@ -656,6 +683,9 @@ function abKey(p) {
 }
 
 function problemKey(problem) {
+  if (Number.isFinite(problem.displayA) && Number.isFinite(problem.displayB)) {
+    return `${problem.displayA}+${problem.displayB}`;
+  }
   return `${problem.big ?? problem.base}+${problem.small ?? problem.friend}`;
 }
 
@@ -799,7 +829,7 @@ function renderCoinGauge() {
   els.coinText.textContent = `あと${SETTINGS.coinStep - state.coinProgress}もんで100円`;
   const current = qs("#coin-current");
   if (current) current.textContent = `${state.walletYen}円`;
-  renderBankPanel();
+  renderGameTimeShop();
 }
 
 function currentMissionStreak() {
@@ -807,7 +837,7 @@ function currentMissionStreak() {
 }
 
 function renderHeroStats() {
-  els.maxCombo.textContent = state.maxCombo;
+  els.purchasedGameTime.textContent = formatGameTime(state.gameTimeMinutes);
   els.missionStreakDays.textContent = currentMissionStreak();
 }
 
@@ -854,213 +884,61 @@ function registerCoinProgress() {
   renderCoinGauge();
 }
 
-/* ---------- とうし ---------- */
+/* ---------- ゲームじかんやさん ---------- */
 
-function saveFinance() {
-  localStorage.setItem(FINANCE_KEY, JSON.stringify(state.finance));
+function formatGameTime(minutes) {
+  const safeMinutes = Math.max(0, Math.round(Number(minutes) || 0));
+  const hours = Math.floor(safeMinutes / 60);
+  const rest = safeMinutes % 60;
+  if (rest === 0) return `${hours}時間`;
+  return hours > 0 ? `${hours}時間${rest}分` : `${rest}分`;
 }
 
-function dayKeyToDate(key) {
-  const [y, m, d] = String(key).split("-").map(Number);
-  const date = new Date(y, (m || 1) - 1, d || 1);
-  return Number.isNaN(date.getTime()) ? null : date;
+function saveGameTime() {
+  localStorage.setItem(GAME_TIME_KEY, String(state.gameTimeMinutes));
 }
 
-function dateToDayKey(date) {
-  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+function gameTimeFeedback(message, good = false) {
+  const feedback = qs("#game-time-feedback");
+  if (!feedback) return;
+  feedback.className = `feedback${good ? " is-good" : message ? " is-try" : ""}`;
+  feedback.textContent = message || "500円で ゲーム1時間と こうかんできるよ";
 }
 
-function daysBetween(fromKey, toKey) {
-  const a = dayKeyToDate(fromKey);
-  const b = dayKeyToDate(toKey);
-  if (!a || !b) return 0;
-  return Math.round((b - a) / 86400000);
+function renderGameTimeShop() {
+  const balance = qs("#game-time-balance");
+  if (!balance) return;
+  balance.textContent = formatGameTime(state.gameTimeMinutes);
+  qs("#game-time-wallet").textContent = `さいふ：${state.walletYen}円`;
+  const short = Math.max(0, GAME_TIME_PRICE_YEN - state.walletYen);
+  qs("#game-time-price-note").textContent = short > 0
+    ? `あと${short}円で 1時間かえるよ`
+    : "いま 1時間かえるよ！";
+  qs("#game-time-buy").classList.toggle("can-buy", short === 0);
 }
 
-// その日の「もとで」と「いまのねだん」を記録する（同じ日が2回来たら上書き）
-function pushFinanceHistory(dayKey) {
-  const last = state.finance.history[state.finance.history.length - 1];
-  const entry = { d: dayKey, p: state.finance.invested, v: state.finance.invest };
-  if (last && last.d === dayKey) state.finance.history[state.finance.history.length - 1] = entry;
-  else state.finance.history.push(entry);
-  if (state.finance.history.length > FINANCE_HISTORY_MAX) {
-    state.finance.history = state.finance.history.slice(-FINANCE_HISTORY_MAX);
-  }
-}
-
-// 前に開いた日から今日までの値動きをまとめて反映する。1日ごとに 金利±ブレはば で変わる
-function applyFinanceDays() {
-  if (pendingBankRefund > 0) {
-    state.walletYen += pendingBankRefund;
-    pendingBankRefund = 0;
-    saveCoins();
+function buyGameTime() {
+  if (state.walletYen < GAME_TIME_PRICE_YEN) {
+    const short = GAME_TIME_PRICE_YEN - state.walletYen;
+    gameTimeFeedback(`さいふの おかねが あと${short}円 たりないよ`);
+    return false;
   }
 
-  const today = todayStr();
-  const elapsed = daysBetween(state.finance.lastDay, today);
-
-  if (elapsed > 0) {
-    const cursor = dayKeyToDate(state.finance.lastDay);
-    const skip = Math.max(0, elapsed - FINANCE_MAX_CATCHUP_DAYS);
-    if (skip > 0) cursor.setDate(cursor.getDate() + skip);
-    for (let i = skip; i < elapsed; i += 1) {
-      cursor.setDate(cursor.getDate() + 1);
-      if (state.finance.invest > 0) {
-        const swing = (Math.random() * 2 - 1) * SETTINGS.investSwing;
-        state.finance.invest = Math.max(0, Math.round(state.finance.invest * (1 + (SETTINGS.investRate + swing) / 100)));
-      }
-      pushFinanceHistory(dateToDayKey(cursor));
-    }
-  }
-
-  state.finance.lastDay = today;
-  pushFinanceHistory(today);
-  saveFinance();
-}
-
-// 100円たんいかどうかを確かめる。だめなら理由を返す
-function checkYenInput(yen, available, whatIsMissing) {
-  if (!Number.isFinite(yen) || yen <= 0) return "きんがくを いれてね";
-  if (yen % COIN_VALUE !== 0) return "100円たんいで いれてね";
-  if (yen > available) return `${whatIsMissing}に ${yen}円 ありません（いまは ${available}円）`;
-  return "";
-}
-
-function investBuy(yen) {
-  const error = checkYenInput(yen, state.walletYen, "さいふ");
-  if (error) return error;
-  state.walletYen -= yen;
-  state.finance.invest += yen;
-  state.finance.invested += yen;
+  state.walletYen -= GAME_TIME_PRICE_YEN;
+  state.gameTimeMinutes += GAME_TIME_MINUTES_PER_PURCHASE;
+  state.coinJustEarned = false;
   saveCoins();
-  pushFinanceHistory(todayStr());
-  saveFinance();
+  saveGameTime();
   renderCoinGauge();
-  return "";
-}
-
-// うるときは、へらす割合とおなじだけ元手も減らす（もうけの計算をあわせるため）
-function investSell(yen) {
-  const error = checkYenInput(yen, state.finance.invest, "とうし");
-  if (error) return error;
-  sellInvestment(yen);
-  return "";
-}
-
-function sellInvestment(yen) {
-  const ratio = state.finance.invest > 0 ? yen / state.finance.invest : 1;
-  state.finance.invest = Math.max(0, state.finance.invest - yen);
-  state.finance.invested = state.finance.invest === 0 ? 0 : Math.max(0, Math.round(state.finance.invested * (1 - ratio)));
-  state.walletYen += yen;
-  saveCoins();
-  pushFinanceHistory(todayStr());
-  saveFinance();
-  renderCoinGauge();
-}
-
-/* ---------- とうしタブの描画 ---------- */
-
-const BANK_CHART_DAYS = 30;
-
-function bankFeedback(message, good) {
-  const el = qs("#bank-feedback");
-  if (!el) return;
-  el.className = `feedback${good ? " is-good" : message ? " is-try" : ""}`;
-  el.textContent = message || "100円たんいで とうしできるよ";
-}
-
-function renderBankPanel() {
-  const wallet = qs("#bank-wallet");
-  if (!wallet) return;
-  const { invest, invested } = state.finance;
-  wallet.textContent = `${state.walletYen}円`;
-  qs("#bank-seed").textContent = `${invested}円`;
-  qs("#bank-invest").textContent = `${invest}円`;
-  qs("#bank-total").textContent = `${state.walletYen + invest}円`;
-
-  // もとでといまの金額を比べて、もうけ／そんを見せる
-  const profit = invest - invested;
-  const note = qs("#bank-invest-note");
-  if (invest === 0) {
-    note.textContent = "ふえたり へったり";
-    note.className = "bank-balance-note";
-  } else if (profit > 0) {
-    note.textContent = `もとでより +${profit}円`;
-    note.className = "bank-balance-note is-up";
-  } else if (profit < 0) {
-    note.textContent = `もとでより ${profit}円`;
-    note.className = "bank-balance-note is-down";
-  } else {
-    note.textContent = "もとでと おなじ";
-    note.className = "bank-balance-note";
-  }
-
-  const low = Math.round((SETTINGS.investRate - SETTINGS.investSwing) * 10) / 10;
-  const high = Math.round((SETTINGS.investRate + SETTINGS.investSwing) * 10) / 10;
-  qs("#invest-rate-cap").textContent = SETTINGS.investSwing > 0 ? `1日 ${low}%〜${high}%` : `1日 +${SETTINGS.investRate}%`;
-
-  renderBankChart();
-}
-
-// もとで と いまのねだん の2本の折れ線（ライブラリなしのSVG）。
-// 2本のひらきが そのまま もうけ／そん になる
-function renderBankChart() {
-  const box = qs("#bank-chart");
-  if (!box) return;
-  const empty = qs("#bank-chart-empty");
-  const points = state.finance.history.slice(-BANK_CHART_DAYS);
-  const hasMoney = points.some((p) => p.p > 0 || p.v > 0);
-
-  if (points.length < 2 || !hasMoney) {
-    box.replaceChildren();
-    box.classList.add("is-hidden");
-    empty.classList.remove("is-hidden");
-    qs("#bank-chart-range").textContent = "";
-    return;
-  }
-  box.classList.remove("is-hidden");
-  empty.classList.add("is-hidden");
-  qs("#bank-chart-range").textContent = `${points.length}日ぶん`;
-
-  const W = 600;
-  const H = 240;
-  const PAD = { top: 16, right: 12, bottom: 26, left: 56 };
-  const innerW = W - PAD.left - PAD.right;
-  const innerH = H - PAD.top - PAD.bottom;
-  const maxYen = Math.max(100, ...points.map((p) => Math.max(p.p, p.v)));
-  // 目盛りは100円きざみのきりのいい数に切り上げる
-  const step = maxYen <= 500 ? 100 : maxYen <= 2000 ? 500 : maxYen <= 10000 ? 1000 : 5000;
-  const top = Math.ceil(maxYen / step) * step;
-  const x = (index) => PAD.left + (points.length === 1 ? innerW / 2 : (index / (points.length - 1)) * innerW);
-  const y = (yen) => PAD.top + innerH - (yen / top) * innerH;
-  const line = (key) => points.map((p, index) => `${index === 0 ? "M" : "L"}${x(index).toFixed(1)} ${y(p[key]).toFixed(1)}`).join(" ");
-
-  const gridRows = [];
-  for (let value = 0; value <= top; value += step) {
-    gridRows.push(
-      `<line class="bank-grid" x1="${PAD.left}" y1="${y(value)}" x2="${W - PAD.right}" y2="${y(value)}"></line>` +
-      `<text class="bank-axis" x="${PAD.left - 8}" y="${y(value) + 4}" text-anchor="end">${value}円</text>`
-    );
-  }
-
-  const label = (index) => {
-    const [, m, d] = points[index].d.split("-");
-    return `${m}/${d}`;
-  };
-  const lastIndex = points.length - 1;
-  const dots =
-    `<circle class="bank-dot is-bankline" cx="${x(lastIndex)}" cy="${y(points[lastIndex].p)}" r="5"></circle>` +
-    `<circle class="bank-dot is-investline" cx="${x(lastIndex)}" cy="${y(points[lastIndex].v)}" r="5"></circle>`;
-
-  box.innerHTML =
-    `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">` +
-    gridRows.join("") +
-    `<path class="bank-line is-bankline" d="${line("p")}"></path>` +
-    `<path class="bank-line is-investline" d="${line("v")}"></path>` +
-    dots +
-    `<text class="bank-axis" x="${PAD.left}" y="${H - 8}" text-anchor="start">${label(0)}</text>` +
-    `<text class="bank-axis" x="${W - PAD.right}" y="${H - 8}" text-anchor="end">${label(lastIndex)}</text>` +
-    `</svg>`;
+  renderHeroStats();
+  gameTimeFeedback(`おかいあげ ありがとう！ ゲーム時間が 1時間ふえたよ`, true);
+  const card = qs("#game-time-ticket");
+  card.classList.remove("is-purchased");
+  requestAnimationFrame(() => card.classList.add("is-purchased"));
+  setTimeout(() => card.classList.remove("is-purchased"), 1200);
+  burstConfetti(28);
+  playCashRegisterSound();
+  return true;
 }
 
 /* ---------- ポケモン ---------- */
@@ -1696,6 +1574,8 @@ function buildGaugeMatrix() {
 }
 
 function renderSettingsPanel() {
+  renderFireDirectionToggle();
+  renderExplanationWaitToggle();
   MODES.forEach((mode) => {
     const catchInput = qs(`#set-catch-${mode}`);
     const coinInput = qs(`#set-coin-${mode}`);
@@ -1706,8 +1586,6 @@ function renderSettingsPanel() {
   qs("#set-coin").value = SETTINGS.coinStep;
   qs("#set-flash-sec").value = (SETTINGS.flashMs / 1000).toFixed(1);
   qs("#set-flash-max").value = SETTINGS.flashMax;
-  qs("#set-invest-rate").value = SETTINGS.investRate;
-  qs("#set-invest-swing").value = SETTINGS.investSwing;
   MODES.forEach((mode) => {
     qs(`#set-cap-${mode}`).value = missionCap(mode);
   });
@@ -1774,24 +1652,6 @@ qs("#set-flash-sec").addEventListener("change", () => {
   input.value = (SETTINGS.flashMs / 1000).toFixed(1);
   saveSettings();
 });
-
-// とうしの利率（小数OK）
-[["#set-invest-rate", "investRate", -50, 100], ["#set-invest-swing", "investSwing", 0, 100]].forEach(
-  ([selector, key, min, max]) => {
-    const input = qs(selector);
-    input.addEventListener("change", () => {
-      const value = Number(input.value);
-      if (!Number.isFinite(value) || value < min || value > max) {
-        input.value = SETTINGS[key];
-        return;
-      }
-      SETTINGS[key] = value;
-      input.value = value;
-      saveSettings();
-      renderBankPanel();
-    });
-  }
-);
 
 qs("#set-flash-max").addEventListener("change", () => {
   const input = qs("#set-flash-max");
@@ -1917,45 +1777,90 @@ function playTone(kind, combo = 0) {
   });
 }
 
+// レジの「じゃららん」のあとに、余韻の長い「チーン」を鳴らす。
+function playCashRegisterSound() {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return;
+
+  const ctx = new AudioContext();
+  const start = ctx.currentTime;
+  const jingle = [659.25, 783.99, 987.77, 1318.5];
+
+  jingle.forEach((frequency, index) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = index % 2 === 0 ? "triangle" : "square";
+    osc.frequency.value = frequency;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    const at = start + index * 0.075;
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(0.11, at + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.14);
+    osc.start(at);
+    osc.stop(at + 0.16);
+  });
+
+  [1760, 2637].forEach((frequency, index) => {
+    const bell = ctx.createOscillator();
+    const gain = ctx.createGain();
+    bell.type = "sine";
+    bell.frequency.value = frequency;
+    bell.connect(gain);
+    gain.connect(ctx.destination);
+    const at = start + 0.42;
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(index === 0 ? 0.22 : 0.08, at + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.95);
+    bell.start(at);
+    bell.stop(at + 1);
+  });
+
+  setTimeout(() => ctx.close().catch(() => {}), 1500);
+}
+
 function praiseText() {
   const base = pick(PRAISES);
   return state.combo >= 2 ? `${base} 🔥${state.combo}れんぞく` : base;
+}
+
+function answerCountsForProgress(mode) {
+  return !(mode === "bridge" && state.bridgeMogi.used);
 }
 
 function onCorrect(mode) {
   state.locked[mode] = true;
   M[mode].section.classList.add("is-answer-shown");
   stopChallengeTimer();
-  state.combo += 1;
-  if (state.combo > state.maxCombo) {
-    state.maxCombo = state.combo;
-    localStorage.setItem(MAX_COMBO_KEY, String(state.maxCombo));
-    renderHeroStats();
+  const countsForProgress = answerCountsForProgress(mode);
+  if (countsForProgress) {
+    state.combo += 1;
+    countSolvedQuestion();
+    if (!state.challenge.ended) registerCorrect(mode);
   }
-  countSolvedQuestion();
-  if (!state.challenge.ended) registerCorrect(mode);
   const feedback = M[mode].feedback;
   feedback.className = "feedback is-good";
-  feedback.textContent = praiseText();
-  if (state.coinJustEarned) {
+  feedback.textContent = countsForProgress ? praiseText() : "もぎで かんがえて できたね！ このもんだいは れんしゅうあつかいだよ";
+  if (countsForProgress && state.coinJustEarned) {
     state.coinJustEarned = false;
     feedback.textContent = "💰 100円 ゲット！ ちょきんが ふえたよ！";
   }
-  if (state.streakBonusJust) {
+  if (countsForProgress && state.streakBonusJust) {
     state.streakBonusJust = false;
     feedback.textContent = `🔥${state.streak.count}日れんぞくクリア！ ボーナス100円 ゲット！`;
   }
-  setNextButton(mode, true);
+  prepareAnswerNextButton(mode);
   burstConfetti(Math.min(14 + Math.floor(state.combo / 5) * 10, 54));
   playTone("good", state.combo);
 }
 
 function onWrong(mode, _hint, correctValue) {
-  state.combo = 0;
+  const countsForProgress = answerCountsForProgress(mode);
+  if (countsForProgress) state.combo = 0;
   state.locked[mode] = true;
   M[mode].section.classList.add("is-answer-shown");
   stopChallengeTimer();
-  if (!state.challenge.ended) registerWrong(mode);
+  if (countsForProgress && !state.challenge.ended) registerWrong(mode);
   const feedback = M[mode].feedback;
   feedback.className = "feedback is-try";
   feedback.innerHTML = `ふせいかい！<br><span class="feedback-cheer">${pick(CHEERS)}</span>`;
@@ -1964,7 +1869,7 @@ function onWrong(mode, _hint, correctValue) {
     const btn = M[mode].choices.querySelector(`[data-value="${correctValue}"]`);
     if (btn) btn.classList.add("is-correct");
   }
-  setNextButton(mode, true);
+  prepareAnswerNextButton(mode);
 }
 
 /* ---------- 10マス・カード描画 ---------- */
@@ -2028,6 +1933,52 @@ function stopChallengeTimer() {
 
 function setNextButton(mode, visible) {
   M[mode].next.classList.toggle("is-hidden", !visible);
+  M[mode].next.disabled = !visible;
+}
+
+// JSアニメーションがない解説は、CSS演出と読む時間が終わるまで待つ。
+const STATIC_EXPLANATION_WAIT_MS = {
+  flash: 1900,
+  pair: 1200,
+  tenplus: 800,
+  mogi: 1000
+};
+
+function shouldWaitForExplanation() {
+  return SETTINGS.waitForExplanation && state.explainEnabled;
+}
+
+function clearExplanationReadyTimer() {
+  if (!state.explanationReadyTimeoutId) return;
+  clearTimeout(state.explanationReadyTimeoutId);
+  state.explanationReadyTimeoutId = null;
+}
+
+function explanationFinished(mode, problem) {
+  if (state.problem[mode] !== problem) return;
+  setNextButton(mode, true);
+}
+
+function scheduleExplanationFinished(mode, problem, delayMs) {
+  if (!shouldWaitForExplanation()) {
+    explanationFinished(mode, problem);
+    return;
+  }
+  clearExplanationReadyTimer();
+  state.explanationReadyTimeoutId = setTimeout(() => {
+    state.explanationReadyTimeoutId = null;
+    explanationFinished(mode, problem);
+  }, delayMs);
+}
+
+function prepareAnswerNextButton(mode) {
+  if (!shouldWaitForExplanation()) {
+    setNextButton(mode, true);
+    return;
+  }
+  setNextButton(mode, false);
+  const delay = STATIC_EXPLANATION_WAIT_MS[mode];
+  if (delay) scheduleExplanationFinished(mode, state.problem[mode], delay);
 }
 
 function setModeWaiting(mode, waiting) {
@@ -2048,8 +1999,10 @@ function clearNextQuestion() {
     clearTimeout(state.nextQuestionTimeoutId);
     state.nextQuestionTimeoutId = null;
   }
+  clearExplanationReadyTimer();
   clearFlashTimers();
   clearBridgeReveal();
+  closeBridgeMogiHelp();
   clearRemovalReveal("ice");
   clearRemovalReveal("minus");
 }
@@ -2138,6 +2091,32 @@ function setExplainDisplay(enabled) {
   state.explainEnabled = enabled;
   localStorage.setItem("riku10v2-explain-enabled", String(enabled));
   renderExplainToggle();
+}
+
+function renderExplanationWaitToggle() {
+  const enabled = SETTINGS.waitForExplanation;
+  els.explanationWaitToggle.classList.toggle("is-on", enabled);
+  els.explanationWaitToggle.setAttribute("aria-pressed", String(enabled));
+  els.explanationWaitToggleLabel.textContent = enabled ? "解説待ち ON" : "解説待ち OFF";
+}
+
+function setWaitForExplanation(enabled) {
+  SETTINGS.waitForExplanation = enabled;
+  saveSettings();
+  renderExplanationWaitToggle();
+}
+
+function renderFireDirectionToggle() {
+  const enabled = SETTINGS.fireLeftToRight;
+  els.fireDirectionToggle.classList.toggle("is-on", enabled);
+  els.fireDirectionToggle.setAttribute("aria-pressed", String(enabled));
+  els.fireDirectionToggleLabel.textContent = enabled ? "左→右固定 ON" : "左→右固定 OFF";
+}
+
+function setFireLeftToRight(enabled) {
+  SETTINGS.fireLeftToRight = enabled;
+  saveSettings();
+  renderFireDirectionToggle();
 }
 
 function setTimedMode(enabled) {
@@ -2447,6 +2426,7 @@ function animateSimpleJoin(problem) {
 
   if (!canAnimate) {
     completeSimpleJoin(problem);
+    scheduleExplanationFinished("simple", problem, 650);
     return;
   }
 
@@ -2496,7 +2476,7 @@ function animateSimpleJoin(problem) {
         const answer = problem.a + problem.b;
         els.simpleFrame.classList.add(answer === 10 ? "is-ten-complete" : "is-join-complete");
         els.simpleFrame.setAttribute("aria-label", `${problem.a}こと${problem.b}こをあわせて${answer}こ`);
-        setNextButton("simple", true);
+        scheduleExplanationFinished("simple", problem, 650);
       }
     };
   });
@@ -2877,6 +2857,228 @@ window.addEventListener("pointermove", mogiDragMove, { passive: false });
 window.addEventListener("pointerup", mogiDragEnd);
 window.addEventListener("pointercancel", mogiDragCancel);
 
+/* ---------- ほのお内の「もぎで考える」補助 ---------- */
+
+const bridgeMogiDrag = {
+  active: false,
+  side: "",
+  index: -1,
+  color: "",
+  flyer: null,
+  cell: null,
+  offsetX: 0,
+  offsetY: 0,
+  homeLeft: 0,
+  homeTop: 0
+};
+
+function bridgeMogiFrame(side) {
+  return side === "left" ? els.bridgeMogiLeftFrame : els.bridgeMogiRightFrame;
+}
+
+function bridgeMogiCount(side) {
+  return state.bridgeMogi.slots[side].filter(Boolean).length;
+}
+
+function renderBridgeMogiFrame(side) {
+  const frame = bridgeMogiFrame(side);
+  frame.replaceChildren();
+  state.bridgeMogi.slots[side].forEach((color) => {
+    const cell = document.createElement("div");
+    cell.className = "frame-cell";
+    if (color) {
+      cell.classList.add("is-block", color === "green" ? "is-filled" : "is-guest");
+    }
+    frame.append(cell);
+  });
+  frame.classList.toggle("is-ten-complete", state.bridgeMogi.solved && bridgeMogiCount(side) === 10);
+}
+
+function renderBridgeMogiLabel(label, side) {
+  const count = bridgeMogiCount(side);
+  label.textContent = count >= state.bridgeMogi.original[side] ? count : "";
+}
+
+function renderBridgeMogiHelp() {
+  renderBridgeMogiFrame("left");
+  renderBridgeMogiFrame("right");
+  renderBridgeMogiLabel(els.bridgeMogiLeftLabel, "left");
+  renderBridgeMogiLabel(els.bridgeMogiRightLabel, "right");
+}
+
+// ヒントを使った問題は練習扱い。初回だけ、未完了の炎ミッションを1問戻す。
+function applyBridgeMogiMissionPenalty() {
+  rolloverDaily();
+  if (state.daily.done) return false;
+  const used = Math.min(state.daily.bridgeUsed || 0, missionCap("bridge"));
+  if (used <= 0) return false;
+  state.daily.bridgeUsed = used - 1;
+  saveDaily();
+  renderMission();
+  return true;
+}
+
+function resetBridgeMogiHelp() {
+  const problem = state.problem.bridge;
+  if (!problem) return;
+  const firstUse = !state.bridgeMogi.used;
+  const missionReduced = firstUse && applyBridgeMogiMissionPenalty();
+  clearBridgeMogiDrag();
+  const left = Number.isFinite(problem.displayA) ? problem.displayA : problem.big;
+  const right = Number.isFinite(problem.displayB) ? problem.displayB : problem.small;
+  const makeSlots = (count, color) => Array.from({ length: 10 }, (_, index) => (index < count ? color : null));
+  state.bridgeMogi = {
+    open: true,
+    used: true,
+    solved: false,
+    original: { left, right },
+    slots: { left: makeSlots(left, "green"), right: makeSlots(right, "red") }
+  };
+  els.bridgeMogiHelper.classList.remove("is-hidden");
+  els.bridgeMogiHelpToggle.setAttribute("aria-expanded", "true");
+  els.bridgeMogiHelpToggle.textContent = "もぎヒントを とじる";
+  els.bridgeMogiHelpFeedback.textContent = missionReduced
+    ? "ヒントを つかったので、ミッションが 1もん もどったよ。ブロックを うごかして 10を つくろう"
+    : "ブロックを うごかして 10を つくろう";
+  renderBridgeMogiHelp();
+}
+
+function clearBridgeMogiDrag() {
+  if (!bridgeMogiDrag.active) return;
+  bridgeMogiDrag.flyer?.remove();
+  bridgeMogiDrag.cell?.classList.remove("is-drag-source");
+  bridgeMogiDrag.active = false;
+  bridgeMogiDrag.flyer = null;
+  bridgeMogiDrag.cell = null;
+}
+
+function closeBridgeMogiHelp() {
+  clearBridgeMogiDrag();
+  state.bridgeMogi.open = false;
+  els.bridgeMogiHelper.classList.add("is-hidden");
+  els.bridgeMogiHelpToggle.setAttribute("aria-expanded", "false");
+  els.bridgeMogiHelpToggle.textContent = "わからない → もぎで考える";
+}
+
+function toggleBridgeMogiHelp() {
+  if (state.locked.bridge || !state.problem.bridge) return;
+  if (state.bridgeMogi.open) closeBridgeMogiHelp();
+  else resetBridgeMogiHelp();
+}
+
+function bridgeMogiDragStart(event, side) {
+  if (
+    state.activeMode !== "bridge" ||
+    !state.bridgeMogi.open ||
+    state.bridgeMogi.solved ||
+    state.locked.bridge ||
+    bridgeMogiDrag.active
+  ) return;
+  const cell = event.target.closest(".frame-cell.is-block");
+  if (!cell) return;
+  event.preventDefault();
+  const rect = cell.getBoundingClientRect();
+  const flyer = document.createElement("div");
+  flyer.className = `fly-square${cell.classList.contains("is-filled") ? " is-green" : ""}`;
+  flyer.style.left = `${rect.left}px`;
+  flyer.style.top = `${rect.top}px`;
+  flyer.style.width = `${rect.width}px`;
+  flyer.style.height = `${rect.height}px`;
+  els.flyLayer.append(flyer);
+  cell.classList.add("is-drag-source");
+  bridgeMogiDrag.active = true;
+  bridgeMogiDrag.side = side;
+  bridgeMogiDrag.index = [...cell.parentElement.children].indexOf(cell);
+  bridgeMogiDrag.color = cell.classList.contains("is-filled") ? "green" : "red";
+  bridgeMogiDrag.flyer = flyer;
+  bridgeMogiDrag.cell = cell;
+  bridgeMogiDrag.offsetX = event.clientX - rect.left;
+  bridgeMogiDrag.offsetY = event.clientY - rect.top;
+  bridgeMogiDrag.homeLeft = rect.left;
+  bridgeMogiDrag.homeTop = rect.top;
+}
+
+function bridgeMogiDragMove(event) {
+  if (!bridgeMogiDrag.active) return;
+  event.preventDefault();
+  bridgeMogiDrag.flyer.style.left = `${event.clientX - bridgeMogiDrag.offsetX}px`;
+  bridgeMogiDrag.flyer.style.top = `${event.clientY - bridgeMogiDrag.offsetY}px`;
+}
+
+function takeBridgeMogiDrag() {
+  const grabbed = {
+    flyer: bridgeMogiDrag.flyer,
+    cell: bridgeMogiDrag.cell,
+    side: bridgeMogiDrag.side,
+    index: bridgeMogiDrag.index,
+    color: bridgeMogiDrag.color,
+    homeLeft: bridgeMogiDrag.homeLeft,
+    homeTop: bridgeMogiDrag.homeTop
+  };
+  bridgeMogiDrag.active = false;
+  bridgeMogiDrag.flyer = null;
+  bridgeMogiDrag.cell = null;
+  grabbed.cell?.classList.remove("is-drag-source");
+  return grabbed;
+}
+
+function completeBridgeMogiHelp(side) {
+  state.bridgeMogi.solved = true;
+  const other = side === "left" ? "right" : "left";
+  const rest = bridgeMogiCount(other);
+  bridgeMogiFrame(side).classList.add("is-ten-complete");
+  [...bridgeMogiFrame(other).children]
+    .filter((cell) => cell.classList.contains("is-block"))
+    .forEach((cell, index) => {
+      cell.classList.add("is-counted", "count-rest");
+      cell.dataset.count = index + 1;
+    });
+  els.bridgeMogiHelpFeedback.textContent = `10が できた！ のこりは ${rest}こ。10 + ${rest}で かんがえよう`;
+  playTone("good");
+}
+
+function bridgeMogiDragEnd(event) {
+  if (!bridgeMogiDrag.active) return;
+  const { flyer, side: from, index, color, homeLeft, homeTop } = takeBridgeMogiDrag();
+  const to = from === "left" ? "right" : "left";
+  const rect = bridgeMogiFrame(to).getBoundingClientRect();
+  const pad = 24;
+  const inTarget =
+    event.clientX >= rect.left - pad &&
+    event.clientX <= rect.right + pad &&
+    event.clientY >= rect.top - pad &&
+    event.clientY <= rect.bottom + pad;
+  const landSlot = state.bridgeMogi.slots[to].indexOf(null);
+  if (!state.bridgeMogi.open || state.bridgeMogi.solved || state.locked.bridge || !inTarget || landSlot === -1) {
+    mogiSnapBack(flyer, homeLeft, homeTop);
+    return;
+  }
+
+  flyer.remove();
+  state.bridgeMogi.slots[from][index] = null;
+  state.bridgeMogi.slots[to][landSlot] = color;
+  playTone("click");
+  renderBridgeMogiHelp();
+  const landed = bridgeMogiFrame(to).children[landSlot];
+  if (landed) landed.classList.add("is-pop");
+  if (bridgeMogiCount(to) === 10) completeBridgeMogiHelp(to);
+}
+
+function bridgeMogiDragCancel() {
+  if (!bridgeMogiDrag.active) return;
+  const { flyer, homeLeft, homeTop } = takeBridgeMogiDrag();
+  mogiSnapBack(flyer, homeLeft, homeTop);
+}
+
+[["left", els.bridgeMogiLeftFrame], ["right", els.bridgeMogiRightFrame]].forEach(([side, frame]) => {
+  frame.addEventListener("pointerdown", (event) => bridgeMogiDragStart(event, side));
+});
+window.addEventListener("pointermove", bridgeMogiDragMove, { passive: false });
+window.addEventListener("pointerup", bridgeMogiDragEnd);
+window.addEventListener("pointercancel", bridgeMogiDragCancel);
+els.bridgeMogiHelpToggle.addEventListener("click", toggleBridgeMogiHelp);
+els.bridgeMogiHelpReset.addEventListener("click", resetBridgeMogiHelp);
+
 /* ---------- ぼうけん（さくらんぼ） ---------- */
 
 function renderDonorDots(count, moved = 0) {
@@ -2893,15 +3095,17 @@ function renderDonorDots(count, moved = 0) {
 
 function renderSplitDots(total, moved) {
   els.donorDots.replaceChildren();
+  const remain = total - moved;
   for (let index = 0; index < total; index += 1) {
     const dot = document.createElement("div");
     dot.className = "donor-dot";
-    if (index < moved) {
+    if (index >= remain) {
+      // 後ろから移した場所は穴として残し、残りを左詰めで見せる
       dot.classList.add("is-moved-away");
     } else {
       // のこりのブロックに 1, 2… と小さく番号を振る
       dot.classList.add("is-leftover");
-      dot.dataset.count = index - moved + 1;
+      dot.dataset.count = index + 1;
     }
     els.donorDots.append(dot);
   }
@@ -2909,7 +3113,9 @@ function renderSplitDots(total, moved) {
 
 function animateBridgeCompletion(problem, need) {
   const cells = [...els.bridgeFrame.children].slice(problem.big, problem.big + need);
-  const dots = [...els.donorDots.children].slice(0, need);
+  const donorDots = [...els.donorDots.children];
+  // 移動元の後ろ側から取り、残った5のまとまりを意識できるようにする
+  const dots = donorDots.slice(-need);
   const dotRects = dots.map((dot) => dot.getBoundingClientRect());
   const cellRects = cells.map((cell) => cell.getBoundingClientRect());
 
@@ -2923,6 +3129,7 @@ function animateBridgeCompletion(problem, need) {
   if (!canAnimate) {
     renderTenFrame(els.bridgeFrame, problem.big, need, true);
     els.bridgeFrame.classList.add("is-ten-complete");
+    scheduleExplanationFinished("bridge", problem, 650);
     return;
   }
 
@@ -2959,6 +3166,7 @@ function animateBridgeCompletion(problem, need) {
       // 10個そろった瞬間に、10のかたまりを大きく囲って見せる
       if (landed === cells.length) {
         els.bridgeFrame.classList.add("is-ten-complete");
+        scheduleExplanationFinished("bridge", problem, 650);
       }
     };
   });
@@ -2992,15 +3200,24 @@ function clearBridgeReveal() {
   }
 }
 
+function bridgeEquationText(problem, answer = null) {
+  const first = Number.isFinite(problem.displayA) ? problem.displayA : problem.big;
+  const second = Number.isFinite(problem.displayB) ? problem.displayB : problem.small;
+  return `${first} + ${second}${answer === null ? "" : ` = ${answer}`}`;
+}
+
 function nextBridge() {
   if (!guardNext("bridge")) return;
   clearBridgeReveal();
   els.flyLayer.replaceChildren();
-  state.problem.bridge = pickWeighted("bridge", bridgeProblems, state.lastKey.bridge);
+  const pickedBridge = pickWeighted("bridge", fireProblems, state.lastKey.bridge);
+  state.problem.bridge = orientFireProblem(pickedBridge, SETTINGS.fireLeftToRight);
+  state.bridgeMogi = { open: false, used: false, solved: false, original: { left: 0, right: 0 }, slots: { left: [], right: [] } };
   state.lastKey.bridge = problemKey(state.problem.bridge);
   const currentBridge = state.problem.bridge;
   const need = 10 - currentBridge.big;
-  els.bridgeEquation.textContent = `${currentBridge.big} + ${currentBridge.small}`;
+  els.bridgeEquation.textContent = bridgeEquationText(currentBridge);
+  els.bridgeBoard.classList.toggle("is-source-left", currentBridge.sourceOnLeft);
   els.bridgeLeftLabel.textContent = currentBridge.big;
   els.bridgeRightLabel.textContent = currentBridge.small;
   els.bridgeEquation.classList.remove("is-solved");
@@ -3025,16 +3242,16 @@ function chooseBridge(value, button, problem = state.problem.bridge) {
   const rest = problem.small - need;
   const answer = problem.big + problem.small;
   const correct = value === answer;
-  recordAnswer("bridge", problem, correct);
+  if (answerCountsForProgress("bridge")) recordAnswer("bridge", problem, correct);
   button.classList.add(correct ? "is-correct" : "is-wrong");
 
   if (correct) {
-    els.bridgeEquation.textContent = `${problem.big} + ${problem.small} = ${answer}`;
+    els.bridgeEquation.textContent = bridgeEquationText(problem, answer);
     els.bridgeEquation.classList.add("is-solved");
     onCorrect("bridge");
     scheduleBridgeReveal(problem, need, rest);
   } else {
-    els.bridgeEquation.textContent = `${problem.big} + ${problem.small} = ${answer}`;
+    els.bridgeEquation.textContent = bridgeEquationText(problem, answer);
     els.bridgeEquation.classList.add("is-solved");
     onWrong("bridge", `${problem.big}を10にして、のこりをたすよ`, answer);
     scheduleBridgeReveal(problem, need, rest);
@@ -3108,7 +3325,10 @@ function startRemovalSteps(mode, problem, targets) {
   const step = () => {
     state.revealTimeout[mode] = null;
     if (state.problem[mode] !== problem) return;
-    if (count >= targets.length) return;
+    if (count >= targets.length) {
+      explanationFinished(mode, problem);
+      return;
+    }
     const target = targets[count];
     if (target) {
       target.classList.add("is-removed");
@@ -3188,7 +3408,7 @@ function switchMode(mode) {
   MODES.forEach((m) => {
     M[m].section.classList.toggle("is-hidden", m !== mode);
   });
-  qs("#invest-mode").classList.toggle("is-hidden", mode !== "invest");
+  qs("#gametime-mode").classList.toggle("is-hidden", mode !== "gametime");
   qs("#records-mode").classList.toggle("is-hidden", mode !== "records");
   qs("#dex-mode").classList.toggle("is-hidden", mode !== "dex");
   qs("#stats-panel").classList.toggle("is-hidden", mode !== "stats");
@@ -3196,11 +3416,7 @@ function switchMode(mode) {
   qs("#settings-mode").classList.toggle("is-hidden", mode !== "settings");
   qs("#calendar-mode").classList.toggle("is-hidden", mode !== "calendar");
 
-  if (mode === "invest") {
-    applyFinanceDays();
-    bankFeedback("", false);
-    renderBankPanel();
-  }
+  if (mode === "gametime") renderGameTimeShop();
   if (mode === "records") renderRecords();
   if (mode === "dex") renderDex();
   if (mode === "stats") renderStatsPanel();
@@ -3235,6 +3451,14 @@ els.blockToggle.addEventListener("click", () => {
 
 els.explainToggle.addEventListener("click", () => {
   setExplainDisplay(!state.explainEnabled);
+});
+
+els.explanationWaitToggle.addEventListener("click", () => {
+  setWaitForExplanation(!SETTINGS.waitForExplanation);
+});
+
+els.fireDirectionToggle.addEventListener("click", () => {
+  setFireLeftToRight(!SETTINGS.fireLeftToRight);
 });
 
 els.timeToggle.addEventListener("click", () => {
@@ -3305,48 +3529,14 @@ qs("#coin-spend-run").addEventListener("click", () => {
 });
 
 qs("#coin-reset").addEventListener("click", () => {
-  if (!window.confirm("さいふを0円に戻しますか？（とうししているぶんはそのまま）")) return;
+  if (!window.confirm("さいふを0円に戻しますか？")) return;
   state.walletYen = 0;
   state.coinJustEarned = false;
   saveCoins();
   renderCoinGauge();
 });
 
-/* ---------- とうしの操作 ---------- */
-
-function runMoneyAction(inputSelector, action, successText) {
-  const input = qs(inputSelector);
-  const yen = Math.round(Number(input.value));
-  const error = action(yen);
-  if (error) {
-    bankFeedback(error, false);
-    return;
-  }
-  input.value = "";
-  bankFeedback(successText(yen), true);
-  playTone("click");
-}
-
-qs("#invest-buy").addEventListener("click", () => {
-  runMoneyAction("#invest-amount", investBuy, (yen) => `${yen}円 とうししたよ。あしたどうなるかな？`);
-});
-
-qs("#invest-sell").addEventListener("click", () => {
-  runMoneyAction("#invest-amount", investSell, (yen) => `とうしを ${yen}円ぶん うって さいふに いれたよ`);
-});
-
-qs("#invest-sell-all").addEventListener("click", () => {
-  const all = state.finance.invest;
-  if (all <= 0) {
-    bankFeedback("とうししている おかねが ないよ", false);
-    return;
-  }
-  const profit = all - state.finance.invested;
-  sellInvestment(all);
-  const tail = profit > 0 ? `${profit}円 ふえてたね！` : profit < 0 ? `${-profit}円 へっちゃった…` : "ぴったり おなじだったね";
-  bankFeedback(`ぜんぶ うって ${all}円。${tail}`, profit >= 0);
-  playTone(profit >= 0 ? "good" : "click");
-});
+qs("#game-time-buy").addEventListener("click", buyGameTime);
 
 qs("#backup-export").addEventListener("click", exportBackup);
 
@@ -3365,11 +3555,13 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 renderTimeToggle();
 renderBlockToggle();
 renderExplainToggle();
+renderExplanationWaitToggle();
+renderFireDirectionToggle();
 renderRecords();
 buildGaugeMatrix();
 renderMission();
-applyFinanceDays();
 renderCoinGauge();
+renderHeroStats();
 renderPartner();
 MODES.forEach(resetModeStart);
 switchMode("calendar"); // 起動時はカレンダーを表示

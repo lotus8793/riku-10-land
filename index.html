@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=52">
+    <link rel="stylesheet" href="styles.css?v=58">
   </head>
   <body>
     <main class="app-shell">
@@ -28,8 +28,8 @@
               <span>さいふ</span>
             </div>
             <div class="score-pill hero-stat-pill">
-              <span id="max-combo">0</span>
-              <span>MAXコンボ</span>
+              <span id="purchased-game-time">0時間</span>
+              <span>ゲーム時間</span>
             </div>
             <div class="score-pill hero-stat-pill">
               <span id="mission-streak-days">0</span>
@@ -48,7 +48,7 @@
         <button class="mode-tab" type="button" data-mode="bridge">ほのおのダンジョン</button>
         <button class="mode-tab" type="button" data-mode="minus">ひきざんジム</button>
         <button class="mode-tab" type="button" data-mode="ice">こおりのダンジョン</button>
-        <button class="mode-tab" type="button" data-mode="invest">とうし</button>
+        <button class="mode-tab" type="button" data-mode="gametime">ゲームじかんやさん</button>
         <button class="mode-tab" type="button" data-mode="dex">ずかん</button>
         <button class="mode-tab" type="button" data-mode="calendar">カレンダー</button>
         <button class="mode-tab" type="button" data-mode="records">きろく</button>
@@ -257,7 +257,7 @@
           </div>
           <div class="equation bridge-equation" id="bridge-equation">8 + 3</div>
           <div class="equation-chain" id="bridge-chain"></div>
-          <div class="bridge-board">
+          <div class="bridge-board" id="bridge-board">
             <div>
               <p class="small-label addend-label" id="bridge-left-label">8</p>
               <div class="ten-frame compact" id="bridge-frame"></div>
@@ -271,6 +271,24 @@
           <button class="next-button is-hidden" type="button" id="bridge-next">つぎへ</button>
         </div>
         <div class="choice-grid" id="bridge-choices" aria-label="こたえのカード"></div>
+        <div class="bridge-mogi-help-area">
+          <button class="bridge-mogi-help-button" type="button" id="bridge-mogi-help-toggle" aria-expanded="false">わからない → もぎで考える</button>
+          <div class="bridge-mogi-helper is-hidden" id="bridge-mogi-helper">
+            <p class="bridge-mogi-helper-title">同じ問題を ブロックで やってみよう</p>
+            <div class="mogi-board bridge-mogi-helper-board">
+              <div>
+                <p class="small-label addend-label" id="bridge-mogi-left-label"></p>
+                <div class="ten-frame compact" id="bridge-mogi-left-frame" aria-label="もぎヒントのひだり10マス"></div>
+              </div>
+              <div>
+                <p class="small-label addend-label" id="bridge-mogi-right-label"></p>
+                <div class="ten-frame compact" id="bridge-mogi-right-frame" aria-label="もぎヒントのみぎ10マス"></div>
+              </div>
+            </div>
+            <p class="bridge-mogi-helper-feedback" id="bridge-mogi-help-feedback">ブロックを うごかして 10を つくろう</p>
+            <button class="quiet-button" type="button" id="bridge-mogi-help-reset">やりなおす</button>
+          </div>
+        </div>
       </section>
 
       <section class="play-area is-hidden is-waiting" id="minus-mode">
@@ -376,61 +394,28 @@
         </div>
       </section>
 
-      <section class="records-panel is-hidden" id="invest-mode" aria-labelledby="invest-title">
-        <div class="question-card bank-card">
+      <section class="records-panel is-hidden" id="gametime-mode" aria-labelledby="gametime-title">
+        <div class="question-card game-time-card">
           <div class="prompt-row">
-            <p class="prompt" id="invest-title">とうし</p>
-            <span class="practice-cap" id="invest-rate-cap"></span>
+            <p class="prompt" id="gametime-title">ゲームじかんやさん</p>
+            <span class="game-time-shop-icon" aria-hidden="true">🎮</span>
           </div>
-          <div class="bank-balances">
-            <div class="bank-balance is-wallet">
-              <span class="bank-balance-label">さいふ</span>
-              <strong id="bank-wallet">0円</strong>
-              <span class="bank-balance-note">つかえる おかね</span>
+          <div class="game-time-ticket" id="game-time-ticket">
+            <p class="game-time-ticket-label">ゲームじかん チケット</p>
+            <div class="game-time-exchange" aria-label="500円でゲーム1時間">
+              <strong>500円</strong>
+              <span aria-hidden="true">→</span>
+              <strong>1<ruby>時間<rt>じかん</rt></ruby></strong>
             </div>
-            <div class="bank-balance is-seed">
-              <span class="bank-balance-label">もとで</span>
-              <strong id="bank-seed">0円</strong>
-              <span class="bank-balance-note">とうしに いれた ぶん</span>
-            </div>
-            <div class="bank-balance is-invest">
-              <span class="bank-balance-label">とうし（いま）</span>
-              <strong id="bank-invest">0円</strong>
-              <span class="bank-balance-note" id="bank-invest-note">ふえたり へったり</span>
-            </div>
-            <div class="bank-balance is-total">
-              <span class="bank-balance-label">ぜんぶで</span>
-              <strong id="bank-total">0円</strong>
-              <span class="bank-balance-note">さいふ ＋ とうし</span>
-            </div>
+            <p class="game-time-price-note" id="game-time-price-note">あと500円で 1時間かえるよ</p>
+            <button class="game-time-buy" type="button" id="game-time-buy">500円で 1時間かう</button>
           </div>
-          <p class="feedback" id="bank-feedback" aria-live="polite">100円たんいで とうしできるよ</p>
-        </div>
-
-        <div class="question-card">
-          <div class="prompt-row">
-            <p class="prompt">おかねを うごかす</p>
+          <div class="game-time-status">
+            <span>もっている ゲーム時間</span>
+            <strong id="game-time-balance">0時間</strong>
+            <span id="game-time-wallet">さいふ：0円</span>
           </div>
-          <p class="settings-note">とうしした おかねは 1日ごとに ふえたり へったりする。ながく おいておくほど ふえやすい</p>
-          <div class="bank-actions">
-            <input type="number" id="invest-amount" min="100" step="100" placeholder="100" aria-label="うごかす きんがく" inputmode="numeric" pattern="[0-9]*">
-            <button class="bank-button is-in" type="button" id="invest-buy">とうしする</button>
-            <button class="bank-button is-out" type="button" id="invest-sell">うる</button>
-            <button class="quiet-button" type="button" id="invest-sell-all">ぜんぶ うる</button>
-          </div>
-        </div>
-
-        <div class="question-card">
-          <div class="prompt-row">
-            <p class="prompt">おかねの うつりかわり</p>
-            <span class="practice-cap" id="bank-chart-range"></span>
-          </div>
-          <div class="bank-chart" id="bank-chart" role="img" aria-label="もとでと とうしの きんがくの グラフ"></div>
-          <p class="bank-chart-legend">
-            <i class="legend-dot seg-bankline"></i>もとで（いれたぶん）
-            <i class="legend-dot seg-investline"></i>とうし（いまのねだん）
-          </p>
-          <p class="records-empty is-hidden" id="bank-chart-empty">まだ きろくが ないよ。とうしすると グラフに でるよ</p>
+          <p class="feedback" id="game-time-feedback" aria-live="polite">500円で ゲーム1時間と こうかんできるよ</p>
         </div>
       </section>
 
@@ -509,7 +494,7 @@
             <p class="prompt" id="settings-title">設定（保護者向け）</p>
           </div>
           <h3 class="stats-heading">問題画面の表示</h3>
-          <p class="settings-note">時間・ブロック・解説は、ここで設定します</p>
+          <p class="settings-note">時間・ブロック・解説と、解説中に「つぎへ」を押せるかを、ここで設定します</p>
           <div class="settings-display-toggles">
             <button class="time-toggle settings-display-toggle" type="button" id="time-toggle" aria-pressed="false">
               <span class="toggle-knob" aria-hidden="true"></span>
@@ -522,6 +507,19 @@
             <button class="time-toggle settings-display-toggle" type="button" id="explain-toggle" aria-pressed="true">
               <span class="toggle-knob" aria-hidden="true"></span>
               <span id="explain-toggle-label">解説あり</span>
+            </button>
+            <button class="time-toggle settings-display-toggle" type="button" id="explanation-wait-toggle" aria-pressed="true">
+              <span class="toggle-knob" aria-hidden="true"></span>
+              <span id="explanation-wait-toggle-label">解説待ち ON</span>
+            </button>
+          </div>
+          <p class="settings-note">「解説待ち ON」では、解説アニメーションが終わるまで「つぎへ」を表示しません（初期設定はON）</p>
+          <h3 class="stats-heading">ほのおのダンジョン</h3>
+          <p class="settings-note">通常は小さい数から大きい数へ移動。ONでは、式の左の数から右の数へ固定します（ブロックはいつも後ろから移動）</p>
+          <div class="settings-display-toggles">
+            <button class="time-toggle settings-display-toggle" type="button" id="fire-direction-toggle" aria-pressed="false">
+              <span class="toggle-knob" aria-hidden="true"></span>
+              <span id="fire-direction-toggle-label">左→右固定 OFF</span>
             </button>
           </div>
           <h3 class="stats-heading">きょうのミッション（タブごとの問題数）</h3>
@@ -545,12 +543,6 @@
           <h3 class="stats-heading">ゲージに入れるタブ</h3>
           <p class="settings-note">チェックしたタブの正解だけがそのゲージに進みます。ポケモンゲットにチェックのあるタブは、間違えると進みが1つ戻ります</p>
           <div class="gauge-matrix" id="gauge-matrix"></div>
-          <h3 class="stats-heading">とうし</h3>
-          <p class="settings-note">1日ごとの利率。「金利 ± ブレはば」の範囲でランダムに変動します（例: 10% ± 15% → −5%〜+25%）。ブレはばを0にすると必ず増え、金利をマイナスにすると減る体験ができます</p>
-          <div class="stats-settings">
-            <label>とうしの金利（%/日） <input type="number" id="set-invest-rate" min="-50" max="100" step="0.5" inputmode="decimal"></label>
-            <label>とうしのブレはば（±%） <input type="number" id="set-invest-swing" min="0" max="100" step="0.5" inputmode="decimal"></label>
-          </div>
           <h3 class="stats-heading">かみなりジム（フラッシュ）</h3>
           <p class="settings-note">ブロックが見えている時間。短くするほど「数える」から「パッと見て分かる」に近づきます</p>
           <div class="stats-settings">
@@ -597,6 +589,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=47"></script>
+    <script src="app.js?v=55"></script>
   </body>
 </html>
