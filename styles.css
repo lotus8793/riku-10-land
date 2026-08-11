@@ -1870,6 +1870,135 @@ body.no-blocks.no-explain #bridge-mode:not(.is-waiting) .bridge-mogi-helper .ten
   gap: 8px;
 }
 
+/* 保護者ロック */
+
+.parent-lock-card {
+  max-width: 460px;
+  margin: 0 auto;
+  border-color: rgba(91, 58, 199, 0.24);
+  background: linear-gradient(160deg, #fbf9ff 0%, #f2edff 100%);
+}
+
+.parent-lock-message {
+  min-height: 24px;
+  margin: 4px 0 14px;
+  color: #5b3ac7;
+  font-size: 15px;
+  font-weight: 850;
+  text-align: center;
+}
+
+.parent-pin-display {
+  width: min(100%, 280px);
+  min-height: 58px;
+  margin: 0 auto 14px;
+  padding: 10px 14px;
+  border: 2px solid rgba(91, 58, 199, 0.2);
+  border-radius: 16px;
+  background: #fff;
+  color: #4d379a;
+  font-size: 28px;
+  font-weight: 950;
+  letter-spacing: 0.22em;
+  text-align: center;
+}
+
+.parent-pin-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: min(100%, 280px);
+  margin: 0 auto 12px;
+}
+
+.parent-pin-keypad button {
+  min-height: 54px;
+  border: 2px solid rgba(91, 58, 199, 0.16);
+  border-radius: 14px;
+  background: #fff;
+  color: #3d2a78;
+  font-size: 24px;
+  font-weight: 950;
+  box-shadow: 0 3px 0 rgba(77, 55, 154, 0.18);
+}
+
+.parent-pin-keypad button:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(77, 55, 154, 0.18);
+}
+
+.parent-pin-keypad .parent-pin-command {
+  color: #6b637a;
+  font-size: 13px;
+}
+
+.parent-pin-keypad button:disabled,
+.parent-pin-submit:disabled {
+  background: #e7e4ed;
+  color: #9993a5;
+  box-shadow: none;
+}
+
+.parent-pin-submit {
+  display: block;
+  width: min(100%, 280px);
+  min-height: 50px;
+  margin: 0 auto;
+  border: 2px solid #5b3ac7;
+  border-radius: 14px;
+  background: #6f52d3;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 950;
+  box-shadow: 0 4px 0 #4d379a;
+}
+
+.parent-lock-secondary-actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.text-button {
+  padding: 5px 8px;
+  border: 0;
+  background: transparent;
+  color: #65558f;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.parent-recovery-issued {
+  padding: 14px;
+  border: 2px solid #f0a500;
+  border-radius: 16px;
+  background: #fff9e8;
+  text-align: center;
+}
+
+.parent-recovery-issued p {
+  margin: 0 0 12px;
+  color: #66531d;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.parent-recovery-issued strong {
+  display: block;
+  margin: 8px 0 16px;
+  color: #3d2a78;
+  font-size: clamp(30px, 9vw, 44px);
+  font-weight: 950;
+  letter-spacing: 0.12em;
+}
+
+.danger-button {
+  color: #b42318;
+}
+
 .settings-display-toggles {
   display: flex;
   flex-wrap: wrap;

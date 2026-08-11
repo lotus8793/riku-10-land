@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=59">
+    <link rel="stylesheet" href="styles.css?v=60">
   </head>
   <body>
     <main class="app-shell">
@@ -489,8 +489,43 @@
         </div>
       </section>
 
-      <section class="records-panel is-hidden" id="settings-mode" aria-labelledby="settings-title">
-        <div class="question-card">
+      <section class="records-panel is-hidden" id="settings-mode" aria-label="設定（保護者向け）">
+        <div class="question-card parent-lock-card" id="parent-lock-card">
+          <div class="prompt-row">
+            <p class="prompt" id="parent-lock-title">🔒 保護者ロック</p>
+          </div>
+          <p class="parent-lock-message" id="parent-lock-message" aria-live="polite">4桁の暗証番号を入力してください</p>
+          <div id="parent-pin-entry-view">
+            <div class="parent-pin-display" id="parent-pin-display" aria-label="暗証番号の入力状況">○ ○ ○ ○</div>
+            <div class="parent-pin-keypad" id="parent-pin-keypad" aria-label="暗証番号キーパッド">
+              <button type="button" data-parent-pin-digit="1">1</button>
+              <button type="button" data-parent-pin-digit="2">2</button>
+              <button type="button" data-parent-pin-digit="3">3</button>
+              <button type="button" data-parent-pin-digit="4">4</button>
+              <button type="button" data-parent-pin-digit="5">5</button>
+              <button type="button" data-parent-pin-digit="6">6</button>
+              <button type="button" data-parent-pin-digit="7">7</button>
+              <button type="button" data-parent-pin-digit="8">8</button>
+              <button type="button" data-parent-pin-digit="9">9</button>
+              <button class="parent-pin-command" type="button" id="parent-pin-clear">全消し</button>
+              <button type="button" data-parent-pin-digit="0">0</button>
+              <button class="parent-pin-command" type="button" id="parent-pin-backspace" aria-label="1文字消す">⌫</button>
+            </div>
+            <button class="parent-pin-submit" type="button" id="parent-pin-submit">決定</button>
+            <div class="parent-lock-secondary-actions">
+              <button class="text-button" type="button" id="parent-lock-forgot">暗証番号を忘れた</button>
+              <button class="text-button is-hidden" type="button" id="parent-lock-back">戻る</button>
+            </div>
+          </div>
+          <div class="parent-recovery-issued is-hidden" id="parent-recovery-issued">
+            <p>復旧コードを控えてください</p>
+            <strong id="parent-recovery-code"></strong>
+            <p>暗証番号を忘れたときに使います。このコードは、この画面を閉じると再表示できません。</p>
+            <button class="parent-pin-submit" type="button" id="parent-recovery-ack">控えました</button>
+          </div>
+        </div>
+
+        <div class="question-card is-hidden" id="settings-content">
           <div class="prompt-row">
             <p class="prompt" id="settings-title">設定（保護者向け）</p>
           </div>
@@ -572,6 +607,13 @@
             <button class="quiet-button" type="button" id="coin-reset">貯金を0円にする</button>
             <button class="quiet-button" type="button" id="release-pokemon">図鑑リセット（全部逃がす）</button>
           </div>
+          <h3 class="stats-heading">保護者ロック</h3>
+          <p class="settings-note" id="parent-lock-status">設定画面を離れると自動でロックします</p>
+          <div class="stats-buttons settings-actions">
+            <button class="quiet-button" type="button" id="parent-lock-change">暗証番号を変更</button>
+            <button class="quiet-button" type="button" id="parent-lock-reissue">復旧コードを再発行</button>
+            <button class="quiet-button danger-button" type="button" id="parent-lock-remove">保護者ロックを解除</button>
+          </div>
         </div>
       </section>
 
@@ -588,6 +630,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=60"></script>
+    <script src="app.js?v=61"></script>
   </body>
 </html>

@@ -43,6 +43,11 @@ const STREAK_KEY = "riku10v2-mission-streak";
 const PARTNER_KEY = "riku10v2-partner";
 const STREAK_BONUS_DAYS = 7;
 const SETTINGS_KEY = "riku10v2-settings";
+const PARENT_LOCK_KEY = "riku10v2-parent-lock";
+const PARENT_LOCK_ATTEMPTS_KEY = "riku10v2-parent-lock-attempts";
+const PARENT_PIN_LENGTH = 4;
+const PARENT_RECOVERY_LENGTH = 8;
+const PARENT_LOCKOUT_MS = 30000;
 const SETTINGS_VERSION = 4;
 
 // きょうのミッションで各タブに必要な問題数の初期値（設定タブでタブごとに変更できる）
@@ -153,6 +158,82 @@ const SETTINGS = loadSettings();
 function saveSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(SETTINGS));
 }
+
+function loadParentLockConfig() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PARENT_LOCK_KEY) || "null");
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    if (parsed.disabled === true) return { version: 1, disabled: true };
+    if (typeof parsed.pinHash === "string" && typeof parsed.recoveryHash === "string") {
+      return { version: 1, disabled: false, pinHash: parsed.pinHash, recoveryHash: parsed.recoveryHash };
+    }
+  } catch {}
+  return null;
+}
+
+function saveParentLockConfig(config) {
+  parentLockConfig = config;
+  localStorage.setItem(PARENT_LOCK_KEY, JSON.stringify(config));
+}
+
+function loadParentLockAttempts() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PARENT_LOCK_ATTEMPTS_KEY) || "null");
+    if (parsed && typeof parsed === "object") {
+      return {
+        count: Math.max(0, Math.min(2, Math.round(Number(parsed.count) || 0))),
+        lockedUntil: Math.max(0, Number(parsed.lockedUntil) || 0)
+      };
+    }
+  } catch {}
+  return { count: 0, lockedUntil: 0 };
+}
+
+function saveParentLockAttempts() {
+  localStorage.setItem(PARENT_LOCK_ATTEMPTS_KEY, JSON.stringify(parentLockAttempts));
+}
+
+// PINと復旧コードは平文で保存せず、端末内では不可逆のハッシュだけを持つ。
+function hashParentSecret(kind, secret) {
+  const value = `riku10-parent-lock-v1:${kind}:${secret}`;
+  let h1 = 0xdeadbeef ^ value.length;
+  let h2 = 0x41c6ce57 ^ value.length;
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    h1 = Math.imul(h1 ^ code, 2654435761);
+    h2 = Math.imul(h2 ^ code, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return `${(h2 >>> 0).toString(36).padStart(7, "0")}${(h1 >>> 0).toString(36).padStart(7, "0")}`;
+}
+
+function generateParentRecoveryCode() {
+  const digits = [];
+  const randomValues = new Uint32Array(PARENT_RECOVERY_LENGTH);
+  if (globalThis.crypto?.getRandomValues) {
+    globalThis.crypto.getRandomValues(randomValues);
+  } else {
+    for (let index = 0; index < randomValues.length; index += 1) {
+      randomValues[index] = Math.floor(Math.random() * 0xffffffff);
+    }
+  }
+  randomValues.forEach((value) => digits.push(String(value % 10)));
+  return digits.join("");
+}
+
+let parentLockConfig = loadParentLockConfig();
+let parentLockAttempts = loadParentLockAttempts();
+const parentLockSession = {
+  unlocked: false,
+  stage: "unlock",
+  entry: "",
+  firstPin: "",
+  recoveryCode: "",
+  message: "",
+  returnToSettings: false,
+  timerId: null
+};
 const SHINY_RATE = 0.1;
 const CATCH_RATE = 0.8;
 
@@ -665,6 +746,22 @@ const els = {
   partnerCard: qs("#partner-card"),
   partnerImg: qs("#partner-img"),
   partnerName: qs("#partner-name"),
+  parentLockCard: qs("#parent-lock-card"),
+  settingsContent: qs("#settings-content"),
+  parentLockTitle: qs("#parent-lock-title"),
+  parentLockMessage: qs("#parent-lock-message"),
+  parentPinEntryView: qs("#parent-pin-entry-view"),
+  parentPinDisplay: qs("#parent-pin-display"),
+  parentPinKeypad: qs("#parent-pin-keypad"),
+  parentPinSubmit: qs("#parent-pin-submit"),
+  parentLockForgot: qs("#parent-lock-forgot"),
+  parentLockBack: qs("#parent-lock-back"),
+  parentRecoveryIssued: qs("#parent-recovery-issued"),
+  parentRecoveryCode: qs("#parent-recovery-code"),
+  parentLockStatus: qs("#parent-lock-status"),
+  parentLockChange: qs("#parent-lock-change"),
+  parentLockReissue: qs("#parent-lock-reissue"),
+  parentLockRemove: qs("#parent-lock-remove"),
   missionSegs: Object.fromEntries(MODES.map((mode) => [mode, qs(`#mission-seg-${mode}`)])),
   missionLegend: qs("#mission-legend"),
   missionText: qs("#mission-text")
@@ -3410,9 +3507,264 @@ function chooseIce(value, button, problem = state.problem.ice) {
   scheduleRemovalReveal("ice", problem, () => iceRemovalTargets(problem));
 }
 
+/* ---------- 保護者ロック ---------- */
+
+function parentLockEnabled() {
+  return Boolean(parentLockConfig && !parentLockConfig.disabled && parentLockConfig.pinHash);
+}
+
+function resetParentLockAttempts() {
+  parentLockAttempts = { count: 0, lockedUntil: 0 };
+  saveParentLockAttempts();
+}
+
+function clearParentLockTimer() {
+  if (parentLockSession.timerId !== null) {
+    clearInterval(parentLockSession.timerId);
+    parentLockSession.timerId = null;
+  }
+}
+
+function parentLockSecondsRemaining() {
+  return Math.max(0, Math.ceil((parentLockAttempts.lockedUntil - Date.now()) / 1000));
+}
+
+function parentLockExpectedLength() {
+  return parentLockSession.stage === "recovery" ? PARENT_RECOVERY_LENGTH : PARENT_PIN_LENGTH;
+}
+
+function parentLockDefaultMessage() {
+  const messages = {
+    unlock: "4桁の暗証番号を入力してください",
+    "setup-first": "新しい4桁の暗証番号を決めてください",
+    "setup-confirm": "確認のため、同じ暗証番号をもう一度入力してください",
+    "change-first": "新しい4桁の暗証番号を決めてください",
+    "change-confirm": "確認のため、同じ暗証番号をもう一度入力してください",
+    recovery: "設定時に控えた8桁の復旧コードを入力してください"
+  };
+  return messages[parentLockSession.stage] || "暗証番号を入力してください";
+}
+
+function renderParentLockScreen() {
+  const recoveryIssued = parentLockSession.stage === "recovery-issued";
+  els.parentPinEntryView.classList.toggle("is-hidden", recoveryIssued);
+  els.parentRecoveryIssued.classList.toggle("is-hidden", !recoveryIssued);
+  els.parentLockTitle.textContent = recoveryIssued ? "🔑 復旧コード" : "🔒 保護者ロック";
+
+  if (recoveryIssued) {
+    els.parentRecoveryCode.textContent = parentLockSession.recoveryCode;
+    clearParentLockTimer();
+    return;
+  }
+
+  let seconds = parentLockSecondsRemaining();
+  if (seconds <= 0 && parentLockAttempts.lockedUntil > 0) {
+    resetParentLockAttempts();
+    seconds = 0;
+  }
+  const lockedOut = seconds > 0;
+  const expectedLength = parentLockExpectedLength();
+  const filled = "● ".repeat(parentLockSession.entry.length);
+  const empty = "○ ".repeat(Math.max(0, expectedLength - parentLockSession.entry.length));
+  els.parentPinDisplay.textContent = `${filled}${empty}`.trim();
+  els.parentPinDisplay.setAttribute("aria-label", `${expectedLength}桁中${parentLockSession.entry.length}桁入力済み`);
+  els.parentLockMessage.textContent = lockedOut
+    ? `入力を停止しています。あと${seconds}秒お待ちください`
+    : parentLockSession.message || parentLockDefaultMessage();
+
+  els.parentPinKeypad.querySelectorAll("button").forEach((button) => {
+    button.disabled = lockedOut;
+  });
+  els.parentPinSubmit.disabled = lockedOut;
+  els.parentLockForgot.classList.toggle("is-hidden", parentLockSession.stage !== "unlock");
+  const canGoBack =
+    parentLockSession.stage === "recovery" ||
+    parentLockSession.stage === "setup-confirm" ||
+    parentLockSession.stage === "change-confirm" ||
+    parentLockSession.returnToSettings;
+  els.parentLockBack.classList.toggle("is-hidden", !canGoBack);
+
+  if (lockedOut && parentLockSession.timerId === null) {
+    parentLockSession.timerId = setInterval(renderParentLockScreen, 1000);
+  } else if (!lockedOut) {
+    clearParentLockTimer();
+  }
+}
+
+function beginParentLockStage(stage, returnToSettings = false, message = "") {
+  clearParentLockTimer();
+  parentLockSession.stage = stage;
+  parentLockSession.entry = "";
+  parentLockSession.firstPin = "";
+  parentLockSession.recoveryCode = "";
+  parentLockSession.message = message;
+  parentLockSession.returnToSettings = returnToSettings;
+  els.settingsContent.classList.add("is-hidden");
+  els.parentLockCard.classList.remove("is-hidden");
+  renderParentLockScreen();
+}
+
+function renderParentLockManagement() {
+  const enabled = parentLockEnabled();
+  els.parentLockStatus.textContent = enabled
+    ? "保護中です。設定画面を離れると自動でロックします"
+    : "保護者ロックは解除されています";
+  els.parentLockChange.textContent = enabled ? "暗証番号を変更" : "暗証番号を設定";
+  els.parentLockReissue.classList.toggle("is-hidden", !enabled);
+  els.parentLockRemove.classList.toggle("is-hidden", !enabled);
+}
+
+function showSettingsContent() {
+  parentLockSession.unlocked = true;
+  parentLockSession.entry = "";
+  parentLockSession.firstPin = "";
+  parentLockSession.message = "";
+  clearParentLockTimer();
+  els.parentLockCard.classList.add("is-hidden");
+  els.settingsContent.classList.remove("is-hidden");
+  renderSettingsPanel();
+  renderParentLockManagement();
+}
+
+function showParentLockGate() {
+  parentLockSession.unlocked = false;
+  if (parentLockConfig?.disabled === true) {
+    showSettingsContent();
+    return;
+  }
+  if (parentLockEnabled()) {
+    beginParentLockStage("unlock");
+  } else {
+    beginParentLockStage("setup-first", false, "最初に、保護者用の4桁暗証番号を設定してください");
+  }
+}
+
+function lockParentSettings() {
+  parentLockSession.unlocked = false;
+  parentLockSession.entry = "";
+  parentLockSession.firstPin = "";
+  parentLockSession.recoveryCode = "";
+  parentLockSession.message = "";
+  clearParentLockTimer();
+  els.settingsContent.classList.add("is-hidden");
+  els.parentLockCard.classList.add("is-hidden");
+}
+
+function appendParentLockDigit(digit) {
+  if (parentLockSecondsRemaining() > 0) return;
+  const expectedLength = parentLockExpectedLength();
+  if (parentLockSession.entry.length >= expectedLength) return;
+  parentLockSession.entry += digit;
+  parentLockSession.message = "";
+  renderParentLockScreen();
+}
+
+function recordParentLockFailure(label) {
+  parentLockAttempts.count += 1;
+  parentLockSession.entry = "";
+  if (parentLockAttempts.count >= 3) {
+    parentLockAttempts.count = 0;
+    parentLockAttempts.lockedUntil = Date.now() + PARENT_LOCKOUT_MS;
+    parentLockSession.message = "";
+  } else {
+    parentLockSession.message = `${label}が違います。あと${3 - parentLockAttempts.count}回入力できます`;
+  }
+  saveParentLockAttempts();
+  renderParentLockScreen();
+}
+
+function showIssuedRecoveryCode(code) {
+  parentLockSession.stage = "recovery-issued";
+  parentLockSession.entry = "";
+  parentLockSession.firstPin = "";
+  parentLockSession.recoveryCode = code;
+  parentLockSession.message = "";
+  els.settingsContent.classList.add("is-hidden");
+  els.parentLockCard.classList.remove("is-hidden");
+  renderParentLockScreen();
+}
+
+function saveNewParentPin(pin, issueRecoveryCode) {
+  if (issueRecoveryCode) {
+    const recoveryCode = generateParentRecoveryCode();
+    saveParentLockConfig({
+      version: 1,
+      disabled: false,
+      pinHash: hashParentSecret("pin", pin),
+      recoveryHash: hashParentSecret("recovery", recoveryCode)
+    });
+    resetParentLockAttempts();
+    showIssuedRecoveryCode(recoveryCode);
+    return;
+  }
+
+  saveParentLockConfig({
+    ...parentLockConfig,
+    version: 1,
+    disabled: false,
+    pinHash: hashParentSecret("pin", pin)
+  });
+  resetParentLockAttempts();
+  window.alert("暗証番号を変更しました。");
+  showSettingsContent();
+}
+
+function submitParentLockEntry() {
+  if (parentLockSecondsRemaining() > 0) return;
+  const expectedLength = parentLockExpectedLength();
+  if (parentLockSession.entry.length !== expectedLength) {
+    parentLockSession.message = `${expectedLength}桁すべて入力してください`;
+    renderParentLockScreen();
+    return;
+  }
+
+  const entry = parentLockSession.entry;
+  if (parentLockSession.stage === "unlock") {
+    if (hashParentSecret("pin", entry) === parentLockConfig.pinHash) {
+      resetParentLockAttempts();
+      showSettingsContent();
+    } else {
+      recordParentLockFailure("暗証番号");
+    }
+    return;
+  }
+
+  if (parentLockSession.stage === "recovery") {
+    if (hashParentSecret("recovery", entry) === parentLockConfig.recoveryHash) {
+      saveParentLockConfig({ version: 1, disabled: true });
+      resetParentLockAttempts();
+      window.alert("保護者ロックを初期化しました。必要なら新しい暗証番号を設定してください。");
+      showSettingsContent();
+    } else {
+      recordParentLockFailure("復旧コード");
+    }
+    return;
+  }
+
+  if (parentLockSession.stage === "setup-first" || parentLockSession.stage === "change-first") {
+    parentLockSession.firstPin = entry;
+    parentLockSession.entry = "";
+    parentLockSession.stage = parentLockSession.stage === "setup-first" ? "setup-confirm" : "change-confirm";
+    parentLockSession.message = "";
+    renderParentLockScreen();
+    return;
+  }
+
+  if (parentLockSession.stage === "setup-confirm" || parentLockSession.stage === "change-confirm") {
+    if (entry !== parentLockSession.firstPin) {
+      parentLockSession.entry = "";
+      parentLockSession.message = "暗証番号が一致しません。もう一度入力してください";
+      renderParentLockScreen();
+      return;
+    }
+    saveNewParentPin(entry, parentLockSession.stage === "setup-confirm");
+  }
+}
+
 /* ---------- モード切替・初期化 ---------- */
 
 function switchMode(mode) {
+  if (mode !== "settings") lockParentSettings();
   clearNextQuestion();
   stopChallengeTimer();
   els.flyLayer.replaceChildren();
@@ -3441,7 +3793,7 @@ function switchMode(mode) {
   if (mode === "dex") renderDex();
   if (mode === "stats") renderStatsPanel();
   if (mode === "report") renderReport();
-  if (mode === "settings") renderSettingsPanel();
+  if (mode === "settings") showParentLockGate();
   if (mode === "calendar") {
     calendarOffset = 0;
     renderCalendar();
@@ -3450,6 +3802,85 @@ function switchMode(mode) {
 
 document.querySelectorAll(".mode-tab").forEach((tab) => {
   tab.addEventListener("click", () => switchMode(tab.dataset.mode));
+});
+
+document.querySelectorAll("[data-parent-pin-digit]").forEach((button) => {
+  button.addEventListener("click", () => appendParentLockDigit(button.dataset.parentPinDigit));
+});
+
+qs("#parent-pin-clear").addEventListener("click", () => {
+  parentLockSession.entry = "";
+  parentLockSession.message = "";
+  renderParentLockScreen();
+});
+
+qs("#parent-pin-backspace").addEventListener("click", () => {
+  parentLockSession.entry = parentLockSession.entry.slice(0, -1);
+  parentLockSession.message = "";
+  renderParentLockScreen();
+});
+
+els.parentPinSubmit.addEventListener("click", submitParentLockEntry);
+
+els.parentLockForgot.addEventListener("click", () => {
+  beginParentLockStage("recovery");
+});
+
+els.parentLockBack.addEventListener("click", () => {
+  if (parentLockSession.stage === "recovery") {
+    beginParentLockStage("unlock");
+  } else if (parentLockSession.stage === "setup-confirm") {
+    beginParentLockStage("setup-first", parentLockSession.returnToSettings);
+  } else if (parentLockSession.stage === "change-confirm") {
+    beginParentLockStage("change-first", true);
+  } else if (parentLockSession.returnToSettings) {
+    showSettingsContent();
+  }
+});
+
+qs("#parent-recovery-ack").addEventListener("click", () => {
+  parentLockSession.recoveryCode = "";
+  showSettingsContent();
+});
+
+els.parentLockChange.addEventListener("click", () => {
+  beginParentLockStage(parentLockEnabled() ? "change-first" : "setup-first", true);
+});
+
+els.parentLockReissue.addEventListener("click", () => {
+  if (!parentLockEnabled()) return;
+  if (!window.confirm("現在の復旧コードを無効にして、新しい復旧コードを発行しますか？")) return;
+  const recoveryCode = generateParentRecoveryCode();
+  saveParentLockConfig({
+    ...parentLockConfig,
+    recoveryHash: hashParentSecret("recovery", recoveryCode)
+  });
+  showIssuedRecoveryCode(recoveryCode);
+});
+
+els.parentLockRemove.addEventListener("click", () => {
+  if (!parentLockEnabled()) return;
+  if (!window.confirm("保護者ロックを解除しますか？ 設定タブを誰でも開けるようになります。")) return;
+  saveParentLockConfig({ version: 1, disabled: true });
+  resetParentLockAttempts();
+  renderParentLockManagement();
+});
+
+window.addEventListener("keydown", (event) => {
+  if (state.activeMode !== "settings" || els.parentLockCard.classList.contains("is-hidden")) return;
+  if (parentLockSession.stage === "recovery-issued") return;
+  if (/^[0-9]$/.test(event.key)) {
+    event.preventDefault();
+    appendParentLockDigit(event.key);
+  } else if (event.key === "Backspace") {
+    event.preventDefault();
+    parentLockSession.entry = parentLockSession.entry.slice(0, -1);
+    parentLockSession.message = "";
+    renderParentLockScreen();
+  } else if (event.key === "Enter") {
+    event.preventDefault();
+    submitParentLockEntry();
+  }
 });
 
 MODES.forEach((mode) => {
@@ -3565,7 +3996,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("sw.js?v=92", { updateViaCache: "none" })
+    .register("sw.js?v=93", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
