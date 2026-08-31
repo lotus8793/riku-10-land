@@ -27,8 +27,7 @@ const CAUGHT_KEY = "riku10v2-caught";
 const DAILY_KEY = "riku10v2-daily";
 const STATS_KEY = "riku10v2-stats";
 const DAYLOG_KEY = "riku10v2-daylog";
-const WEEKLY_SNAPSHOT_KEY = "riku10v2-weekly-snapshot";
-const WEEKLY_SNAPSHOT_DAYS = 7; // このミリ秒×日数より古いスナップショットは作り直す
+const SLOW_ANSWER_MS = 20000;
 const BACKUP_PREFIX = "riku10v2-";
 const COINS_KEY = "riku10v2-coins"; // 旧形式（100円が何枚か）。いまは移行用にだけ読む
 const WALLET_KEY = "riku10v2-wallet-yen";
@@ -327,7 +326,67 @@ const STICKERS = [
   { id: 484, name: "パルキア" },
   { id: 491, name: "ダークライ" },
   { id: 495, name: "ツタージャ" },
-  { id: 570, name: "ゾロア" }
+  { id: 570, name: "ゾロア" },
+  { id: 10, name: "キャタピー" },
+  { id: 16, name: "ポッポ" },
+  { id: 37, name: "ロコン" },
+  { id: 50, name: "ディグダ" },
+  { id: 58, name: "ガーディ" },
+  { id: 77, name: "ポニータ" },
+  { id: 92, name: "ゴース" },
+  { id: 113, name: "ラッキー" },
+  { id: 116, name: "タッツー" },
+  { id: 123, name: "ストライク" },
+  { id: 137, name: "ポリゴン" },
+  { id: 174, name: "ププリン" },
+  { id: 179, name: "メリープ" },
+  { id: 181, name: "デンリュウ" },
+  { id: 183, name: "マリル" },
+  { id: 194, name: "ウパー" },
+  { id: 200, name: "ムウマ" },
+  { id: 215, name: "ニューラ" },
+  { id: 216, name: "ヒメグマ" },
+  { id: 228, name: "デルビル" },
+  { id: 252, name: "キモリ" },
+  { id: 261, name: "ポチエナ" },
+  { id: 263, name: "ジグザグマ" },
+  { id: 280, name: "ラルトス" },
+  { id: 303, name: "クチート" },
+  { id: 304, name: "ココドラ" },
+  { id: 328, name: "ナックラー" },
+  { id: 333, name: "チルット" },
+  { id: 349, name: "ヒンバス" },
+  { id: 363, name: "タマザラシ" },
+  { id: 374, name: "ダンバル" },
+  { id: 386, name: "デオキシス" },
+  { id: 403, name: "コリンク" },
+  { id: 418, name: "ブイゼル" },
+  { id: 425, name: "フワンテ" },
+  { id: 427, name: "ミミロル" },
+  { id: 443, name: "フカマル" },
+  { id: 449, name: "ヒポポタス" },
+  { id: 459, name: "ユキカブリ" },
+  { id: 470, name: "リーフィア" },
+  { id: 471, name: "グレイシア" },
+  { id: 479, name: "ロトム" },
+  { id: 492, name: "シェイミ" },
+  { id: 498, name: "ポカブ" },
+  { id: 506, name: "ヨーテリー" },
+  { id: 529, name: "モグリュー" },
+  { id: 531, name: "タブンネ" },
+  { id: 546, name: "モンメン" },
+  { id: 548, name: "チュリネ" },
+  { id: 551, name: "メグロコ" },
+  { id: 572, name: "チラーミィ" },
+  { id: 587, name: "エモンガ" },
+  { id: 595, name: "バチュル" },
+  { id: 607, name: "ヒトモシ" },
+  { id: 610, name: "キバゴ" },
+  { id: 613, name: "クマシュン" },
+  { id: 624, name: "コマタナ" },
+  { id: 650, name: "ハリマロン" },
+  { id: 653, name: "フォッコ" },
+  { id: 656, name: "ケロマツ" }
 ];
 
 function stickerImageUrl(id, shiny = false) {
@@ -406,21 +465,6 @@ function loadDayLog() {
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
   } catch {}
   return {};
-}
-
-// レポートタブの「できるようになった問題」用。7日以上前のスナップショットが無ければ今のstatsで作り直す
-function getWeeklySnapshot() {
-  let snap = null;
-  try {
-    const parsed = JSON.parse(localStorage.getItem(WEEKLY_SNAPSHOT_KEY) || "null");
-    if (parsed && typeof parsed.takenAt === "string" && parsed.stats && typeof parsed.stats === "object") snap = parsed;
-  } catch {}
-  const age = snap ? Date.now() - new Date(snap.takenAt).getTime() : Infinity;
-  if (!snap || !Number.isFinite(age) || age >= WEEKLY_SNAPSHOT_DAYS * 86400000) {
-    snap = { takenAt: new Date().toISOString(), stats: JSON.parse(JSON.stringify(state.stats)) };
-    localStorage.setItem(WEEKLY_SNAPSHOT_KEY, JSON.stringify(snap));
-  }
-  return snap;
 }
 
 // さいふは円で持つ。旧形式（100円が何枚か）からは ×100 して引き継ぐ
@@ -817,10 +861,12 @@ function saveDayLog() {
 function recordAnswer(mode, problem, correct) {
   const key = statKeyFn(mode)(problem);
   const elapsed = Date.now() - (state.questionAt[mode] || 0);
+  // 0のままの開始時刻や長時間放置だけを除外し、20秒超のゆっくりした回答は残す。
+  const elapsedIsValid = elapsed > 300 && elapsed < 30 * 60 * 1000;
   const stat = state.stats[mode][key] || { c: 0, w: 0, t: 0 };
   if (correct) stat.c += 1;
   else stat.w += 1;
-  if (elapsed > 300 && elapsed < 60000) {
+  if (elapsedIsValid) {
     stat.t = stat.t ? Math.round(stat.t * 0.7 + elapsed * 0.3) : elapsed;
   }
   // 昔の成績を引きずらないよう、たまったら半減して直近を重視
@@ -831,9 +877,28 @@ function recordAnswer(mode, problem, correct) {
   state.stats[mode][key] = stat;
   saveStats();
 
-  const day = state.dayLog[todayStr()] || { c: 0, w: 0 };
+  const day = state.dayLog[todayStr()] || { c: 0, w: 0, problems: {} };
   if (correct) day.c += 1;
   else day.w += 1;
+  if (!day.problems || typeof day.problems !== "object" || Array.isArray(day.problems)) day.problems = {};
+  if (!day.problems[mode] || typeof day.problems[mode] !== "object" || Array.isArray(day.problems[mode])) {
+    day.problems[mode] = {};
+  }
+  const savedDailyProblem = day.problems[mode][key];
+  const dailyProblem = savedDailyProblem && typeof savedDailyProblem === "object" && !Array.isArray(savedDailyProblem)
+    ? savedDailyProblem
+    : { n: 0, w: 0, s: 0, t: 0 };
+  dailyProblem.n = Math.max(0, Number(dailyProblem.n) || 0);
+  dailyProblem.w = Math.max(0, Number(dailyProblem.w) || 0);
+  dailyProblem.s = Math.max(0, Number(dailyProblem.s) || 0);
+  dailyProblem.t = Math.max(0, Number(dailyProblem.t) || 0);
+  dailyProblem.n += 1;
+  if (!correct) dailyProblem.w += 1;
+  if (elapsedIsValid) {
+    dailyProblem.t = Math.max(dailyProblem.t || 0, elapsed);
+    if (elapsed >= SLOW_ANSWER_MS) dailyProblem.s += 1;
+  }
+  day.problems[mode][key] = dailyProblem;
   state.dayLog[todayStr()] = day;
   saveDayLog();
 }
@@ -1404,6 +1469,7 @@ function importBackup(file) {
 /* ---------- せいせき（おうちの人向け） ---------- */
 
 const MODE_LABELS = { simple: "たしざんジム", pair: "あわせて10", tenplus: "10+X", flash: "かみなりジム", mogi: "もぎダンジョン", bridge: "ほのおのダンジョン", minus: "ひきざんジム", ice: "こおりのダンジョン" };
+const STATS_MODE_LABELS = { simple: "足し算ジム", pair: "合わせて10", tenplus: "10+X", flash: "雷ジム", mogi: "もぎダンジョン", bridge: "炎のダンジョン", minus: "引き算ジム", ice: "氷のダンジョン" };
 
 function formatProblemLabel(mode, key) {
   if (mode === "flash") return `${key}こ`;
@@ -1412,101 +1478,257 @@ function formatProblemLabel(mode, key) {
   return key.replace("+", " + ");
 }
 
-function renderStatsSummary() {
-  const today = state.dayLog[todayStr()] || { c: 0, w: 0 };
-  const attempts = today.c + today.w;
-  const summary = qs("#stats-summary");
-  if (!attempts) {
-    summary.textContent = "本日はまだ問題を解いていません。";
-    return;
-  }
-  const rate = Math.round((today.c / attempts) * 100);
-  const streakAlive = state.streak.last === todayStr() || state.streak.last === yesterdayStr() ? state.streak.count : 0;
-  summary.textContent = `本日: ${today.c}問正解・${today.w}問誤答（正答率 ${rate}%）／ミッション連続クリア ${streakAlive}日（7日ごとにボーナス100円）`;
+function formatStatsProblemLabel(mode, key) {
+  if (mode === "flash") return `${key}個`;
+  return formatProblemLabel(mode, key);
 }
 
-function renderStatsChart() {
-  const chart = qs("#stats-chart");
-  chart.replaceChildren();
-  const days = [];
-  for (let i = 13; i >= 0; i -= 1) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-    const log = state.dayLog[key] || { c: 0, w: 0 };
-    days.push({ label: `${d.getMonth() + 1}/${d.getDate()}`, count: log.c || 0, wrong: log.w || 0, isToday: i === 0 });
+let statsCalendarOffset = 0;
+let selectedStatsDate = todayStr();
+
+function dayKeyFromDate(date) {
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
+function statsMonthBase() {
+  const base = new Date();
+  base.setDate(1);
+  base.setMonth(base.getMonth() + statsCalendarOffset);
+  return base;
+}
+
+function dailyProblemEntries(day, mode) {
+  const problems = day && day.problems;
+  if (!problems || typeof problems !== "object" || Array.isArray(problems)) return [];
+  const category = problems[mode];
+  if (!category || typeof category !== "object" || Array.isArray(category)) return [];
+  return Object.entries(category).map(([key, stat]) => ({
+    key,
+    w: Math.max(0, Number(stat && stat.w) || 0),
+    s: Math.max(0, Number(stat && stat.s) || 0),
+    t: Math.max(0, Number(stat && stat.t) || 0)
+  }));
+}
+
+function dailySlowCount(day) {
+  return MODES.reduce((total, mode) => total + dailyProblemEntries(day, mode).reduce((sum, item) => {
+    return sum + (item.s || (item.t >= SLOW_ANSWER_MS ? 1 : 0));
+  }, 0), 0);
+}
+
+function renderStatsSummary(base) {
+  const year = base.getFullYear();
+  const month = base.getMonth();
+  let attempts = 0;
+  let wrong = 0;
+  let slow = 0;
+  const lastDate = new Date(year, month + 1, 0).getDate();
+  for (let date = 1; date <= lastDate; date += 1) {
+    const day = state.dayLog[`${year}-${month + 1}-${date}`];
+    if (!day) continue;
+    attempts += (day.c || 0) + (day.w || 0);
+    wrong += day.w || 0;
+    slow += dailySlowCount(day);
   }
-  const max = Math.max(...days.map((day) => day.count), 5);
-  const best = Math.max(...days.map((day) => day.count));
-  days.forEach((day, index) => {
-    const col = document.createElement("div");
-    col.className = "stats-col";
-    col.title = `${day.label}: ${day.count}問正解 / ${day.wrong}問誤答`;
+  qs("#stats-summary").textContent = `${month + 1}月の解答数 ${attempts}問　／　誤答 ${wrong}問　／　20秒以上 ${slow}問`;
+}
 
-    const value = document.createElement("span");
-    value.className = "stats-value";
-    // ラベルは今日とベスト日だけ（他はホバーで見る）
-    if (day.count > 0 && (day.isToday || day.count === best)) value.textContent = day.count;
+function renderStatsCalendar() {
+  const base = statsMonthBase();
+  const year = base.getFullYear();
+  const month = base.getMonth();
+  qs("#stats-month-label").textContent = `${year}年 ${month + 1}月`;
+  qs("#stats-next").disabled = statsCalendarOffset >= 0;
+  renderStatsSummary(base);
 
-    const track = document.createElement("div");
-    track.className = "stats-bar-track";
-    const bar = document.createElement("div");
-    bar.className = "stats-bar";
-    if (day.isToday) bar.classList.add("is-today");
-    bar.style.height = day.count ? `${Math.max(4, (day.count / max) * 100)}%` : "0";
-    track.append(bar);
+  const grid = qs("#stats-calendar-grid");
+  grid.replaceChildren();
+  ["日", "月", "火", "水", "木", "金", "土"].forEach((label) => {
+    const head = document.createElement("div");
+    head.className = "stats-calendar-head";
+    head.textContent = label;
+    grid.append(head);
+  });
 
-    const label = document.createElement("span");
-    label.className = "stats-day";
-    if (index % 2 === 1 || day.isToday) label.textContent = day.label;
+  const firstDay = new Date(year, month, 1).getDay();
+  const lastDate = new Date(year, month + 1, 0).getDate();
+  for (let index = 0; index < firstDay; index += 1) {
+    const empty = document.createElement("span");
+    empty.className = "stats-calendar-empty";
+    grid.append(empty);
+  }
 
-    col.append(value, track, label);
-    chart.append(col);
+  const now = new Date();
+  now.setHours(23, 59, 59, 999);
+  for (let date = 1; date <= lastDate; date += 1) {
+    const current = new Date(year, month, date);
+    const key = dayKeyFromDate(current);
+    const day = state.dayLog[key] || { c: 0, w: 0 };
+    const attempts = (day.c || 0) + (day.w || 0);
+    const slow = dailySlowCount(day);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "stats-calendar-cell";
+    button.disabled = current > now;
+    button.classList.toggle("is-today", key === todayStr());
+    button.classList.toggle("is-selected", key === selectedStatsDate);
+    button.classList.toggle("has-issues", (day.w || 0) > 0 || slow > 0);
+    button.setAttribute("aria-pressed", key === selectedStatsDate ? "true" : "false");
+    button.setAttribute("aria-label", `${month + 1}月${date}日、${attempts}問`);
+
+    const number = document.createElement("span");
+    number.className = "stats-calendar-date";
+    number.textContent = date;
+    const count = document.createElement("strong");
+    count.className = "stats-calendar-count";
+    count.textContent = button.disabled ? "" : `${attempts}問`;
+    const issues = document.createElement("span");
+    issues.className = "stats-calendar-issues";
+    if ((day.w || 0) > 0) {
+      const marker = document.createElement("span");
+      marker.className = "is-wrong";
+      marker.title = "間違えた問題あり";
+      issues.append(marker);
+    }
+    if (slow > 0) {
+      const marker = document.createElement("span");
+      marker.className = "is-slow";
+      marker.title = "20秒以上の問題あり";
+      issues.append(marker);
+    }
+    button.append(number, count, issues);
+    button.addEventListener("click", () => {
+      selectedStatsDate = key;
+      renderStatsCalendar();
+      renderStatsDayDetail();
+    });
+    grid.append(button);
+  }
+}
+
+function renderStatsDayDetail() {
+  const [, month, date] = selectedStatsDate.split("-").map(Number);
+  const day = state.dayLog[selectedStatsDate] || { c: 0, w: 0 };
+  const attempts = (day.c || 0) + (day.w || 0);
+  const slow = dailySlowCount(day);
+  qs("#stats-day-title").textContent = `${month}月${date}日の振り返り`;
+  const hasDetails = MODES.some((mode) => dailyProblemEntries(day, mode).length > 0);
+  let summary = `解答数 ${attempts}問　／　誤答 ${day.w || 0}問　／　20秒以上 ${slow}問`;
+  if (!hasDetails && (day.w || 0) > 0) summary += "（問題ごとの内訳は、この更新後の記録から表示されます）";
+  qs("#stats-day-summary").textContent = summary;
+
+  const wrap = qs("#stats-day-details");
+  wrap.replaceChildren();
+  MODES.forEach((mode) => {
+    const card = document.createElement("section");
+    card.className = "stats-category-card";
+    const title = document.createElement("h4");
+    title.textContent = STATS_MODE_LABELS[mode];
+    card.append(title);
+
+    const items = dailyProblemEntries(day, mode)
+      .filter((item) => item.w > 0 || item.s > 0 || item.t >= SLOW_ANSWER_MS)
+      .sort((a, b) => b.w - a.w || b.t - a.t);
+    if (!items.length) {
+      const empty = document.createElement("p");
+      empty.className = "stats-category-empty";
+      empty.textContent = "該当なし";
+      card.append(empty);
+    } else {
+      const list = document.createElement("ul");
+      list.className = "stats-problem-list";
+      items.forEach((item) => {
+        const row = document.createElement("li");
+        const label = document.createElement("strong");
+        label.textContent = formatStatsProblemLabel(mode, item.key);
+        const flags = document.createElement("span");
+        flags.className = "stats-problem-flags";
+        if (item.w > 0) {
+          const wrong = document.createElement("span");
+          wrong.className = "stats-issue-tag is-wrong";
+          wrong.textContent = `誤答 ${item.w}回`;
+          flags.append(wrong);
+        }
+        if (item.s > 0 || item.t >= SLOW_ANSWER_MS) {
+          const slowTag = document.createElement("span");
+          slowTag.className = "stats-issue-tag is-slow";
+          slowTag.textContent = `${Math.ceil(item.t / 1000)}秒`;
+          flags.append(slowTag);
+        }
+        row.append(label, flags);
+        list.append(row);
+      });
+      card.append(list);
+    }
+    wrap.append(card);
   });
 }
 
-function renderStatsWeak() {
-  const wrap = qs("#stats-weak");
+function renderCumulativeWeakProblems() {
+  const wrap = qs("#stats-cumulative-weak");
   wrap.replaceChildren();
   MODES.forEach((mode) => {
-    const column = document.createElement("div");
-    column.className = "records-col";
-    const title = document.createElement("h3");
-    title.className = "records-col-title";
-    title.textContent = MODE_LABELS[mode];
-    column.append(title);
+    const card = document.createElement("section");
+    card.className = "stats-category-card";
+    const title = document.createElement("h4");
+    title.textContent = STATS_MODE_LABELS[mode];
+    card.append(title);
 
-    const weakest = Object.entries(state.stats[mode])
-      .map(([key, stat]) => ({ key, ...stat, tries: stat.c + stat.w, weight: problemWeight(stat) }))
-      .filter((stat) => stat.tries >= 2 && (stat.w > 0 || stat.t > 6000))
-      .sort((a, b) => b.weight - a.weight)
+    const items = Object.entries(state.stats[mode] || {})
+      .map(([key, stat]) => {
+        const correct = Math.max(0, Number(stat && stat.c) || 0);
+        const wrong = Math.max(0, Number(stat && stat.w) || 0);
+        const time = Math.max(0, Number(stat && stat.t) || 0);
+        const attempts = correct + wrong;
+        const wrongRate = attempts ? wrong / attempts : 0;
+        const weakness = wrongRate * 100 + (time >= SLOW_ANSWER_MS ? Math.min(60, time / 1000) : 0);
+        return { key, correct, wrong, time, attempts, wrongRate, weakness };
+      })
+      .filter((item) => item.attempts >= 1 && (item.wrong > 0 || item.time >= SLOW_ANSWER_MS))
+      .sort((a, b) => b.weakness - a.weakness || b.attempts - a.attempts)
       .slice(0, 5);
 
-    if (!weakest.length) {
+    if (!items.length) {
       const empty = document.createElement("p");
-      empty.className = "records-empty";
+      empty.className = "stats-category-empty";
       empty.textContent = "該当なし";
-      column.append(empty);
+      card.append(empty);
     } else {
-      const list = document.createElement("ol");
-      list.className = "records-list";
-      weakest.forEach((stat) => {
+      const list = document.createElement("ul");
+      list.className = "stats-problem-list stats-history-list";
+      items.forEach((item) => {
         const row = document.createElement("li");
-        row.className = "record-row";
         const label = document.createElement("strong");
-        label.className = "record-score";
-        label.textContent = formatProblemLabel(mode, stat.key);
+        label.textContent = formatStatsProblemLabel(mode, item.key);
         const detail = document.createElement("span");
-        detail.className = "record-date";
-        const accuracy = Math.round((stat.c / stat.tries) * 100);
-        detail.textContent = `正答${accuracy}%${stat.t ? `・約${Math.round(stat.t / 1000)}秒` : ""}`;
+        detail.className = "stats-history-detail";
+        const accuracy = Math.round((item.correct / item.attempts) * 100);
+        const parts = [`解答 ${item.attempts}回`, `正解 ${item.correct}回`, `誤答 ${item.wrong}回`, `正答率 ${accuracy}%`];
+        if (item.time > 0) parts.push(`回答時間 約${Math.round(item.time / 1000)}秒`);
+        detail.textContent = parts.join(" ／ ");
         row.append(label, detail);
         list.append(row);
       });
-      column.append(list);
+      card.append(list);
     }
-    wrap.append(column);
+    wrap.append(card);
   });
+}
+
+function selectStatsDateInVisibleMonth() {
+  const base = statsMonthBase();
+  const year = base.getFullYear();
+  const month = base.getMonth();
+  const lastDate = statsCalendarOffset === 0 ? new Date().getDate() : new Date(year, month + 1, 0).getDate();
+  let selectedDate = lastDate;
+  for (let date = lastDate; date >= 1; date -= 1) {
+    const day = state.dayLog[`${year}-${month + 1}-${date}`];
+    if (day && (day.c || 0) + (day.w || 0) > 0) {
+      selectedDate = date;
+      break;
+    }
+  }
+  selectedStatsDate = `${year}-${month + 1}-${selectedDate}`;
 }
 
 /* ---------- 1しゅうかんレポート ---------- */
@@ -1529,42 +1751,29 @@ function weekRangeTotals(startDaysAgo, endDaysAgo) {
   return { c, w, activeDays };
 }
 
-// スナップショット時点では苦手だったが、今はすっかり得意になった問題を探す
-function computeWeeklyImproved(snapshotStats) {
-  const results = [];
-  MODES.forEach((mode) => {
-    const before = (snapshotStats && snapshotStats[mode]) || {};
-    const current = state.stats[mode] || {};
-    Object.entries(current).forEach(([key, stat]) => {
-      const tries = stat.c + stat.w;
-      if (tries < 2) return;
-      const currentRate = stat.w / tries;
-      const beforeStat = before[key];
-      const beforeTries = beforeStat ? beforeStat.c + beforeStat.w : 0;
-      if (beforeTries < 2) return; // 今週はじめて出てきた問題は比較できない
-      const beforeRate = beforeStat.w / beforeTries;
-      const practicedSince = tries - beforeTries;
-      if (beforeRate >= 0.4 && currentRate <= 0.15 && practicedSince >= 1) {
-        results.push({ mode, key, beforeRate, currentRate });
-      }
-    });
-  });
-  return results
-    .sort((a, b) => (b.beforeRate - b.currentRate) - (a.beforeRate - a.currentRate))
-    .slice(0, 6);
-}
-
-// 全モードを横断して、いま一番れんしゅうすると良い問題を探す（統計タブの苦手ロジックと同じ重み）
+// 今週、まちがえたか20秒以上かかった問題だけをまとめる。
 function computeWeeklyPractice() {
-  const results = [];
-  MODES.forEach((mode) => {
-    Object.entries(state.stats[mode] || {}).forEach(([key, stat]) => {
-      const tries = stat.c + stat.w;
-      if (tries < 2 || !(stat.w > 0 || stat.t > 6000)) return;
-      results.push({ mode, key, ...stat, tries, weight: problemWeight(stat) });
+  const grouped = new Map();
+  for (let daysAgo = 0; daysAgo <= 6; daysAgo += 1) {
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    const day = state.dayLog[dayKeyFromDate(date)];
+    MODES.forEach((mode) => {
+      dailyProblemEntries(day, mode).forEach((item) => {
+        const slowCount = item.s || (item.t >= SLOW_ANSWER_MS ? 1 : 0);
+        if (item.w <= 0 && slowCount <= 0) return;
+        const groupKey = `${mode}:${item.key}`;
+        const current = grouped.get(groupKey) || { mode, key: item.key, wrongCount: 0, slowCount: 0, maxTime: 0 };
+        current.wrongCount += item.w;
+        current.slowCount += slowCount;
+        current.maxTime = Math.max(current.maxTime, item.t);
+        grouped.set(groupKey, current);
+      });
     });
-  });
-  return results.sort((a, b) => b.weight - a.weight).slice(0, 6);
+  }
+  return [...grouped.values()]
+    .sort((a, b) => b.wrongCount - a.wrongCount || b.slowCount - a.slowCount || b.maxTime - a.maxTime)
+    .slice(0, 8);
 }
 
 function renderReportBadgeList(containerId, items, emptyText) {
@@ -1588,21 +1797,16 @@ function renderReportBadgeList(containerId, items, emptyText) {
     eq.textContent = formatProblemLabel(item.mode, item.key);
     const detail = document.createElement("span");
     detail.className = "report-badge-detail";
-    if (typeof item.beforeRate === "number") {
-      const before = Math.round((1 - item.beforeRate) * 100);
-      const after = Math.round((1 - item.currentRate) * 100);
-      detail.textContent = `正答率 ${before}% → ${after}%`;
-    } else {
-      const accuracy = Math.round((item.c / item.tries) * 100);
-      detail.textContent = `正答${accuracy}%${item.t ? `・約${Math.round(item.t / 1000)}秒` : ""}`;
-    }
+    const reasons = [];
+    if (item.wrongCount > 0) reasons.push(`まちがえ ${item.wrongCount}かい`);
+    if (item.slowCount > 0) reasons.push(`20びょう以上 ${item.slowCount}かい`);
+    detail.textContent = reasons.join("・");
     badge.append(mode, eq, detail);
     wrap.append(badge);
   });
 }
 
 function renderReport() {
-  const snapshot = getWeeklySnapshot();
   const thisWeek = weekRangeTotals(0, 6);
   const lastWeek = weekRangeTotals(7, 13);
   const streakAlive = state.streak.last === todayStr() || state.streak.last === yesterdayStr() ? state.streak.count : 0;
@@ -1634,16 +1838,15 @@ function renderReport() {
     statsWrap.append(el);
   });
 
-  renderReportBadgeList("report-improved", computeWeeklyImproved(snapshot.stats), "れんしゅうを つづけると ここに でてくるよ！");
-  renderReportBadgeList("report-practice", computeWeeklyPractice(), "いまは にがてな もんだい なし！すごい！");
+  renderReportBadgeList("report-practice", computeWeeklyPractice(), "こんしゅうは まちがえた問題も、20びょう以上かかった問題も ないよ！");
 
   qs("#report-footer").textContent = `これまでの るいけい せいかい数は ${state.totalCorrect}もん だよ`;
 }
 
 function renderStatsPanel() {
-  renderStatsSummary();
-  renderStatsChart();
-  renderStatsWeak();
+  renderStatsCalendar();
+  renderStatsDayDetail();
+  renderCumulativeWeakProblems();
 }
 
 // 「ゲージに入れるタブ」の表。行＝タブ、列＝ポケモンゲット／コインゲージ
@@ -3950,6 +4153,19 @@ qs("#cal-next").addEventListener("click", () => {
   renderCalendar();
 });
 
+qs("#stats-prev").addEventListener("click", () => {
+  statsCalendarOffset -= 1;
+  selectStatsDateInVisibleMonth();
+  renderStatsPanel();
+});
+
+qs("#stats-next").addEventListener("click", () => {
+  if (statsCalendarOffset >= 0) return;
+  statsCalendarOffset += 1;
+  selectStatsDateInVisibleMonth();
+  renderStatsPanel();
+});
+
 // 金額を打ち込んで減らす
 const coinSpendInput = qs("#coin-spend-amount");
 qs("#coin-spend-run").addEventListener("click", () => {
@@ -3996,7 +4212,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("sw.js?v=93", { updateViaCache: "none" })
+    .register("sw.js?v=95", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }

@@ -2224,6 +2224,240 @@ body.no-blocks.no-explain #bridge-mode:not(.is-waiting) .bridge-mogi-helper .ten
   letter-spacing: 0.04em;
 }
 
+.stats-calendar-title {
+  margin: 4px 0 2px;
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.stats-calendar-help {
+  margin: 8px 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.stats-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.stats-calendar-head {
+  padding: 3px 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.stats-calendar-head:first-child {
+  color: #d14343;
+}
+
+.stats-calendar-head:nth-child(7) {
+  color: #2f5fd0;
+}
+
+.stats-calendar-empty {
+  min-height: 64px;
+}
+
+.stats-calendar-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 3px;
+  min-width: 0;
+  min-height: 64px;
+  padding: 5px 2px 4px;
+  border: 1px solid rgba(38, 50, 56, 0.13);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.stats-calendar-cell:hover:not(:disabled) {
+  border-color: #7fa8e8;
+  background: #f4f8ff;
+}
+
+.stats-calendar-cell.is-today {
+  box-shadow: inset 0 0 0 2px #8cb2ee;
+}
+
+.stats-calendar-cell.is-selected {
+  border-color: #2f5fd0;
+  background: #eaf1ff;
+  box-shadow: inset 0 0 0 2px #2f5fd0;
+}
+
+.stats-calendar-cell:disabled {
+  border-style: dashed;
+  background: rgba(255, 255, 255, 0.4);
+  color: rgba(38, 50, 56, 0.35);
+  cursor: default;
+}
+
+.stats-calendar-date {
+  align-self: flex-start;
+  margin-left: 3px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.stats-calendar-count {
+  color: #2f5fd0;
+  font-size: clamp(10px, 2.7vw, 13px);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.stats-calendar-issues {
+  display: flex;
+  gap: 4px;
+  min-height: 8px;
+}
+
+.stats-calendar-issues span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.stats-calendar-issues .is-wrong {
+  background: #e34d59;
+}
+
+.stats-calendar-issues .is-slow {
+  background: #e69520;
+}
+
+.stats-day-panel {
+  margin-top: 18px;
+  padding: 16px;
+  border: 2px solid rgba(47, 95, 208, 0.13);
+  border-radius: 18px;
+  background: #f7faff;
+}
+
+.stats-cumulative-panel {
+  margin-top: 18px;
+  padding: 16px;
+  border: 2px solid rgba(183, 111, 0, 0.15);
+  border-radius: 18px;
+  background: #fffbf2;
+}
+
+.stats-day-title {
+  margin: 0;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.stats-day-summary {
+  margin: 5px 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.stats-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.stats-category-card {
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid rgba(38, 50, 56, 0.1);
+  border-radius: 13px;
+  background: #fff;
+}
+
+.stats-category-card h4 {
+  margin: 0 0 7px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.stats-category-empty {
+  margin: 0;
+  color: #9aa4aa;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.stats-problem-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stats-problem-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px 8px;
+}
+
+.stats-problem-list strong {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.stats-history-list li {
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.stats-history-detail {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.stats-problem-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.stats-issue-tag {
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.stats-issue-tag.is-wrong {
+  background: #ffe5e8;
+  color: #b52c3b;
+}
+
+.stats-issue-tag.is-slow {
+  background: #fff0d5;
+  color: #a75b00;
+}
+
 /* 1しゅうかんレポート */
 .report-hero {
   display: flex;
@@ -2315,7 +2549,7 @@ body.no-blocks.no-explain #bridge-mode:not(.is-waiting) .bridge-mogi-helper .ten
 }
 
 .report-badge-detail {
-  color: var(--leaf);
+  color: #a75b00;
   font-size: 12px;
   font-weight: 700;
 }

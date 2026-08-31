@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=60">
+    <link rel="stylesheet" href="styles.css?v=62">
   </head>
   <body>
     <main class="app-shell">
@@ -425,7 +425,7 @@
           <div class="prompt-row">
             <p class="prompt" id="dex-title">ポケモンずかん</p>
             <div class="sticker-actions">
-              <span class="sticker-count" id="dex-count">0しゅるい / 60</span>
+              <span class="sticker-count" id="dex-count">0しゅるい / 150</span>
             </div>
           </div>
           <p class="sticker-progress" id="dex-progress">じかんありで 10もん できると ポケモンを ゲットできるよ</p>
@@ -459,12 +459,27 @@
         <div class="question-card">
           <div class="prompt-row">
             <p class="prompt" id="stats-title">統計（保護者向け）</p>
+            <div class="stats-buttons">
+              <button class="quiet-button" type="button" id="stats-prev">← 前月</button>
+              <button class="quiet-button" type="button" id="stats-next">次月 →</button>
+            </div>
           </div>
+          <h3 class="stats-calendar-title" id="stats-month-label"></h3>
           <p class="stats-summary" id="stats-summary"></p>
-          <h3 class="stats-heading">日別正解数（直近14日）</h3>
-          <div class="stats-chart" id="stats-chart" role="img" aria-label="日別の正解数グラフ"></div>
-          <h3 class="stats-heading">苦手な問題（誤答、または回答に時間がかかったもの）</h3>
-          <div class="records-columns six" id="stats-weak"></div>
+          <p class="stats-calendar-help">日付を選択すると、その日に「間違えた問題」と「20秒以上かかった問題」を確認できます。</p>
+          <div class="stats-calendar-grid" id="stats-calendar-grid" aria-label="日別に解いた問題数"></div>
+
+          <section class="stats-day-panel" aria-live="polite">
+            <h3 class="stats-day-title" id="stats-day-title"></h3>
+            <p class="stats-day-summary" id="stats-day-summary"></p>
+            <div class="stats-detail-grid" id="stats-day-details"></div>
+          </section>
+
+          <section class="stats-cumulative-panel">
+            <h3 class="stats-day-title">蓄積データから見た苦手な問題</h3>
+            <p class="stats-day-summary">これまでの全期間の成績から、誤答がある問題または回答時間が20秒以上の問題を、苦手度の高い順に各カテゴリ5問まで表示します。</p>
+            <div class="stats-detail-grid" id="stats-cumulative-weak"></div>
+          </section>
         </div>
       </section>
 
@@ -478,9 +493,6 @@
             <p class="report-hero-sub" id="report-hero-sub"></p>
             <div class="report-hero-stats" id="report-hero-stats"></div>
           </div>
-
-          <h3 class="stats-heading">🌟 できるようになった もんだい</h3>
-          <div class="report-badge-list" id="report-improved"></div>
 
           <h3 class="stats-heading">💪 つぎ がんばる もんだい</h3>
           <div class="report-badge-list" id="report-practice"></div>
@@ -630,6 +642,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=61"></script>
+    <script src="app.js?v=63"></script>
   </body>
 </html>
