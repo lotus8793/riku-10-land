@@ -685,7 +685,7 @@ const state = {
   challenge: { remainingMs: CHALLENGE_SECONDS * 1000, intervalId: null, ended: false }
 };
 
-state.dojo = { queue: [], current: 0, started: false };
+state.dojo = { queue: [], current: 0, started: false, target: null };
 
 function qs(selector) {
   return document.querySelector(selector);
@@ -916,6 +916,11 @@ function problemWeight(stat) {
 
 function pickWeighted(mode, items, lastKey) {
   const keyFn = statKeyFn(mode);
+  if (state.dojo?.started && state.dojo.target?.mode === mode) {
+    const target = items.find((item) => keyFn(item) === state.dojo.target.key);
+    state.dojo.target = null;
+    if (target) return target;
+  }
   const filtered = items.filter((item) => keyFn(item) !== lastKey);
   const pool = filtered.length ? filtered : items;
   const weights = pool.map((item) => problemWeight(state.stats[mode][keyFn(item)]));
@@ -1857,7 +1862,6 @@ function renderWeaknessDojo() {
   wrap.replaceChildren();
   // 道場タブを開き直したら、必ずスタート画面から始める。
   qs("#dojo-start").classList.remove("is-hidden");
-  qs("#dojo-quiz").classList.add("is-hidden");
   qs("#dojo-list").classList.remove("is-hidden");
   const items = [];
   MODES.forEach((mode) => {
@@ -1892,7 +1896,7 @@ function renderWeaknessDojo() {
   state.dojo.queue = mixedItems.slice(0, 30);
   state.dojo.current = 0;
   state.dojo.started = false;
-  qs("#dojo-start").textContent = state.dojo.queue.length ? "復習スタート" : "復習する問題はないよ";
+  qs("#dojo-start").textContent = state.dojo.queue.length ? "スタート" : "復習する問題はないよ";
   qs("#dojo-start").disabled = !state.dojo.queue.length;
   if (!items.length) {
     const empty = document.createElement("p");
@@ -1905,54 +1909,25 @@ function renderWeaknessDojo() {
   note.className = "stats-day-summary";
   note.textContent = `${state.dojo.queue.length}問をカテゴリごちゃまぜで出題するよ。`;
   wrap.append(note);
-  /* items.slice(0, 30).forEach((item, index) => {
-    const row = document.createElement("div");
-    row.className = "dojo-row";
-    const info = document.createElement("div");
-    const category = document.createElement("span");
-    category.className = "dojo-category";
-    category.textContent = MODE_LABELS[item.mode];
-    const problem = document.createElement("strong");
-    problem.className = "dojo-problem";
-    problem.textContent = formatProblemLabel(item.mode, item.key);
-    const detail = document.createElement("span");
-    detail.className = "dojo-detail";
-    detail.textContent = [item.wrong ? `まちがえ ${item.wrong}回` : "", item.time >= SLOW_ANSWER_MS ? `回答 約${Math.round(item.time / 1000)}秒` : ""].filter(Boolean).join(" ／ ");
-    info.append(category, problem, detail);
-    const button = document.createElement("button");
-    button.className = "quiet-button dojo-practice";
-    button.type = "button";
-    button.textContent = "この問題から";
-    button.addEventListener("click", () => startDojoAt(index));
-    row.append(info, button);
-    wrap.append(row);
-  }); */
 }
 
 function startDojoAt(index = 0) {
   if (!state.dojo.queue.length) return;
   state.dojo.current = index;
   state.dojo.started = true;
-  qs("#dojo-start").classList.add("is-hidden");
-  qs("#dojo-list").classList.add("is-hidden");
-  qs("#dojo-quiz").classList.remove("is-hidden");
-  showDojoQuestion();
+  launchDojoQuestion();
 }
 
-function showDojoQuestion() {
+function launchDojoQuestion() {
   const item = state.dojo.queue[state.dojo.current];
-  const parts = item.key.split(/[+-]/).map(Number);
-  const answer = item.mode === "flash" ? Number(item.key) : (item.mode === "minus" || item.mode === "ice" ? parts[0] - parts[1] : parts[0] + parts[1]);
-  qs("#dojo-category").textContent = MODE_LABELS[item.mode];
-  qs("#dojo-problem").textContent = formatProblemLabel(item.mode, item.key);
-  qs("#dojo-feedback").textContent = "こたえを えらんでね";
-  qs("#dojo-next").classList.add("is-hidden");
-  const choices = qs("#dojo-choices"); choices.replaceChildren();
-  shuffle([...new Set([answer, answer - 1, answer + 1, answer + 2].filter((value) => value >= 0))]).slice(0, 4).forEach((value) => { const button = document.createElement("button"); button.className = "choice-card"; button.type = "button"; button.textContent = value; button.addEventListener("click", () => { choices.querySelectorAll("button").forEach((choice) => { choice.disabled = true; }); qs("#dojo-feedback").textContent = value === answer ? "せいかい！" : `こたえは ${answer} だよ`; qs("#dojo-next").classList.remove("is-hidden"); }); choices.append(button); });
+  state.dojo.target = item;
+  state.simpleFollowUp = null;
+  switchMode(item.mode);
+  document.querySelectorAll(".mode-tab").forEach((tab) => tab.classList.toggle("is-active", tab.dataset.mode === "dojo"));
+  startMode(item.mode);
 }
 
 qs("#dojo-start").addEventListener("click", () => startDojoAt(0));
-qs("#dojo-next").addEventListener("click", nextDojoQuestion);
 
 function renderStatsPanel() {
   renderStatsCalendar();
@@ -2576,10 +2551,6 @@ function startMode(mode) {
 }
 
 function nextQuestion(mode) {
-  if (state.dojo?.started && state.activeMode === mode) {
-    nextDojoQuestion();
-    return;
-  }
   M[mode].section.classList.remove("is-answer-shown");
   state.questionAt[mode] = Date.now();
   if (mode === "pair") nextPair();
@@ -2596,10 +2567,10 @@ function nextDojoQuestion() {
   state.dojo.current += 1;
   if (state.dojo.current >= state.dojo.queue.length) {
     state.dojo.started = false;
+    state.dojo.target = null;
     stopChallengeTimer();
     switchMode("dojo");
     qs("#dojo-start").classList.remove("is-hidden");
-    qs("#dojo-quiz").classList.add("is-hidden");
     const wrap = qs("#dojo-list");
     wrap.replaceChildren();
     const done = document.createElement("p");
@@ -2610,7 +2581,7 @@ function nextDojoQuestion() {
     qs("#dojo-start").disabled = false;
     return;
   }
-  showDojoQuestion();
+  launchDojoQuestion();
 }
 
 function guardNext(mode) {
@@ -4143,7 +4114,13 @@ function switchMode(mode) {
 }
 
 document.querySelectorAll(".mode-tab").forEach((tab) => {
-  tab.addEventListener("click", () => switchMode(tab.dataset.mode));
+  tab.addEventListener("click", () => {
+    if (state.dojo.started) {
+      state.dojo.started = false;
+      state.dojo.target = null;
+    }
+    switchMode(tab.dataset.mode);
+  });
 });
 
 document.querySelectorAll("[data-parent-pin-digit]").forEach((button) => {
@@ -4226,8 +4203,8 @@ window.addEventListener("keydown", (event) => {
 });
 
 MODES.forEach((mode) => {
-  qs(`#new-${mode}`)?.addEventListener("click", () => nextQuestion(mode));
-  M[mode].next.addEventListener("click", () => nextQuestion(mode));
+  qs(`#new-${mode}`)?.addEventListener("click", () => state.dojo.started ? nextDojoQuestion() : nextQuestion(mode));
+  M[mode].next.addEventListener("click", () => state.dojo.started ? nextDojoQuestion() : nextQuestion(mode));
   M[mode].start.addEventListener("click", () => startMode(mode));
 });
 
