@@ -6,7 +6,8 @@ const MAX_RECORDS = 10;
 const STICKER_STEP = 10;
 
 const MODES = ["pair", "tenplus", "flash", "simple", "mogi", "bridge", "minus", "ice"];
-const MISSION_MODES = [...MODES, "dojo", "weakness"];
+// ふくしゅうジムは「その日の間違いを全部やる」モードなので、固定問数ミッションには含めない
+const MISSION_MODES = [...MODES, "weakness"];
 // どのタブがポケモンゲット／コインゲージに進むかは、設定タブでタブごとに切り替えられる
 // （初期値は GAUGE_MODE_DEFAULTS）。ミッションの必要問題数も同様（MISSION_CAP_DEFAULTS）
 const GAUGE_MODE_DEFAULTS = ["simple", "bridge", "minus", "ice"];
@@ -33,6 +34,9 @@ const SLOW_ANSWER_MS = 20000;
 const BACKUP_PREFIX = "riku10v2-";
 const COINS_KEY = "riku10v2-coins"; // 旧形式（100円が何枚か）。いまは移行用にだけ読む
 const WALLET_KEY = "riku10v2-wallet-yen";
+const DEX_BONUS_LEVEL_KEY = "riku10v2-dex-bonus-level";
+const DEX_BONUS_STEP = 50;
+const DEX_BONUS_YEN = 500;
 const LEGACY_FINANCE_KEY = "riku10v2-finance"; // 廃止した「とうし」の残高を返金するためにだけ読む
 const LEGACY_FINANCE_REFUND_KEY = "riku10v2-finance-refunded";
 const GAME_TIME_KEY = "riku10v2-game-time-minutes";
@@ -49,7 +53,7 @@ const PARENT_LOCK_ATTEMPTS_KEY = "riku10v2-parent-lock-attempts";
 const PARENT_PIN_LENGTH = 4;
 const PARENT_RECOVERY_LENGTH = 8;
 const PARENT_LOCKOUT_MS = 30000;
-const SETTINGS_VERSION = 4;
+const SETTINGS_VERSION = 5;
 
 // きょうのミッションで各タブに必要な問題数の初期値（設定タブでタブごとに変更できる）
 const MISSION_CAP_DEFAULTS = {
@@ -61,7 +65,6 @@ const MISSION_CAP_DEFAULTS = {
   bridge: 10,
   minus: 5,
   ice: 5,
-  dojo: 0,
   weakness: 0
 };
 
@@ -124,11 +127,13 @@ function loadSettings() {
 
   // 新形式
   if (parsed.missionCaps && typeof parsed.missionCaps === "object") {
-    [...MODES, "multiply", "dojo", "weakness"].forEach((mode) => {
+    [...MODES, "multiply", "weakness"].forEach((mode) => {
       const value = Number(parsed.missionCaps[mode]);
       if (Number.isFinite(value) && value >= 0 && value <= 999) merged.missionCaps[mode] = Math.round(value);
     });
   }
+  // v5: ふくしゅうジムは固定問数ではなく、その日の間違いが0問になるまで取り組む
+  merged.missionCaps.dojo = 0;
   // v2: たしざんジムを答え10まで広げたため、従来の初期値10問を20問へ移行する。
   // それ以外の値に変更していた場合は、その設定をそのまま尊重する。
   const parsedVersion = Number(parsed.version) || 1;
@@ -678,6 +683,7 @@ const state = {
   daily: loadDaily(),
   revealTimeout: { ice: null, minus: null },
   walletYen: loadWalletYen(),
+  dexBonusLevel: Math.max(0, Math.floor(Number(localStorage.getItem(DEX_BONUS_LEVEL_KEY)) || 0)),
   gameTimeMinutes: loadGameTimeMinutes(),
   coinProgress: Math.min(SETTINGS.coinStep - 1, Math.max(0, Number(localStorage.getItem(COIN_PROGRESS_KEY) || "0") || 0)),
   coinJustEarned: false,
@@ -1172,6 +1178,22 @@ function speciesCaught() {
   return Object.values(state.caught).filter((e) => (e.n || 0) + (e.s || 0) > 0).length;
 }
 
+// 図鑑の新しい50種類区切りを達成するたび、未受取分をまとめて付与する。
+// 保存キーがない既存データにも、現在の図鑑数に応じたボーナスを遡って付与する。
+function awardPendingDexBonuses() {
+  const earnedLevel = Math.floor(speciesCaught() / DEX_BONUS_STEP);
+  if (earnedLevel <= state.dexBonusLevel) return null;
+  const levels = earnedLevel - state.dexBonusLevel;
+  const yen = levels * DEX_BONUS_YEN;
+  state.dexBonusLevel = earnedLevel;
+  state.walletYen += yen;
+  localStorage.setItem(DEX_BONUS_LEVEL_KEY, String(state.dexBonusLevel));
+  saveCoins();
+  renderCoinGauge();
+  burstConfetti(60);
+  return { milestone: earnedLevel * DEX_BONUS_STEP, yen };
+}
+
 const overlayQueue = [];
 let overlayActive = false;
 
@@ -1209,6 +1231,8 @@ function showNextOverlay() {
     popEl.classList.toggle("is-fled", Boolean(item.fled));
     els.stickerCaption.textContent = item.fled
       ? "あっ！ にげられた…"
+      : item.dexBonus
+        ? `ずかん ${item.dexBonus.milestone}しゅるい！ ${item.dexBonus.yen}円 ボーナス！`
       : item.bonus
         ? "ミッションクリア ボーナス！"
         : "ポケモン ゲット！";
@@ -1247,10 +1271,11 @@ function catchPokemon(bonus) {
   else entry.n = (entry.n || 0) + 1;
   state.caught[species.id] = entry;
   saveCaught();
-  queueCatchOverlay({ species, shiny, bonus, fled: false });
+  const dexBonus = awardPendingDexBonuses();
+  queueCatchOverlay({ species, shiny, bonus, dexBonus, fled: false });
 }
 
-// ミッションの4枠それぞれの達成数
+// 固定問数ミッション各枠の達成数
 function missionParts() {
   rolloverDaily();
   const done = {};
@@ -1339,10 +1364,15 @@ function renderDexDetail(entry) {
 }
 
 function renderDex() {
-  els.dexCount.textContent = `${speciesCaught()}しゅるい / ${STICKERS.length}`;
+  const caughtSpecies = speciesCaught();
+  els.dexCount.textContent = `${caughtSpecies}しゅるい / ${STICKERS.length}`;
 
   const remain = SETTINGS.catchStep - state.catchProgress;
-  els.dexProgress.textContent = `ぜんぶで ${totalCaught()}ひき。あと ${remain}もん で つぎのポケモン`;
+  const nextBonus = Math.min(STICKERS.length, (Math.floor(caughtSpecies / DEX_BONUS_STEP) + 1) * DEX_BONUS_STEP);
+  const bonusText = caughtSpecies >= STICKERS.length
+    ? "ずかんコンプリート！"
+    : `あと ${nextBonus - caughtSpecies}しゅるい で ${DEX_BONUS_YEN}円ボーナス`;
+  els.dexProgress.textContent = `ぜんぶで ${totalCaught()}ひき。あと ${remain}もん で つぎのポケモン。${bonusText}`;
 
   const entries = STICKERS.map((species, index) => {
     const entry = state.caught[species.id] || { n: 0, s: 0 };
@@ -4438,11 +4468,13 @@ els.timeToggle.addEventListener("click", () => {
 });
 
 qs("#release-pokemon").addEventListener("click", () => {
-  if (!window.confirm("本当にポケモンを全部逃がしますか？（図鑑と累計正解数がリセットされます）")) return;
+  if (!window.confirm("本当にポケモンを全部逃がしますか？（図鑑・累計正解数・図鑑ボーナスの達成状況がリセットされます）")) return;
   state.totalCorrect = 0;
   state.catchProgress = 0;
   state.caught = {};
+  state.dexBonusLevel = 0;
   localStorage.setItem(TOTAL_KEY, "0");
+  localStorage.setItem(DEX_BONUS_LEVEL_KEY, "0");
   saveCatchProgress();
   saveCaught();
   renderDex();
@@ -4527,7 +4559,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("sw.js?v=101", { updateViaCache: "none" })
+    .register("sw.js?v=102", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -4538,6 +4570,7 @@ renderMinusBlockToggle();
 renderExplainToggle();
 renderExplanationWaitToggle();
 renderFireDirectionToggle();
+awardPendingDexBonuses();
 renderRecords();
 buildGaugeMatrix();
 renderMission();
