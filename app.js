@@ -1855,6 +1855,10 @@ function renderReport() {
 function renderWeaknessDojo() {
   const wrap = qs("#dojo-list");
   wrap.replaceChildren();
+  // 道場タブを開き直したら、必ずスタート画面から始める。
+  qs("#dojo-start").classList.remove("is-hidden");
+  qs("#dojo-quiz").classList.add("is-hidden");
+  qs("#dojo-list").classList.remove("is-hidden");
   const items = [];
   MODES.forEach((mode) => {
     if (mode === "pair") return;
