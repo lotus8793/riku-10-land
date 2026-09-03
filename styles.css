@@ -335,6 +335,11 @@ button {
   background: #a855f7;
 }
 
+.mission-seg.seg-weakness,
+.legend-dot.seg-weakness {
+  background: #7c3aed;
+}
+
 .mission-legend {
   grid-column: 1 / -1;
   display: flex;

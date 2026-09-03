@@ -6,7 +6,7 @@ const MAX_RECORDS = 10;
 const STICKER_STEP = 10;
 
 const MODES = ["pair", "tenplus", "flash", "simple", "mogi", "bridge", "minus", "ice"];
-const MISSION_MODES = [...MODES, "dojo"];
+const MISSION_MODES = [...MODES, "dojo", "weakness"];
 // どのタブがポケモンゲット／コインゲージに進むかは、設定タブでタブごとに切り替えられる
 // （初期値は GAUGE_MODE_DEFAULTS）。ミッションの必要問題数も同様（MISSION_CAP_DEFAULTS）
 const GAUGE_MODE_DEFAULTS = ["simple", "bridge", "minus", "ice"];
@@ -60,7 +60,8 @@ const MISSION_CAP_DEFAULTS = {
   bridge: 10,
   minus: 5,
   ice: 5,
-  dojo: 0
+  dojo: 0,
+  weakness: 0
 };
 
 function defaultGaugeMap() {
@@ -4415,7 +4416,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("sw.js?v=99", { updateViaCache: "none" })
+    .register("sw.js?v=100", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }

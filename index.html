@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=64">
+    <link rel="stylesheet" href="styles.css?v=65">
   </head>
   <body>
     <main class="app-shell">
@@ -80,6 +80,7 @@
           <div class="mission-seg seg-minus" id="mission-seg-minus"></div>
           <div class="mission-seg seg-ice" id="mission-seg-ice"></div>
           <div class="mission-seg seg-dojo" id="mission-seg-dojo"></div>
+          <div class="mission-seg seg-weakness" id="mission-seg-weakness"></div>
         </div>
         <span class="mission-text" id="mission-text">あと60もん</span>
         <span class="mission-legend" id="mission-legend"></span>
@@ -521,6 +522,7 @@
         <div class="question-card">
           <div class="prompt-row">
             <p class="prompt" id="weakness-title">にがてを たおそう！</p>
+            <span class="practice-cap" id="weakness-cap"></span>
           </div>
           <p class="stats-day-summary">これまでに間違えた問題を、カテゴリごちゃまぜでエンドレスに復習しよう！ 正解するとコインゲージが2倍すすむよ。</p>
           <button class="start-button" type="button" id="weakness-start">スタート</button>
@@ -618,6 +620,7 @@
             <label>ひきざんジム <input type="number" id="set-cap-minus" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
             <label>氷のダンジョン <input type="number" id="set-cap-ice" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
             <label>ふくしゅうジム <input type="number" id="set-cap-dojo" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
+            <label>にがて道場 <input type="number" id="set-cap-weakness" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
           </div>
           <p class="settings-note settings-note-total" id="mission-cap-total"></p>
           <h3 class="stats-heading">ゲージのクリア問題数</h3>
@@ -679,6 +682,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=67"></script>
+    <script src="app.js?v=68"></script>
   </body>
 </html>
