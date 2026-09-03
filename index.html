@@ -48,6 +48,8 @@
         <button class="mode-tab" type="button" data-mode="bridge">ほのおのダンジョン</button>
         <button class="mode-tab" type="button" data-mode="minus">ひきざんジム</button>
         <button class="mode-tab" type="button" data-mode="ice">こおりのダンジョン</button>
+        <button class="mode-tab" type="button" data-mode="multiply">かけざんジム</button>
+        <button class="mode-tab" type="button" data-mode="dojo">にがて道場</button>
         <button class="mode-tab" type="button" data-mode="gametime">ゲームじかんやさん</button>
         <button class="mode-tab" type="button" data-mode="dex">ずかん</button>
         <button class="mode-tab" type="button" data-mode="calendar">カレンダー</button>
@@ -498,6 +500,26 @@
           <div class="report-badge-list" id="report-practice"></div>
 
           <p class="report-footer" id="report-footer"></p>
+        </div>
+      </section>
+
+      <section class="records-panel is-hidden" id="dojo-mode" aria-labelledby="dojo-title">
+        <div class="question-card">
+          <div class="prompt-row">
+            <p class="prompt" id="dojo-title">にがて道場</p>
+          </div>
+          <p class="stats-day-summary">まちがえた問題と、20びょう以上かかった問題を、カテゴリごちゃまぜで復習しよう！</p>
+          <button class="start-button" type="button" id="dojo-start">復習スタート</button>
+          <div class="dojo-list" id="dojo-list" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section class="records-panel is-hidden" id="multiply-mode" aria-labelledby="multiply-title">
+        <div class="question-card coming-soon-card">
+          <div class="prompt-row">
+            <p class="prompt" id="multiply-title">かけざんジム</p>
+          </div>
+          <p class="coming-soon-message">まだ Open してないよ！<br>たのしみに まっててね！</p>
         </div>
       </section>
 

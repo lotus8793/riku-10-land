@@ -864,6 +864,17 @@ body.no-blocks.no-explain .play-area .bridge-board {
   display: none;
 }
 
+.dojo-list { display: grid; gap: 8px; }
+.dojo-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+.dojo-row > div { min-width: 0; display: grid; gap: 2px; }
+.dojo-category, .dojo-detail { color: var(--muted); font-size: 12px; font-weight: 800; }
+.dojo-problem { font-size: 22px; }
+.dojo-practice { flex: 0 0 auto; }
+.dojo-complete { margin: 28px 8px; color: var(--green); font-size: 22px; font-weight: 900; text-align: center; }
+
+.coming-soon-card { text-align: center; }
+.coming-soon-message { margin: 22px 0 10px; color: var(--blue); font-size: 20px; font-weight: 900; line-height: 1.8; }
+
 .records-columns {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

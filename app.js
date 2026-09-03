@@ -683,6 +683,8 @@ const state = {
   challenge: { remainingMs: CHALLENGE_SECONDS * 1000, intervalId: null, ended: false }
 };
 
+state.dojo = { queue: [], current: 0, started: false };
+
 function qs(selector) {
   return document.querySelector(selector);
 }
@@ -1843,6 +1845,87 @@ function renderReport() {
   qs("#report-footer").textContent = `これまでの るいけい せいかい数は ${state.totalCorrect}もん だよ`;
 }
 
+function renderWeaknessDojo() {
+  const wrap = qs("#dojo-list");
+  wrap.replaceChildren();
+  const items = [];
+  MODES.forEach((mode) => {
+    if (mode === "pair") return;
+    Object.entries(state.stats[mode] || {}).forEach(([key, stat]) => {
+      const correct = Math.max(0, Number(stat?.c) || 0);
+      const wrong = Math.max(0, Number(stat?.w) || 0);
+      const time = Math.max(0, Number(stat?.t) || 0);
+      const attempts = correct + wrong;
+      if (!attempts || (wrong <= 0 && time < SLOW_ANSWER_MS)) return;
+      const slow = time >= SLOW_ANSWER_MS;
+      items.push({ mode, key, wrong, time, attempts, score: wrong / attempts * 100 + (slow ? 20 : 0) });
+    });
+  });
+  // 苦手度の高い問題を集めたあと、カテゴリが続かないように出題順を混ぜる。
+  items.sort((a, b) => b.score - a.score || b.wrong - a.wrong || b.time - a.time);
+  const buckets = new Map();
+  items.forEach((item) => {
+    if (!buckets.has(item.mode)) buckets.set(item.mode, []);
+    buckets.get(item.mode).push(item);
+  });
+  const mixedItems = [];
+  let previousMode = "";
+  while (mixedItems.length < items.length) {
+    const available = [...buckets.entries()].filter(([mode, bucket]) => bucket.length && mode !== previousMode);
+    const candidates = available.length ? available : [...buckets.entries()].filter(([, bucket]) => bucket.length);
+    if (!candidates.length) break;
+    const [mode, bucket] = candidates[Math.floor(Math.random() * candidates.length)];
+    mixedItems.push(bucket.shift());
+    previousMode = mode;
+  }
+  state.dojo.queue = mixedItems.slice(0, 30);
+  state.dojo.current = 0;
+  state.dojo.started = false;
+  qs("#dojo-start").textContent = state.dojo.queue.length ? "復習スタート" : "復習する問題はないよ";
+  qs("#dojo-start").disabled = !state.dojo.queue.length;
+  if (!items.length) {
+    const empty = document.createElement("p");
+    empty.className = "records-empty";
+    empty.textContent = "まだ にがて問題の記録がないよ。まちがえたり、ゆっくり答えた問題がここに出てくるよ！";
+    wrap.append(empty);
+    return;
+  }
+  items.slice(0, 30).forEach((item, index) => {
+    const row = document.createElement("div");
+    row.className = "dojo-row";
+    const info = document.createElement("div");
+    const category = document.createElement("span");
+    category.className = "dojo-category";
+    category.textContent = MODE_LABELS[item.mode];
+    const problem = document.createElement("strong");
+    problem.className = "dojo-problem";
+    problem.textContent = formatProblemLabel(item.mode, item.key);
+    const detail = document.createElement("span");
+    detail.className = "dojo-detail";
+    detail.textContent = [item.wrong ? `まちがえ ${item.wrong}回` : "", item.time >= SLOW_ANSWER_MS ? `回答 約${Math.round(item.time / 1000)}秒` : ""].filter(Boolean).join(" ／ ");
+    info.append(category, problem, detail);
+    const button = document.createElement("button");
+    button.className = "quiet-button dojo-practice";
+    button.type = "button";
+    button.textContent = "この問題から";
+    button.addEventListener("click", () => startDojoAt(index));
+    row.append(info, button);
+    wrap.append(row);
+  });
+}
+
+function startDojoAt(index = 0) {
+  if (!state.dojo.queue.length) return;
+  state.dojo.current = index;
+  state.dojo.started = true;
+  const item = state.dojo.queue[index];
+  // カテゴリを切り替えて練習を開始。戻ると、次の問題は別カテゴリも含む混合キューになる。
+  switchMode(item.mode);
+  M[item.mode].start?.click();
+}
+
+qs("#dojo-start").addEventListener("click", () => startDojoAt(0));
+
 function renderStatsPanel() {
   renderStatsCalendar();
   renderStatsDayDetail();
@@ -2465,6 +2548,10 @@ function startMode(mode) {
 }
 
 function nextQuestion(mode) {
+  if (state.dojo?.started && state.activeMode === mode) {
+    nextDojoQuestion();
+    return;
+  }
   M[mode].section.classList.remove("is-answer-shown");
   state.questionAt[mode] = Date.now();
   if (mode === "pair") nextPair();
@@ -2475,6 +2562,27 @@ function nextQuestion(mode) {
   else if (mode === "minus") nextMinus();
   else if (mode === "ice") nextIce();
   else nextSimple();
+}
+
+function nextDojoQuestion() {
+  state.dojo.current += 1;
+  if (state.dojo.current >= state.dojo.queue.length) {
+    state.dojo.started = false;
+    stopChallengeTimer();
+    switchMode("dojo");
+    const wrap = qs("#dojo-list");
+    wrap.replaceChildren();
+    const done = document.createElement("p");
+    done.className = "dojo-complete";
+    done.textContent = "にがて問題の復習、おわり！よくがんばったね！";
+    wrap.append(done);
+    qs("#dojo-start").textContent = "もういちど復習する";
+    qs("#dojo-start").disabled = false;
+    return;
+  }
+  const item = state.dojo.queue[state.dojo.current];
+  switchMode(item.mode);
+  M[item.mode].start?.click();
 }
 
 function guardNext(mode) {
@@ -3988,6 +4096,8 @@ function switchMode(mode) {
   qs("#dex-mode").classList.toggle("is-hidden", mode !== "dex");
   qs("#stats-panel").classList.toggle("is-hidden", mode !== "stats");
   qs("#report-mode").classList.toggle("is-hidden", mode !== "report");
+  qs("#dojo-mode").classList.toggle("is-hidden", mode !== "dojo");
+  qs("#multiply-mode").classList.toggle("is-hidden", mode !== "multiply");
   qs("#settings-mode").classList.toggle("is-hidden", mode !== "settings");
   qs("#calendar-mode").classList.toggle("is-hidden", mode !== "calendar");
 
@@ -3996,6 +4106,7 @@ function switchMode(mode) {
   if (mode === "dex") renderDex();
   if (mode === "stats") renderStatsPanel();
   if (mode === "report") renderReport();
+  if (mode === "dojo") renderWeaknessDojo();
   if (mode === "settings") showParentLockGate();
   if (mode === "calendar") {
     calendarOffset = 0;
