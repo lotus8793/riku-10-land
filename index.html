@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=65">
+    <link rel="stylesheet" href="styles.css?v=66">
   </head>
   <body>
     <main class="app-shell">
@@ -310,7 +310,7 @@
             <div class="timer-count"><span id="minus-time">60</span>びょう</div>
           </div>
           <div class="equation simple-equation" id="minus-equation">7 − 3</div>
-          <div class="ten-frame" id="minus-frame" aria-label="10マスのボード"></div>
+          <div class="ten-frame minus-pick-frame" id="minus-frame" aria-label="けすブロックをえらぶ10マスのボード"></div>
           <p class="feedback" id="minus-feedback" aria-live="polite">こたえを えらんでね</p>
           <button class="next-button is-hidden" type="button" id="minus-next">つぎへ</button>
         </div>
@@ -588,7 +588,7 @@
             </button>
             <button class="time-toggle settings-display-toggle" type="button" id="block-toggle" aria-pressed="true">
               <span class="toggle-knob" aria-hidden="true"></span>
-              <span id="block-toggle-label">ブロックあり</span>
+              <span id="block-toggle-label">ほか：ブロックあり</span>
             </button>
             <button class="time-toggle settings-display-toggle" type="button" id="explain-toggle" aria-pressed="true">
               <span class="toggle-knob" aria-hidden="true"></span>
@@ -600,6 +600,14 @@
             </button>
           </div>
           <p class="settings-note">「解説待ち ON」では、解説アニメーションが終わるまで「つぎへ」を表示しません（初期設定はON）</p>
+          <h3 class="stats-heading">ひきざんジム</h3>
+          <p class="settings-note">ブロックありでは、引く数だけ好きな場所を選んで消してから答えます</p>
+          <div class="settings-display-toggles">
+            <button class="time-toggle settings-display-toggle" type="button" id="minus-block-toggle" aria-pressed="true">
+              <span class="toggle-knob" aria-hidden="true"></span>
+              <span id="minus-block-toggle-label">引き算：ブロックあり</span>
+            </button>
+          </div>
           <h3 class="stats-heading">炎のダンジョン</h3>
           <p class="settings-note">通常は小さい数から大きい数へ移動。ONでは、式の左の数から右の数へ固定します（ブロックはいつも後ろから移動）</p>
           <div class="settings-display-toggles">
@@ -682,6 +690,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=68"></script>
+    <script src="app.js?v=69"></script>
   </body>
 </html>

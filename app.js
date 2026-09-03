@@ -24,6 +24,7 @@ const RECORDS_KEYS = {
 const TOTAL_KEY = "riku10v2-total-correct";
 const CATCH_PROGRESS_KEY = "riku10v2-catch-progress";
 const TIMED_KEY = "riku10v2-timed-enabled";
+const MINUS_BLOCKS_KEY = "riku10v2-minus-blocks-enabled";
 const CAUGHT_KEY = "riku10v2-caught";
 const DAILY_KEY = "riku10v2-daily";
 const STATS_KEY = "riku10v2-stats";
@@ -666,6 +667,8 @@ const state = {
   mogi: { phase: "build", doneSide: "", slots: { left: [], right: [] } },
   // ほのおで困ったときに、同じ式をもぎダンジョン方式で試す補助盤面
   bridgeMogi: { open: false, used: false, solved: false, original: { left: 0, right: 0 }, slots: { left: [], right: [] } },
+  // ひきざんジム: 子どもが選んだ順に、消したブロックの位置を保持する
+  minus: { removed: [] },
   combo: 0,
   stars: 0,
   totalCorrect: Number(localStorage.getItem(TOTAL_KEY) || "0") || 0,
@@ -686,6 +689,7 @@ const state = {
   bridgeRevealTimeoutId: null,
   timedEnabled: localStorage.getItem(TIMED_KEY) === "true",
   blocksEnabled: localStorage.getItem("riku10v2-blocks-enabled") === "true",
+  minusBlocksEnabled: localStorage.getItem(MINUS_BLOCKS_KEY) !== "false",
   explainEnabled: localStorage.getItem("riku10v2-explain-enabled") !== "false",
   challenge: { remainingMs: CHALLENGE_SECONDS * 1000, intervalId: null, ended: false }
 };
@@ -728,6 +732,8 @@ const els = {
   pairReverseFrame: qs("#pair-reverse-frame"),
   blockToggle: qs("#block-toggle"),
   blockToggleLabel: qs("#block-toggle-label"),
+  minusBlockToggle: qs("#minus-block-toggle"),
+  minusBlockToggleLabel: qs("#minus-block-toggle-label"),
   explainToggle: qs("#explain-toggle"),
   explainToggleLabel: qs("#explain-toggle-label"),
   explanationWaitToggle: qs("#explanation-wait-toggle"),
@@ -2557,7 +2563,7 @@ function startChallengeTimer() {
 function renderBlockToggle() {
   els.blockToggle.classList.toggle("is-on", state.blocksEnabled);
   els.blockToggle.setAttribute("aria-pressed", String(state.blocksEnabled));
-  els.blockToggleLabel.textContent = state.blocksEnabled ? "ブロックあり" : "ブロックなし";
+  els.blockToggleLabel.textContent = state.blocksEnabled ? "ほか：ブロックあり" : "ほか：ブロックなし";
   document.body.classList.toggle("no-blocks", !state.blocksEnabled);
 }
 
@@ -2565,6 +2571,20 @@ function setBlockDisplay(enabled) {
   state.blocksEnabled = enabled;
   localStorage.setItem("riku10v2-blocks-enabled", String(enabled));
   renderBlockToggle();
+}
+
+function renderMinusBlockToggle() {
+  els.minusBlockToggle.classList.toggle("is-on", state.minusBlocksEnabled);
+  els.minusBlockToggle.setAttribute("aria-pressed", String(state.minusBlocksEnabled));
+  els.minusBlockToggleLabel.textContent = state.minusBlocksEnabled ? "引き算：ブロックあり" : "引き算：ブロックなし";
+  document.body.classList.toggle("minus-blocks", state.minusBlocksEnabled);
+  document.body.classList.toggle("no-minus-blocks", !state.minusBlocksEnabled);
+}
+
+function setMinusBlockDisplay(enabled) {
+  state.minusBlocksEnabled = enabled;
+  localStorage.setItem(MINUS_BLOCKS_KEY, String(enabled));
+  renderMinusBlockToggle();
 }
 
 function renderExplainToggle() {
@@ -3771,6 +3791,69 @@ function chooseBridge(value, button, problem = state.problem.bridge) {
 
 /* ---------- ひきざん ---------- */
 
+function renderMinusChoices(problem) {
+  renderChoiceButtons(M.minus.choices, [1, 2, 3, 4, 5, 6, 7, 8, 9], (value, button) => {
+    chooseMinus(value, button, problem);
+  });
+}
+
+function setupMinusPracticeFrame(problem) {
+  renderMinusFrame(els.minusFrame, problem.a, 0);
+  [...els.minusFrame.children].slice(0, problem.a).forEach((cell, index) => {
+    cell.classList.add("is-pickable");
+    cell.dataset.index = String(index);
+    cell.setAttribute("role", "button");
+    cell.setAttribute("tabindex", "0");
+    cell.setAttribute("aria-pressed", "false");
+    cell.setAttribute("aria-label", `${index + 1}ばんめのブロック`);
+  });
+}
+
+function updateMinusPractice() {
+  const problem = state.problem.minus;
+  if (!problem) return;
+  const removed = state.minus.removed;
+  [...els.minusFrame.children].forEach((cell, index) => {
+    const order = removed.indexOf(index);
+    const selected = order !== -1;
+    cell.classList.toggle("is-removed", selected);
+    cell.setAttribute("aria-pressed", String(selected));
+    cell.setAttribute("aria-label", `${index + 1}ばんめのブロック${selected ? "、けした" : ""}`);
+    if (selected) cell.dataset.count = String(order + 1);
+    else delete cell.dataset.count;
+  });
+
+  const need = problem.b - removed.length;
+  if (need > 0) {
+    M.minus.feedback.className = "feedback";
+    M.minus.feedback.textContent = removed.length === 0
+      ? `すきなブロックを ${problem.b}こ けそう`
+      : `あと ${need}こ けそう`;
+    M.minus.choices.replaceChildren();
+    return;
+  }
+
+  M.minus.feedback.className = "feedback is-good minus-ready-feedback";
+  M.minus.feedback.textContent = "できた！ のこりを かぞえて こたえよう";
+  if (!M.minus.choices.children.length) renderMinusChoices(problem);
+}
+
+function toggleMinusBlock(index) {
+  const problem = state.problem.minus;
+  if (!state.minusBlocksEnabled || !problem || state.activeMode !== "minus" || state.locked.minus) return;
+  if (!Number.isInteger(index) || index < 0 || index >= problem.a) return;
+
+  const selectedAt = state.minus.removed.indexOf(index);
+  if (selectedAt !== -1) {
+    state.minus.removed.splice(selectedAt, 1);
+  } else {
+    if (state.minus.removed.length >= problem.b) return;
+    state.minus.removed.push(index);
+  }
+  playTone("click");
+  updateMinusPractice();
+}
+
 function nextMinus() {
   if (!guardNext("minus")) return;
   clearRemovalReveal("minus");
@@ -3780,17 +3863,23 @@ function nextMinus() {
   els.minusEquation.classList.remove("is-solved");
   els.minusEquation.textContent = `${p.a} − ${p.b}`;
   M.minus.feedback.className = "feedback";
-  M.minus.feedback.textContent = "こたえを えらんでね";
   setNextButton("minus", false);
-  renderMinusFrame(els.minusFrame, p.a, 0);
-  renderChoiceButtons(M.minus.choices, [1, 2, 3, 4, 5, 6, 7, 8, 9], (value, button) => {
-    chooseMinus(value, button, p);
-  });
+  state.minus.removed = [];
+  if (state.minusBlocksEnabled) {
+    setupMinusPracticeFrame(p);
+    M.minus.choices.replaceChildren();
+    updateMinusPractice();
+  } else {
+    M.minus.feedback.textContent = "こたえを えらんでね";
+    renderMinusFrame(els.minusFrame, p.a, 0);
+    renderMinusChoices(p);
+  }
   if (state.activeMode === "minus") startChallengeTimer();
 }
 
 function chooseMinus(value, button, problem = state.problem.minus) {
   if (state.locked.minus) return;
+  if (state.minusBlocksEnabled && state.minus.removed.length !== problem.b) return;
   const answer = problem.a - problem.b;
   const correct = value === answer;
   recordAnswer("minus", problem, correct);
@@ -3802,8 +3891,25 @@ function chooseMinus(value, button, problem = state.problem.minus) {
   } else {
     onWrong("minus", "まるを けして かぞえてみよう", answer);
   }
-  scheduleRemovalReveal("minus", problem, () => minusRemovalTargets(problem));
+  if (state.minusBlocksEnabled) {
+    scheduleExplanationFinished("minus", problem, 650);
+  } else {
+    scheduleRemovalReveal("minus", problem, () => minusRemovalTargets(problem));
+  }
 }
+
+els.minusFrame.addEventListener("click", (event) => {
+  const cell = event.target.closest(".frame-cell.is-pickable");
+  if (cell && els.minusFrame.contains(cell)) toggleMinusBlock(Number(cell.dataset.index));
+});
+
+els.minusFrame.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const cell = event.target.closest(".frame-cell.is-pickable");
+  if (!cell || !els.minusFrame.contains(cell)) return;
+  event.preventDefault();
+  toggleMinusBlock(Number(cell.dataset.index));
+});
 
 /* ---------- こおりのダンジョン（くり下がり） ---------- */
 
@@ -3854,7 +3960,8 @@ function startRemovalSteps(mode, problem, targets) {
 
 function scheduleRemovalReveal(mode, problem, buildTargets) {
   if (!state.explainEnabled) return;
-  if (state.blocksEnabled) {
+  const blocksWereVisible = mode === "minus" ? state.minusBlocksEnabled : state.blocksEnabled;
+  if (blocksWereVisible) {
     startRemovalSteps(mode, problem, buildTargets());
     return;
   }
@@ -4307,6 +4414,10 @@ els.blockToggle.addEventListener("click", () => {
   setBlockDisplay(!state.blocksEnabled);
 });
 
+els.minusBlockToggle.addEventListener("click", () => {
+  setMinusBlockDisplay(!state.minusBlocksEnabled);
+});
+
 els.explainToggle.addEventListener("click", () => {
   setExplainDisplay(!state.explainEnabled);
 });
@@ -4416,13 +4527,14 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("sw.js?v=100", { updateViaCache: "none" })
+    .register("sw.js?v=101", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
 
 renderTimeToggle();
 renderBlockToggle();
+renderMinusBlockToggle();
 renderExplainToggle();
 renderExplanationWaitToggle();
 renderFireDirectionToggle();
