@@ -1890,7 +1890,11 @@ function renderWeaknessDojo() {
     wrap.append(empty);
     return;
   }
-  items.slice(0, 30).forEach((item, index) => {
+  const note = document.createElement("p");
+  note.className = "stats-day-summary";
+  note.textContent = `${state.dojo.queue.length}問をカテゴリごちゃまぜで出題するよ。`;
+  wrap.append(note);
+  /* items.slice(0, 30).forEach((item, index) => {
     const row = document.createElement("div");
     row.className = "dojo-row";
     const info = document.createElement("div");
@@ -1911,20 +1915,33 @@ function renderWeaknessDojo() {
     button.addEventListener("click", () => startDojoAt(index));
     row.append(info, button);
     wrap.append(row);
-  });
+  }); */
 }
 
 function startDojoAt(index = 0) {
   if (!state.dojo.queue.length) return;
   state.dojo.current = index;
   state.dojo.started = true;
-  const item = state.dojo.queue[index];
-  // カテゴリを切り替えて練習を開始。戻ると、次の問題は別カテゴリも含む混合キューになる。
-  switchMode(item.mode);
-  M[item.mode].start?.click();
+  qs("#dojo-start").classList.add("is-hidden");
+  qs("#dojo-list").classList.add("is-hidden");
+  qs("#dojo-quiz").classList.remove("is-hidden");
+  showDojoQuestion();
+}
+
+function showDojoQuestion() {
+  const item = state.dojo.queue[state.dojo.current];
+  const parts = item.key.split(/[+-]/).map(Number);
+  const answer = item.mode === "flash" ? Number(item.key) : (item.mode === "minus" || item.mode === "ice" ? parts[0] - parts[1] : parts[0] + parts[1]);
+  qs("#dojo-category").textContent = MODE_LABELS[item.mode];
+  qs("#dojo-problem").textContent = formatProblemLabel(item.mode, item.key);
+  qs("#dojo-feedback").textContent = "こたえを えらんでね";
+  qs("#dojo-next").classList.add("is-hidden");
+  const choices = qs("#dojo-choices"); choices.replaceChildren();
+  shuffle([...new Set([answer, answer - 1, answer + 1, answer + 2].filter((value) => value >= 0))]).slice(0, 4).forEach((value) => { const button = document.createElement("button"); button.className = "choice-card"; button.type = "button"; button.textContent = value; button.addEventListener("click", () => { choices.querySelectorAll("button").forEach((choice) => { choice.disabled = true; }); qs("#dojo-feedback").textContent = value === answer ? "せいかい！" : `こたえは ${answer} だよ`; qs("#dojo-next").classList.remove("is-hidden"); }); choices.append(button); });
 }
 
 qs("#dojo-start").addEventListener("click", () => startDojoAt(0));
+qs("#dojo-next").addEventListener("click", nextDojoQuestion);
 
 function renderStatsPanel() {
   renderStatsCalendar();
@@ -2570,6 +2587,8 @@ function nextDojoQuestion() {
     state.dojo.started = false;
     stopChallengeTimer();
     switchMode("dojo");
+    qs("#dojo-start").classList.remove("is-hidden");
+    qs("#dojo-quiz").classList.add("is-hidden");
     const wrap = qs("#dojo-list");
     wrap.replaceChildren();
     const done = document.createElement("p");
@@ -2580,9 +2599,7 @@ function nextDojoQuestion() {
     qs("#dojo-start").disabled = false;
     return;
   }
-  const item = state.dojo.queue[state.dojo.current];
-  switchMode(item.mode);
-  M[item.mode].start?.click();
+  showDojoQuestion();
 }
 
 function guardNext(mode) {

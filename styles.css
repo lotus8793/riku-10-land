@@ -871,6 +871,7 @@ body.no-blocks.no-explain .play-area .bridge-board {
 .dojo-problem { font-size: 22px; }
 .dojo-practice { flex: 0 0 auto; }
 .dojo-complete { margin: 28px 8px; color: var(--green); font-size: 22px; font-weight: 900; text-align: center; }
+.dojo-quiz { display: grid; gap: 12px; text-align: center; }
 
 .coming-soon-card { text-align: center; }
 .coming-soon-message { margin: 22px 0 10px; color: var(--blue); font-size: 20px; font-weight: 900; line-height: 1.8; }
