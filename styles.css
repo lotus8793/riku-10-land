@@ -330,6 +330,11 @@ button {
   background: #56c2e8;
 }
 
+.mission-seg.seg-dojo,
+.legend-dot.seg-dojo {
+  background: #a855f7;
+}
+
 .mission-legend {
   grid-column: 1 / -1;
   display: flex;

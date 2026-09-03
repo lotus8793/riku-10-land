@@ -6,6 +6,7 @@ const MAX_RECORDS = 10;
 const STICKER_STEP = 10;
 
 const MODES = ["pair", "tenplus", "flash", "simple", "mogi", "bridge", "minus", "ice"];
+const MISSION_MODES = [...MODES, "dojo"];
 // どのタブがポケモンゲット／コインゲージに進むかは、設定タブでタブごとに切り替えられる
 // （初期値は GAUGE_MODE_DEFAULTS）。ミッションの必要問題数も同様（MISSION_CAP_DEFAULTS）
 const GAUGE_MODE_DEFAULTS = ["simple", "bridge", "minus", "ice"];
@@ -58,7 +59,8 @@ const MISSION_CAP_DEFAULTS = {
   mogi: 10,
   bridge: 10,
   minus: 5,
-  ice: 5
+  ice: 5,
+  dojo: 0
 };
 
 function defaultGaugeMap() {
@@ -810,7 +812,7 @@ const els = {
   parentLockChange: qs("#parent-lock-change"),
   parentLockReissue: qs("#parent-lock-reissue"),
   parentLockRemove: qs("#parent-lock-remove"),
-  missionSegs: Object.fromEntries(MODES.map((mode) => [mode, qs(`#mission-seg-${mode}`)])),
+  missionSegs: Object.fromEntries(MISSION_MODES.map((mode) => [mode, qs(`#mission-seg-${mode}`)])),
   missionLegend: qs("#mission-legend"),
   missionText: qs("#mission-text")
 };
@@ -1239,19 +1241,19 @@ function catchPokemon(bonus) {
 function missionParts() {
   rolloverDaily();
   const done = {};
-  MODES.forEach((mode) => {
+  MISSION_MODES.forEach((mode) => {
     done[mode] = Math.min(state.daily[`${mode}Used`] || 0, missionCap(mode));
   });
   return done;
 }
 
 function missionTotal() {
-  return MODES.reduce((sum, mode) => sum + missionCap(mode), 0);
+  return MISSION_MODES.reduce((sum, mode) => sum + missionCap(mode), 0);
 }
 
 // 各タブが今日あと何問ミッションに必要か
 function renderMissionCaps() {
-  MODES.forEach((mode) => {
+  MISSION_MODES.forEach((mode) => {
     const el = qs(`#${mode}-cap`);
     if (!el) return;
     const cap = missionCap(mode);
@@ -1278,7 +1280,7 @@ function renderMission() {
   const total = missionTotal();
   const toWidth = (value) => (total > 0 ? `${Math.min(100, (value / total) * 100)}%` : "0%");
   let legend = "";
-  MODES.forEach((mode) => {
+  MISSION_MODES.forEach((mode) => {
     const cap = missionCap(mode);
     els.missionSegs[mode].style.width = toWidth(done[mode]);
     if (cap > 0) {
@@ -1286,7 +1288,7 @@ function renderMission() {
     }
   });
   els.missionLegend.innerHTML = legend || "ぜんぶのタブが おやすみに なっているよ（設定タブで もんだいすうを きめてね）";
-  const left = total - MODES.reduce((sum, mode) => sum + done[mode], 0);
+  const left = total - MISSION_MODES.reduce((sum, mode) => sum + done[mode], 0);
   els.missionText.textContent = state.daily.done
     ? `クリア！🎉${state.streak.last === todayStr() && state.streak.count > 1 ? ` ${state.streak.count}日れんぞく` : ""}`
     : `あと ${left}もん`;
@@ -1383,13 +1385,14 @@ function saveCatchProgress() {
 
 // 間違えたときのペナルティ。ポケモンゲット対象のタブだけ、進捗が1つ戻る
 function registerWrong(mode) {
-  if (!catchEnabled(mode)) return;
+  const progressMode = state.dojo.started ? "dojo" : mode;
+  if (!catchEnabled(progressMode)) return;
   state.catchProgress = Math.max(0, state.catchProgress - 1);
   saveCatchProgress();
   rolloverDaily();
   // そのタブのミッション進捗もペナルティ。ただしクリア後は固定で減らさない
   if (!state.daily.done) {
-    const usedKey = `${mode}Used`;
+    const usedKey = `${progressMode}Used`;
     state.daily[usedKey] = Math.max(0, (state.daily[usedKey] || 0) - 1);
     saveDaily();
   }
@@ -1398,7 +1401,7 @@ function registerWrong(mode) {
 
 function checkMissionGoal() {
   const done = missionParts();
-  const cleared = MODES.every((mode) => done[mode] >= missionCap(mode));
+  const cleared = MISSION_MODES.every((mode) => done[mode] >= missionCap(mode));
   if (!state.daily.done && cleared && missionTotal() > 0) {
     state.daily.done = true;
     saveDaily();
@@ -1422,10 +1425,11 @@ function registerMissionProgress(mode) {
 
 // 正解1問ぶんの処理。どのゲージに進むかは設定タブのタブ別トグルで決まる
 function registerCorrect(mode) {
+  const progressMode = state.dojo.started ? "dojo" : mode;
   state.totalCorrect += 1;
   localStorage.setItem(TOTAL_KEY, String(state.totalCorrect));
-  if (coinEnabled(mode)) registerCoinProgress();
-  if (catchEnabled(mode)) {
+  if (coinEnabled(progressMode)) registerCoinProgress();
+  if (catchEnabled(progressMode)) {
     state.catchProgress += 1;
     if (state.catchProgress >= SETTINGS.catchStep) {
       state.catchProgress = 0; // ゲットしたら0から数え直し。間違えても戻らない
@@ -1433,7 +1437,7 @@ function registerCorrect(mode) {
     }
     saveCatchProgress();
   }
-  registerMissionProgress(mode);
+  registerMissionProgress(progressMode);
 }
 
 /* ---------- バックアップ ---------- */
@@ -1982,7 +1986,7 @@ function buildGaugeMatrix() {
 function renderSettingsPanel() {
   renderFireDirectionToggle();
   renderExplanationWaitToggle();
-  MODES.forEach((mode) => {
+  SETTINGS_MODES.forEach((mode) => {
     const catchInput = qs(`#set-catch-${mode}`);
     const coinInput = qs(`#set-coin-${mode}`);
     if (catchInput) catchInput.checked = catchEnabled(mode);
@@ -1992,12 +1996,12 @@ function renderSettingsPanel() {
   qs("#set-coin").value = SETTINGS.coinStep;
   qs("#set-flash-sec").value = (SETTINGS.flashMs / 1000).toFixed(1);
   qs("#set-flash-max").value = SETTINGS.flashMax;
-  MODES.forEach((mode) => {
+  MISSION_MODES.forEach((mode) => {
     qs(`#set-cap-${mode}`).value = missionCap(mode);
   });
   const total = missionTotal();
-  const active = MODES.filter((mode) => missionCap(mode) > 0).length;
-  qs("#mission-cap-total").textContent = `↑ 上の${MODES.length}タブぜんぶの合計：${total}問（必須${active}タブ）でミッションクリア`;
+  const active = MISSION_MODES.filter((mode) => missionCap(mode) > 0).length;
+  qs("#mission-cap-total").textContent = `↑ 上の${MISSION_MODES.length}タブぜんぶの合計：${total}問（必須${active}タブ）でミッションクリア`;
   renderCoinGauge();
 }
 
@@ -2029,7 +2033,7 @@ bindSettingInput("#set-coin", "coinStep", () => {
 });
 
 // タブごとのミッション問題数（0 = きょうは必須から外す）
-MODES.forEach((mode) => {
+MISSION_MODES.forEach((mode) => {
   const input = qs(`#set-cap-${mode}`);
   input.addEventListener("change", () => {
     const value = Math.round(Number(input.value));

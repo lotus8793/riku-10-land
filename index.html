@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=62">
+    <link rel="stylesheet" href="styles.css?v=63">
   </head>
   <body>
     <main class="app-shell">
@@ -78,6 +78,7 @@
           <div class="mission-seg seg-bridge" id="mission-seg-bridge"></div>
           <div class="mission-seg seg-minus" id="mission-seg-minus"></div>
           <div class="mission-seg seg-ice" id="mission-seg-ice"></div>
+          <div class="mission-seg seg-dojo" id="mission-seg-dojo"></div>
         </div>
         <span class="mission-text" id="mission-text">あと60もん</span>
         <span class="mission-legend" id="mission-legend"></span>
@@ -507,6 +508,7 @@
         <div class="question-card">
           <div class="prompt-row">
             <p class="prompt" id="dojo-title">にがてを たおそう！</p>
+            <span class="practice-cap" id="dojo-cap"></span>
           </div>
           <p class="stats-day-summary">まちがえた問題と、20びょう以上かかった問題を、カテゴリごちゃまぜで復習しよう！</p>
           <button class="start-button" type="button" id="dojo-start">スタート</button>
@@ -584,7 +586,7 @@
             </button>
           </div>
           <p class="settings-note">「解説待ち ON」では、解説アニメーションが終わるまで「つぎへ」を表示しません（初期設定はON）</p>
-          <h3 class="stats-heading">ほのおのダンジョン</h3>
+          <h3 class="stats-heading">炎のダンジョン</h3>
           <p class="settings-note">通常は小さい数から大きい数へ移動。ONでは、式の左の数から右の数へ固定します（ブロックはいつも後ろから移動）</p>
           <div class="settings-display-toggles">
             <button class="time-toggle settings-display-toggle" type="button" id="fire-direction-toggle" aria-pressed="false">
@@ -600,9 +602,10 @@
             <label>かみなりジム <input type="number" id="set-cap-flash" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
             <label>たしざんジム <input type="number" id="set-cap-simple" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
             <label>もぎダンジョン <input type="number" id="set-cap-mogi" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
-            <label>ほのおのダンジョン <input type="number" id="set-cap-bridge" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
+            <label>炎のダンジョン <input type="number" id="set-cap-bridge" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
             <label>ひきざんジム <input type="number" id="set-cap-minus" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
-            <label>こおりのダンジョン <input type="number" id="set-cap-ice" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
+            <label>氷のダンジョン <input type="number" id="set-cap-ice" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
+            <label>にがて道場 <input type="number" id="set-cap-dojo" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
           </div>
           <p class="settings-note settings-note-total" id="mission-cap-total"></p>
           <h3 class="stats-heading">ゲージのクリア問題数</h3>
@@ -664,6 +667,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=65"></script>
+    <script src="app.js?v=66"></script>
   </body>
 </html>
