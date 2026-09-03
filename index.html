@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=63">
+    <link rel="stylesheet" href="styles.css?v=64">
   </head>
   <body>
     <main class="app-shell">
@@ -49,7 +49,8 @@
         <button class="mode-tab" type="button" data-mode="minus">ひきざんジム</button>
         <button class="mode-tab" type="button" data-mode="ice">氷のダンジョン</button>
         <button class="mode-tab" type="button" data-mode="multiply">かけざんジム</button>
-        <button class="mode-tab" type="button" data-mode="dojo">にがて道場</button>
+        <button class="mode-tab" type="button" data-mode="dojo">ふくしゅうジム</button>
+        <button class="mode-tab" type="button" data-mode="weakness">にがて道場</button>
         <button class="mode-tab" type="button" data-mode="gametime">ゲームじかんやさん</button>
         <button class="mode-tab" type="button" data-mode="dex">ずかん</button>
         <button class="mode-tab" type="button" data-mode="calendar">カレンダー</button>
@@ -453,7 +454,7 @@
               <button class="quiet-button" type="button" id="cal-next">つぎ →</button>
             </div>
           </div>
-          <p class="cal-legend"><span class="cal-stamp cal-ball"></span> ミッションクリア　🟢 あそんだ日</p>
+          <p class="cal-legend"><span class="cal-stamp cal-master"></span> ミッション＋復習クリア　<span class="cal-stamp cal-ball"></span> ミッションクリア　🟢 あそんだ日</p>
           <div class="cal-grid" id="cal-grid"></div>
         </div>
       </section>
@@ -507,12 +508,23 @@
       <section class="records-panel is-hidden" id="dojo-mode" aria-labelledby="dojo-title">
         <div class="question-card">
           <div class="prompt-row">
-            <p class="prompt" id="dojo-title">にがてを たおそう！</p>
+            <p class="prompt" id="dojo-title">きょうの まちがいを 0にしよう！</p>
             <span class="practice-cap" id="dojo-cap"></span>
           </div>
-          <p class="stats-day-summary">まちがえた問題と、20びょう以上かかった問題を、カテゴリごちゃまぜで復習しよう！</p>
+          <p class="stats-day-summary">きょう まちがえた問題を、ぜんぶ正解するまで復習しよう！</p>
           <button class="start-button" type="button" id="dojo-start">スタート</button>
           <div class="dojo-list" id="dojo-list" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section class="records-panel is-hidden" id="weakness-mode" aria-labelledby="weakness-title">
+        <div class="question-card">
+          <div class="prompt-row">
+            <p class="prompt" id="weakness-title">にがてを たおそう！</p>
+          </div>
+          <p class="stats-day-summary">これまでに間違えた問題を、カテゴリごちゃまぜでエンドレスに復習しよう！ 正解するとコインゲージが2倍すすむよ。</p>
+          <button class="start-button" type="button" id="weakness-start">スタート</button>
+          <div class="dojo-list" id="weakness-list" aria-live="polite"></div>
         </div>
       </section>
 
@@ -605,7 +617,7 @@
             <label>炎のダンジョン <input type="number" id="set-cap-bridge" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
             <label>ひきざんジム <input type="number" id="set-cap-minus" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
             <label>氷のダンジョン <input type="number" id="set-cap-ice" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
-            <label>にがて道場 <input type="number" id="set-cap-dojo" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
+            <label>ふくしゅうジム <input type="number" id="set-cap-dojo" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
           </div>
           <p class="settings-note settings-note-total" id="mission-cap-total"></p>
           <h3 class="stats-heading">ゲージのクリア問題数</h3>
@@ -667,6 +679,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=66"></script>
+    <script src="app.js?v=67"></script>
   </body>
 </html>

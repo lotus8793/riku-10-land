@@ -70,6 +70,7 @@ function defaultGaugeMap() {
   });
   map.multiply = false;
   map.dojo = false;
+  map.weakness = false;
   return map;
 }
 
@@ -87,6 +88,7 @@ function loadSettings() {
     catchModes: defaultGaugeMap(), // ポケモンゲットに進めるタブ
     coinModes: defaultGaugeMap() // コインゲージに進めるタブ
   };
+  defaults.coinModes.weakness = true;
   let parsed = null;
   try {
     parsed = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
@@ -120,7 +122,7 @@ function loadSettings() {
 
   // 新形式
   if (parsed.missionCaps && typeof parsed.missionCaps === "object") {
-    [...MODES, "multiply", "dojo"].forEach((mode) => {
+    [...MODES, "multiply", "dojo", "weakness"].forEach((mode) => {
       const value = Number(parsed.missionCaps[mode]);
       if (Number.isFinite(value) && value >= 0 && value <= 999) merged.missionCaps[mode] = Math.round(value);
     });
@@ -134,7 +136,7 @@ function loadSettings() {
   merged.version = SETTINGS_VERSION;
   ["catchModes", "coinModes"].forEach((key) => {
     if (!parsed[key] || typeof parsed[key] !== "object") return;
-    [...MODES, "multiply", "dojo"].forEach((mode) => {
+    [...MODES, "multiply", "dojo", "weakness"].forEach((mode) => {
       if (typeof parsed[key][mode] === "boolean") merged[key][mode] = parsed[key][mode];
     });
   });
@@ -687,7 +689,8 @@ const state = {
   challenge: { remainingMs: CHALLENGE_SECONDS * 1000, intervalId: null, ended: false }
 };
 
-state.dojo = { queue: [], current: 0, started: false, target: null };
+state.dojo = { queue: [], current: 0, started: false, target: null, lastCorrect: false };
+state.weakness = { queue: [], current: 0, started: false, target: null };
 
 function qs(selector) {
   return document.querySelector(selector);
@@ -907,6 +910,7 @@ function recordAnswer(mode, problem, correct) {
   day.problems[mode][key] = dailyProblem;
   state.dayLog[todayStr()] = day;
   saveDayLog();
+  if (!correct) refreshTodayMasterBall();
 }
 
 function problemWeight(stat) {
@@ -918,9 +922,10 @@ function problemWeight(stat) {
 
 function pickWeighted(mode, items, lastKey) {
   const keyFn = statKeyFn(mode);
-  if (state.dojo?.started && state.dojo.target?.mode === mode) {
-    const target = items.find((item) => keyFn(item) === state.dojo.target.key);
-    state.dojo.target = null;
+  const session = state.dojo?.started ? state.dojo : state.weakness?.started ? state.weakness : null;
+  if (session?.target?.mode === mode) {
+    const target = items.find((item) => keyFn(item) === session.target.key);
+    session.target = null;
     if (target) return target;
   }
   const filtered = items.filter((item) => keyFn(item) !== lastKey);
@@ -1036,6 +1041,7 @@ function registerMissionClear() {
   day.m = true;
   state.dayLog[todayStr()] = day;
   saveDayLog();
+  refreshTodayMasterBall();
   if (state.streak.count % STREAK_BONUS_DAYS === 0) {
     state.walletYen += COIN_VALUE;
     state.streakBonusJust = true;
@@ -1385,7 +1391,7 @@ function saveCatchProgress() {
 
 // 間違えたときのペナルティ。ポケモンゲット対象のタブだけ、進捗が1つ戻る
 function registerWrong(mode) {
-  const progressMode = state.dojo.started ? "dojo" : mode;
+  const progressMode = state.dojo.started ? "dojo" : state.weakness.started ? "weakness" : mode;
   if (!catchEnabled(progressMode)) return;
   state.catchProgress = Math.max(0, state.catchProgress - 1);
   saveCatchProgress();
@@ -1425,10 +1431,13 @@ function registerMissionProgress(mode) {
 
 // 正解1問ぶんの処理。どのゲージに進むかは設定タブのタブ別トグルで決まる
 function registerCorrect(mode) {
-  const progressMode = state.dojo.started ? "dojo" : mode;
+  const progressMode = state.dojo.started ? "dojo" : state.weakness.started ? "weakness" : mode;
   state.totalCorrect += 1;
   localStorage.setItem(TOTAL_KEY, String(state.totalCorrect));
-  if (coinEnabled(progressMode)) registerCoinProgress();
+  if (coinEnabled(progressMode)) {
+    registerCoinProgress();
+    if (state.weakness.started) registerCoinProgress();
+  }
   if (catchEnabled(progressMode)) {
     state.catchProgress += 1;
     if (state.catchProgress >= SETTINGS.catchStep) {
@@ -1486,8 +1495,9 @@ const STATS_MODE_LABELS = { simple: "足し算ジム", pair: "合わせて10", t
 MODE_LABELS.bridge = "炎のダンジョン";
 MODE_LABELS.ice = "氷のダンジョン";
 MODE_LABELS.multiply = "かけざんジム";
-MODE_LABELS.dojo = "にがて道場";
-const SETTINGS_MODES = [...MODES, "multiply", "dojo"];
+MODE_LABELS.dojo = "ふくしゅうジム";
+MODE_LABELS.weakness = "にがて道場";
+const SETTINGS_MODES = [...MODES, "multiply", "dojo", "weakness"];
 
 function formatProblemLabel(mode, key) {
   if (mode === "flash") return `${key}こ`;
@@ -1526,6 +1536,23 @@ function dailyProblemEntries(day, mode) {
     s: Math.max(0, Number(stat && stat.s) || 0),
     t: Math.max(0, Number(stat && stat.t) || 0)
   }));
+}
+
+function clearTodayWrongProblem(mode, key) {
+  const day = state.dayLog[todayStr()];
+  const problem = day?.problems?.[mode]?.[key];
+  if (!problem) return;
+  problem.w = 0;
+  saveDayLog();
+  refreshTodayMasterBall();
+}
+
+function refreshTodayMasterBall() {
+  const day = state.dayLog[todayStr()];
+  if (!day) return;
+  day.master = Boolean(day.m && todayWrongItems().length === 0);
+  saveDayLog();
+  if (state.activeMode === "calendar") renderCalendar();
 }
 
 function dailySlowCount(day) {
@@ -1861,57 +1888,74 @@ function renderReport() {
   qs("#report-footer").textContent = `これまでの るいけい せいかい数は ${state.totalCorrect}もん だよ`;
 }
 
-function renderWeaknessDojo() {
-  const wrap = qs("#dojo-list");
-  wrap.replaceChildren();
-  // 道場タブを開き直したら、必ずスタート画面から始める。
-  qs("#dojo-start").classList.remove("is-hidden");
-  qs("#dojo-list").classList.remove("is-hidden");
-  const items = [];
-  MODES.forEach((mode) => {
-    if (mode === "pair") return;
-    Object.entries(state.stats[mode] || {}).forEach(([key, stat]) => {
-      const correct = Math.max(0, Number(stat?.c) || 0);
-      const wrong = Math.max(0, Number(stat?.w) || 0);
-      const time = Math.max(0, Number(stat?.t) || 0);
-      const attempts = correct + wrong;
-      if (!attempts || (wrong <= 0 && time < SLOW_ANSWER_MS)) return;
-      const slow = time >= SLOW_ANSWER_MS;
-      items.push({ mode, key, wrong, time, attempts, score: wrong / attempts * 100 + (slow ? 20 : 0) });
-    });
-  });
-  // 苦手度の高い問題を集めたあと、カテゴリが続かないように出題順を混ぜる。
-  items.sort((a, b) => b.score - a.score || b.wrong - a.wrong || b.time - a.time);
+function mixPracticeItems(items) {
   const buckets = new Map();
   items.forEach((item) => {
     if (!buckets.has(item.mode)) buckets.set(item.mode, []);
     buckets.get(item.mode).push(item);
   });
-  const mixedItems = [];
+  const mixed = [];
   let previousMode = "";
-  while (mixedItems.length < items.length) {
-    const available = [...buckets.entries()].filter(([mode, bucket]) => bucket.length && mode !== previousMode);
-    const candidates = available.length ? available : [...buckets.entries()].filter(([, bucket]) => bucket.length);
+  while (mixed.length < items.length) {
+    const different = [...buckets.entries()].filter(([mode, bucket]) => bucket.length && mode !== previousMode);
+    const candidates = different.length ? different : [...buckets.entries()].filter(([, bucket]) => bucket.length);
     if (!candidates.length) break;
-    const [mode, bucket] = candidates[Math.floor(Math.random() * candidates.length)];
-    mixedItems.push(bucket.shift());
+    const [mode, bucket] = pick(candidates);
+    mixed.push(bucket.shift());
     previousMode = mode;
   }
-  state.dojo.queue = mixedItems.slice(0, 30);
+  return mixed;
+}
+
+function todayWrongItems() {
+  const day = state.dayLog[todayStr()];
+  return MODES.flatMap((mode) => mode === "pair" ? [] : dailyProblemEntries(day, mode)
+    .filter((item) => item.w > 0)
+    .map((item) => ({ mode, key: item.key })));
+}
+
+function renderReviewGym() {
+  const wrap = qs("#dojo-list");
+  wrap.replaceChildren();
+  qs("#dojo-start").classList.remove("is-hidden");
+  qs("#dojo-list").classList.remove("is-hidden");
+  state.dojo.queue = mixPracticeItems(todayWrongItems());
   state.dojo.current = 0;
   state.dojo.started = false;
-  qs("#dojo-start").textContent = state.dojo.queue.length ? "スタート" : "復習する問題はないよ";
+  state.dojo.lastCorrect = false;
+  qs("#dojo-start").textContent = state.dojo.queue.length ? "スタート" : "きょうの まちがいは 0もん！";
   qs("#dojo-start").disabled = !state.dojo.queue.length;
-  if (!items.length) {
-    const empty = document.createElement("p");
-    empty.className = "records-empty";
-    empty.textContent = "まだ にがて問題の記録がないよ。まちがえたり、ゆっくり答えた問題がここに出てくるよ！";
-    wrap.append(empty);
-    return;
-  }
   const note = document.createElement("p");
   note.className = "stats-day-summary";
-  note.textContent = `${state.dojo.queue.length}問をカテゴリごちゃまぜで出題するよ。`;
+  note.textContent = state.dojo.queue.length ? `のこり ${state.dojo.queue.length}もん` : "ミッションもクリアすると、カレンダーがマスターボールになるよ！";
+  wrap.append(note);
+  refreshTodayMasterBall();
+}
+
+function historicalWrongItems() {
+  const items = [];
+  MODES.forEach((mode) => {
+    if (mode === "pair") return;
+    Object.entries(state.stats[mode] || {}).forEach(([key, stat]) => {
+      const wrong = Math.max(0, Number(stat?.w) || 0);
+      if (wrong > 0) items.push({ mode, key, wrong });
+    });
+  });
+  return mixPracticeItems(items.sort((a, b) => b.wrong - a.wrong));
+}
+
+function renderEndlessDojo() {
+  const wrap = qs("#weakness-list");
+  wrap.replaceChildren();
+  qs("#weakness-start").classList.remove("is-hidden");
+  state.weakness.queue = historicalWrongItems();
+  state.weakness.current = 0;
+  state.weakness.started = false;
+  qs("#weakness-start").disabled = !state.weakness.queue.length;
+  qs("#weakness-start").textContent = state.weakness.queue.length ? "スタート" : "まだ にがて問題はないよ";
+  const note = document.createElement("p");
+  note.className = "stats-day-summary";
+  note.textContent = state.weakness.queue.length ? `${state.weakness.queue.length}種類の問題をくりかえし出題するよ。` : "問題をまちがえると、ここに追加されるよ。";
   wrap.append(note);
 }
 
@@ -1932,6 +1976,32 @@ function launchDojoQuestion() {
 }
 
 qs("#dojo-start").addEventListener("click", () => startDojoAt(0));
+
+function startEndlessDojo() {
+  if (!state.weakness.queue.length) return;
+  state.weakness.started = true;
+  launchEndlessQuestion();
+}
+
+function launchEndlessQuestion() {
+  const item = state.weakness.queue[state.weakness.current];
+  state.weakness.target = item;
+  state.simpleFollowUp = null;
+  switchMode(item.mode);
+  document.querySelectorAll(".mode-tab").forEach((tab) => tab.classList.toggle("is-active", tab.dataset.mode === "weakness"));
+  startMode(item.mode);
+}
+
+function nextEndlessQuestion() {
+  state.weakness.current += 1;
+  if (state.weakness.current >= state.weakness.queue.length) {
+    state.weakness.queue = mixPracticeItems(state.weakness.queue);
+    state.weakness.current = 0;
+  }
+  launchEndlessQuestion();
+}
+
+qs("#weakness-start").addEventListener("click", startEndlessDojo);
 
 function renderStatsPanel() {
   renderStatsCalendar();
@@ -2125,7 +2195,8 @@ function renderCalendar() {
     num.textContent = d;
     const stamp = document.createElement("span");
     stamp.className = "cal-stamp";
-    if (cleared) stamp.classList.add("cal-ball");
+    if (log?.master) stamp.classList.add("cal-master");
+    else if (cleared) stamp.classList.add("cal-ball");
     else stamp.textContent = played ? "🟢" : "";
     if (played) cell.title = `${log.c || 0}問正解 / ${log.w || 0}問ミス`;
     cell.append(num, stamp);
@@ -2243,6 +2314,10 @@ function onCorrect(mode) {
   M[mode].section.classList.add("is-answer-shown");
   stopChallengeTimer();
   const countsForProgress = answerCountsForProgress(mode);
+  if (state.dojo.started && countsForProgress) {
+    state.dojo.lastCorrect = true;
+    clearTodayWrongProblem(mode, statKeyFn(mode)(state.problem[mode]));
+  }
   if (countsForProgress) {
     state.combo += 1;
     countSolvedQuestion();
@@ -2266,6 +2341,7 @@ function onCorrect(mode) {
 
 function onWrong(mode, _hint, correctValue) {
   const countsForProgress = answerCountsForProgress(mode);
+  if (state.dojo.started && countsForProgress) state.dojo.lastCorrect = false;
   if (countsForProgress) state.combo = 0;
   state.locked[mode] = true;
   M[mode].section.classList.add("is-answer-shown");
@@ -2568,10 +2644,12 @@ function nextQuestion(mode) {
 }
 
 function nextDojoQuestion() {
+  if (!state.dojo.lastCorrect) state.dojo.queue.push(state.dojo.queue[state.dojo.current]);
   state.dojo.current += 1;
   if (state.dojo.current >= state.dojo.queue.length) {
     state.dojo.started = false;
     state.dojo.target = null;
+    state.dojo.lastCorrect = false;
     stopChallengeTimer();
     switchMode("dojo");
     qs("#dojo-start").classList.remove("is-hidden");
@@ -2579,10 +2657,11 @@ function nextDojoQuestion() {
     wrap.replaceChildren();
     const done = document.createElement("p");
     done.className = "dojo-complete";
-    done.textContent = "にがて問題の復習、おわり！よくがんばったね！";
+    done.textContent = "きょうの まちがい 0もん！よくがんばったね！";
     wrap.append(done);
-    qs("#dojo-start").textContent = "もういちど復習する";
-    qs("#dojo-start").disabled = false;
+    qs("#dojo-start").textContent = "復習かんりょう！";
+    qs("#dojo-start").disabled = true;
+    refreshTodayMasterBall();
     return;
   }
   launchDojoQuestion();
@@ -4100,6 +4179,7 @@ function switchMode(mode) {
   qs("#stats-panel").classList.toggle("is-hidden", mode !== "stats");
   qs("#report-mode").classList.toggle("is-hidden", mode !== "report");
   qs("#dojo-mode").classList.toggle("is-hidden", mode !== "dojo");
+  qs("#weakness-mode").classList.toggle("is-hidden", mode !== "weakness");
   qs("#multiply-mode").classList.toggle("is-hidden", mode !== "multiply");
   qs("#settings-mode").classList.toggle("is-hidden", mode !== "settings");
   qs("#calendar-mode").classList.toggle("is-hidden", mode !== "calendar");
@@ -4109,7 +4189,8 @@ function switchMode(mode) {
   if (mode === "dex") renderDex();
   if (mode === "stats") renderStatsPanel();
   if (mode === "report") renderReport();
-  if (mode === "dojo") renderWeaknessDojo();
+  if (mode === "dojo") renderReviewGym();
+  if (mode === "weakness") renderEndlessDojo();
   if (mode === "settings") showParentLockGate();
   if (mode === "calendar") {
     calendarOffset = 0;
@@ -4119,9 +4200,11 @@ function switchMode(mode) {
 
 document.querySelectorAll(".mode-tab").forEach((tab) => {
   tab.addEventListener("click", () => {
-    if (state.dojo.started) {
+    if (state.dojo.started || state.weakness.started) {
       state.dojo.started = false;
       state.dojo.target = null;
+      state.weakness.started = false;
+      state.weakness.target = null;
     }
     switchMode(tab.dataset.mode);
   });
@@ -4207,8 +4290,8 @@ window.addEventListener("keydown", (event) => {
 });
 
 MODES.forEach((mode) => {
-  qs(`#new-${mode}`)?.addEventListener("click", () => state.dojo.started ? nextDojoQuestion() : nextQuestion(mode));
-  M[mode].next.addEventListener("click", () => state.dojo.started ? nextDojoQuestion() : nextQuestion(mode));
+  qs(`#new-${mode}`)?.addEventListener("click", () => state.dojo.started ? nextDojoQuestion() : state.weakness.started ? nextEndlessQuestion() : nextQuestion(mode));
+  M[mode].next.addEventListener("click", () => state.dojo.started ? nextDojoQuestion() : state.weakness.started ? nextEndlessQuestion() : nextQuestion(mode));
   M[mode].start.addEventListener("click", () => startMode(mode));
 });
 
@@ -4332,7 +4415,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("sw.js?v=95", { updateViaCache: "none" })
+    .register("sw.js?v=99", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -4348,5 +4431,6 @@ renderMission();
 renderCoinGauge();
 renderHeroStats();
 renderPartner();
+refreshTodayMasterBall();
 MODES.forEach(resetModeStart);
 switchMode("calendar"); // 起動時はカレンダーを表示
