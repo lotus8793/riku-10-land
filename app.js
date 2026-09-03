@@ -66,6 +66,8 @@ function defaultGaugeMap() {
   MODES.forEach((mode) => {
     map[mode] = GAUGE_MODE_DEFAULTS.includes(mode);
   });
+  map.multiply = false;
+  map.dojo = false;
   return map;
 }
 
@@ -116,7 +118,7 @@ function loadSettings() {
 
   // 新形式
   if (parsed.missionCaps && typeof parsed.missionCaps === "object") {
-    MODES.forEach((mode) => {
+    [...MODES, "multiply", "dojo"].forEach((mode) => {
       const value = Number(parsed.missionCaps[mode]);
       if (Number.isFinite(value) && value >= 0 && value <= 999) merged.missionCaps[mode] = Math.round(value);
     });
@@ -130,7 +132,7 @@ function loadSettings() {
   merged.version = SETTINGS_VERSION;
   ["catchModes", "coinModes"].forEach((key) => {
     if (!parsed[key] || typeof parsed[key] !== "object") return;
-    MODES.forEach((mode) => {
+    [...MODES, "multiply", "dojo"].forEach((mode) => {
       if (typeof parsed[key][mode] === "boolean") merged[key][mode] = parsed[key][mode];
     });
   });
