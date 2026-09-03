@@ -2231,30 +2231,16 @@ body.no-blocks.no-explain #bridge-mode:not(.is-waiting) .bridge-mogi-helper .ten
 .cal-stamp.cal-master {
   position: relative;
   display: inline-block;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border: 2px solid #263238;
   border-radius: 50%;
   background: linear-gradient(180deg, #8b5cf6 0 44%, #263238 44% 56%, #fff 56% 100%);
 }
 
-.cal-stamp.cal-master::before,
 .cal-stamp.cal-master::after {
   content: "";
   position: absolute;
-}
-
-.cal-stamp.cal-master::before {
-  top: 2px;
-  left: 3px;
-  width: 12px;
-  height: 7px;
-  border: 2px solid #fff;
-  border-bottom: 0;
-  clip-path: polygon(0 0, 28% 100%, 50% 30%, 72% 100%, 100% 0, 100% 100%, 0 100%);
-}
-
-.cal-stamp.cal-master::after {
   top: 50%;
   left: 50%;
   width: 6px;
