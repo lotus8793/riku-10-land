@@ -468,6 +468,9 @@ button {
   box-shadow: 0 8px 0 rgba(22, 134, 83, 0.28);
 }
 
+#dojo-start.start-button { display: block; }
+#dojo-start.start-button.is-hidden { display: none; }
+
 .start-button:active {
   transform: translateY(4px);
   box-shadow: 0 4px 0 rgba(22, 134, 83, 0.28);
