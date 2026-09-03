@@ -1472,6 +1472,11 @@ function importBackup(file) {
 
 const MODE_LABELS = { simple: "たしざんジム", pair: "あわせて10", tenplus: "10+X", flash: "かみなりジム", mogi: "もぎダンジョン", bridge: "ほのおのダンジョン", minus: "ひきざんジム", ice: "こおりのダンジョン" };
 const STATS_MODE_LABELS = { simple: "足し算ジム", pair: "合わせて10", tenplus: "10+X", flash: "雷ジム", mogi: "もぎダンジョン", bridge: "炎のダンジョン", minus: "引き算ジム", ice: "氷のダンジョン" };
+MODE_LABELS.bridge = "炎のダンジョン";
+MODE_LABELS.ice = "氷のダンジョン";
+MODE_LABELS.multiply = "かけざんジム";
+MODE_LABELS.dojo = "にがて道場";
+const SETTINGS_MODES = [...MODES, "multiply", "dojo"];
 
 function formatProblemLabel(mode, key) {
   if (mode === "flash") return `${key}こ`;
@@ -1964,7 +1969,7 @@ function buildGaugeMatrix() {
   });
   wrap.append(head);
 
-  MODES.forEach((mode) => {
+  SETTINGS_MODES.forEach((mode) => {
     const row = document.createElement("div");
     row.className = "gauge-row";
     const name = document.createElement("span");
