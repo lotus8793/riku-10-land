@@ -3859,7 +3859,6 @@ function updateMinusPractice() {
     M.minus.feedback.textContent = removed.length === 0
       ? `すきなブロックを ${problem.b}こ けそう`
       : `あと ${need}こ けそう`;
-    M.minus.choices.replaceChildren();
     return;
   }
 
@@ -3897,7 +3896,7 @@ function nextMinus() {
   state.minus.removed = [];
   if (state.minusBlocksEnabled) {
     setupMinusPracticeFrame(p);
-    M.minus.choices.replaceChildren();
+    renderMinusChoices(p);
     updateMinusPractice();
   } else {
     M.minus.feedback.textContent = "こたえを えらんでね";
@@ -3909,7 +3908,6 @@ function nextMinus() {
 
 function chooseMinus(value, button, problem = state.problem.minus) {
   if (state.locked.minus) return;
-  if (state.minusBlocksEnabled && state.minus.removed.length !== problem.b) return;
   const answer = problem.a - problem.b;
   const correct = value === answer;
   recordAnswer("minus", problem, correct);
@@ -4559,7 +4557,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("sw.js?v=102", { updateViaCache: "none" })
+    .register("sw.js?v=104", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
