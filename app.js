@@ -3860,8 +3860,6 @@ function setupMinusPracticeFrame(problem) {
 }
 
 function updateMinusPractice() {
-  const problem = state.problem.minus;
-  if (!problem) return;
   const removed = state.minus.removed;
   [...els.minusFrame.children].forEach((cell, index) => {
     const order = removed.indexOf(index);
@@ -3872,19 +3870,6 @@ function updateMinusPractice() {
     if (selected) cell.dataset.count = String(order + 1);
     else delete cell.dataset.count;
   });
-
-  const need = problem.b - removed.length;
-  if (need > 0) {
-    M.minus.feedback.className = "feedback";
-    M.minus.feedback.textContent = removed.length === 0
-      ? `すきなブロックを ${problem.b}こ けそう`
-      : `あと ${need}こ けそう`;
-    return;
-  }
-
-  M.minus.feedback.className = "feedback is-good minus-ready-feedback";
-  M.minus.feedback.textContent = "できた！ のこりを かぞえて こたえよう";
-  if (!M.minus.choices.children.length) renderMinusChoices(problem);
 }
 
 function toggleMinusBlock(index) {
@@ -3896,7 +3881,6 @@ function toggleMinusBlock(index) {
   if (selectedAt !== -1) {
     state.minus.removed.splice(selectedAt, 1);
   } else {
-    if (state.minus.removed.length >= problem.b) return;
     state.minus.removed.push(index);
   }
   playTone("click");
@@ -3912,6 +3896,7 @@ function nextMinus() {
   els.minusEquation.classList.remove("is-solved");
   els.minusEquation.textContent = `${p.a} − ${p.b}`;
   M.minus.feedback.className = "feedback";
+  M.minus.feedback.textContent = "こたえを えらんでね";
   setNextButton("minus", false);
   state.minus.removed = [];
   if (state.minusBlocksEnabled) {
@@ -3919,7 +3904,6 @@ function nextMinus() {
     renderMinusChoices(p);
     updateMinusPractice();
   } else {
-    M.minus.feedback.textContent = "こたえを えらんでね";
     renderMinusFrame(els.minusFrame, p.a, 0);
     renderMinusChoices(p);
   }
@@ -3939,11 +3923,10 @@ function chooseMinus(value, button, problem = state.problem.minus) {
   } else {
     onWrong("minus", "まるを けして かぞえてみよう", answer);
   }
-  if (state.minusBlocksEnabled) {
-    scheduleExplanationFinished("minus", problem, 650);
-  } else {
-    scheduleRemovalReveal("minus", problem, () => minusRemovalTargets(problem));
-  }
+  // 手動で付けた✕はいったん全部戻し、正しい個数を右から消す模範を見せる
+  state.minus.removed = [];
+  renderMinusFrame(els.minusFrame, problem.a, 0);
+  scheduleRemovalReveal("minus", problem, () => minusRemovalTargets(problem));
 }
 
 els.minusFrame.addEventListener("click", (event) => {
@@ -4577,7 +4560,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("sw.js?v=105", { updateViaCache: "none" })
+    .register("sw.js?v=106", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }

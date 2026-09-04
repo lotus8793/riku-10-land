@@ -649,10 +649,6 @@ body.no-minus-blocks.no-explain #minus-mode .ten-frame {
   outline-offset: 2px;
 }
 
-.minus-ready-feedback {
-  animation: friend-pop 320ms cubic-bezier(0.2, 1.4, 0.45, 1) both;
-}
-
 .donor-dot.is-removed {
   position: relative;
   border-color: #cbd5e1;
