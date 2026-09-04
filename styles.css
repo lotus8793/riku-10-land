@@ -2446,6 +2446,18 @@ body.no-blocks.no-explain #bridge-mode:not(.is-waiting) .bridge-mogi-helper .ten
   line-height: 1.6;
 }
 
+.stats-day-warning {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid #e8b45c;
+  border-radius: 10px;
+  background: #fff6df;
+  color: #7c4a00;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.65;
+}
+
 .stats-detail-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -2532,6 +2544,11 @@ body.no-blocks.no-explain #bridge-mode:not(.is-waiting) .bridge-mogi-helper .ten
 .stats-issue-tag.is-slow {
   background: #fff0d5;
   color: #a75b00;
+}
+
+.stats-issue-tag.is-reviewed {
+  background: #e2f7e9;
+  color: #187342;
 }
 
 /* 1しゅうかんレポート */

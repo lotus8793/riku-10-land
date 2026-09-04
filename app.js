@@ -915,7 +915,10 @@ function recordAnswer(mode, problem, correct) {
   dailyProblem.s = Math.max(0, Number(dailyProblem.s) || 0);
   dailyProblem.t = Math.max(0, Number(dailyProblem.t) || 0);
   dailyProblem.n += 1;
-  if (!correct) dailyProblem.w += 1;
+  if (!correct) {
+    dailyProblem.w += 1;
+    dailyProblem.r = false;
+  }
   if (elapsedIsValid) {
     dailyProblem.t = Math.max(dailyProblem.t || 0, elapsed);
     if (elapsed >= SLOW_ANSWER_MS) dailyProblem.s += 1;
@@ -1588,7 +1591,8 @@ function dailyProblemEntries(day, mode) {
     key,
     w: Math.max(0, Number(stat && stat.w) || 0),
     s: Math.max(0, Number(stat && stat.s) || 0),
-    t: Math.max(0, Number(stat && stat.t) || 0)
+    t: Math.max(0, Number(stat && stat.t) || 0),
+    reviewed: stat && stat.r === true
   }));
 }
 
@@ -1596,7 +1600,8 @@ function clearTodayWrongProblem(mode, key) {
   const day = state.dayLog[todayStr()];
   const problem = day?.problems?.[mode]?.[key];
   if (!problem) return;
-  problem.w = 0;
+  // 誤答回数は統計の履歴なので消さず、復習済みかどうかを別に記録する。
+  problem.r = true;
   saveDayLog();
   refreshTodayMasterBall();
 }
@@ -1613,6 +1618,10 @@ function dailySlowCount(day) {
   return MODES.reduce((total, mode) => total + dailyProblemEntries(day, mode).reduce((sum, item) => {
     return sum + (item.s || (item.t >= SLOW_ANSWER_MS ? 1 : 0));
   }, 0), 0);
+}
+
+function dailyRecordedWrongCount(day) {
+  return MODES.reduce((total, mode) => total + dailyProblemEntries(day, mode).reduce((sum, item) => sum + item.w, 0), 0);
 }
 
 function renderStatsSummary(base) {
@@ -1710,11 +1719,15 @@ function renderStatsDayDetail() {
   const day = state.dayLog[selectedStatsDate] || { c: 0, w: 0 };
   const attempts = (day.c || 0) + (day.w || 0);
   const slow = dailySlowCount(day);
+  const recordedWrong = dailyRecordedWrongCount(day);
+  const unavailableWrong = Math.max(0, (Number(day.w) || 0) - recordedWrong);
   qs("#stats-day-title").textContent = `${month}月${date}日の振り返り`;
-  const hasDetails = MODES.some((mode) => dailyProblemEntries(day, mode).length > 0);
-  let summary = `解答数 ${attempts}問　／　誤答 ${day.w || 0}問　／　20秒以上 ${slow}問`;
-  if (!hasDetails && (day.w || 0) > 0) summary += "（問題ごとの内訳は、この更新後の記録から表示されます）";
-  qs("#stats-day-summary").textContent = summary;
+  qs("#stats-day-summary").textContent = `解答数 ${attempts}問　／　誤答 ${day.w || 0}問　／　20秒以上 ${slow}問`;
+  const warning = qs("#stats-day-warning");
+  warning.classList.toggle("is-hidden", unavailableWrong === 0);
+  warning.textContent = unavailableWrong > 0
+    ? `誤答${day.w || 0}問のうち${unavailableWrong}問は、旧形式の記録または過去の復習処理で問題名が保存されていないため、問題別に表示できません。問題名が残っている過去の誤答は、下の「蓄積データから見た苦手な問題」で確認できます。`
+    : "";
 
   const wrap = qs("#stats-day-details");
   wrap.replaceChildren();
@@ -1753,6 +1766,12 @@ function renderStatsDayDetail() {
           slowTag.className = "stats-issue-tag is-slow";
           slowTag.textContent = `${Math.ceil(item.t / 1000)}秒`;
           flags.append(slowTag);
+        }
+        if (item.w > 0 && item.reviewed) {
+          const reviewed = document.createElement("span");
+          reviewed.className = "stats-issue-tag is-reviewed";
+          reviewed.textContent = "復習済み";
+          flags.append(reviewed);
         }
         row.append(label, flags);
         list.append(row);
@@ -1964,7 +1983,7 @@ function mixPracticeItems(items) {
 function todayWrongItems() {
   const day = state.dayLog[todayStr()];
   return MODES.flatMap((mode) => mode === "pair" ? [] : dailyProblemEntries(day, mode)
-    .filter((item) => item.w > 0)
+    .filter((item) => item.w > 0 && !item.reviewed)
     .map((item) => ({ mode, key: item.key })));
 }
 
@@ -4560,7 +4579,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("sw.js?v=106", { updateViaCache: "none" })
+    .register("sw.js?v=107", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
