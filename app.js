@@ -1302,6 +1302,23 @@ function renderMissionCaps() {
     const left = Math.max(0, cap - (state.daily[`${mode}Used`] || 0));
     el.textContent = left > 0 ? `ミッションに あと${left}もん` : "きょうのぶんは クリア！";
   });
+
+  // ふくしゅうジム／にがて道場は元カテゴリの画面を借りて出題するため、
+  // そのままだと「ひきざんジムに あと5もん」など誤った進捗が表示される。
+  const activeCap = MODES.includes(state.activeMode) ? qs(`#${state.activeMode}-cap`) : null;
+  if (!activeCap) return;
+  if (state.dojo.started) {
+    const remaining = Math.max(0, state.dojo.queue.length - state.dojo.current - (state.dojo.lastCorrect ? 1 : 0));
+    activeCap.textContent = `復習のこり ${remaining}もん`;
+  } else if (state.weakness.started) {
+    const cap = missionCap("weakness");
+    const left = Math.max(0, cap - (state.daily.weaknessUsed || 0));
+    activeCap.textContent = cap <= 0
+      ? "にがて道場 エンドレス"
+      : left > 0
+        ? `にがて道場のミッションに あと${left}もん`
+        : "にがて道場の きょうのぶんは クリア！";
+  }
 }
 
 function renderMission() {
@@ -2006,10 +2023,12 @@ function startDojoAt(index = 0) {
 function launchDojoQuestion() {
   const item = state.dojo.queue[state.dojo.current];
   state.dojo.target = item;
+  state.dojo.lastCorrect = false;
   state.simpleFollowUp = null;
   switchMode(item.mode);
   document.querySelectorAll(".mode-tab").forEach((tab) => tab.classList.toggle("is-active", tab.dataset.mode === "dojo"));
   startMode(item.mode);
+  renderMissionCaps();
 }
 
 qs("#dojo-start").addEventListener("click", () => startDojoAt(0));
@@ -2027,6 +2046,7 @@ function launchEndlessQuestion() {
   switchMode(item.mode);
   document.querySelectorAll(".mode-tab").forEach((tab) => tab.classList.toggle("is-active", tab.dataset.mode === "weakness"));
   startMode(item.mode);
+  renderMissionCaps();
 }
 
 function nextEndlessQuestion() {
@@ -4557,7 +4577,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("sw.js?v=104", { updateViaCache: "none" })
+    .register("sw.js?v=105", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
