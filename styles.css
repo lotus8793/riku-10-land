@@ -330,6 +330,11 @@ button {
   background: #56c2e8;
 }
 
+.mission-seg.seg-multiply,
+.legend-dot.seg-multiply {
+  background: #ec6da5;
+}
+
 .mission-seg.seg-dojo,
 .legend-dot.seg-dojo {
   background: #a855f7;
@@ -514,6 +519,9 @@ button {
 .play-area.is-waiting .flash-stage,
 .play-area.is-waiting .flash-explain,
 .play-area.is-waiting .flash-actions,
+.play-area.is-waiting .multiply-equation,
+.play-area.is-waiting .multiply-explanation,
+.play-area.is-waiting .multiply-pad-panel,
 .play-area.is-waiting .choice-grid {
   display: none;
 }
@@ -3174,4 +3182,282 @@ body.no-blocks.no-explain #bridge-mode:not(.is-waiting) .bridge-mogi-helper .ten
   width: 22px;
   height: 22px;
   accent-color: #2f5fd0;
+}
+
+/* ---------- かけざんジム（iPad mini・たて向き基準） ---------- */
+
+.multiply-card {
+  border-color: #f0b8d1;
+  background: linear-gradient(160deg, #fffafd 0%, #fff0f7 58%, #f4edff 100%);
+}
+
+.multiply-equation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 1.8vw, 16px);
+  min-height: 82px;
+  margin: 8px auto 4px;
+  font-size: clamp(42px, 7vw, 58px);
+  font-weight: 950;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.multiply-equation.is-solved {
+  color: var(--ink);
+}
+
+.multiply-answer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 102px;
+}
+
+.multiply-answer-digit {
+  display: grid;
+  place-items: center;
+  min-width: 48px;
+  height: 62px;
+  padding: 0 7px;
+  border: 3px solid #d5c7ed;
+  border-radius: 14px;
+  background: #fff;
+  color: #6d4bc2;
+  font-size: 42px;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.multiply-answer-digit.is-none {
+  min-width: 70px;
+  color: #7d6c90;
+  font-size: 19px;
+}
+
+.multiply-answer.is-final {
+  gap: 0;
+  min-width: 50px;
+}
+
+.multiply-answer.is-final .multiply-answer-digit {
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #168653;
+  font-size: inherit;
+}
+
+.multiply-answer.is-final .multiply-answer-digit.is-empty {
+  display: none;
+}
+
+.multiply-explanation {
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  margin-top: 6px;
+}
+
+.multiply-explanation.is-hidden {
+  display: none;
+}
+
+.multiply-reading {
+  width: 100%;
+  margin: 0;
+  padding: 10px 14px;
+  border: 2px solid #efc2d7;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #8a2457;
+  font-size: clamp(23px, 4vw, 31px);
+  font-weight: 950;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.multiply-board {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  margin: 1px auto 0;
+}
+
+.multiply-board.is-dense {
+  gap: 3px;
+}
+
+.multiply-set {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 4px 7px;
+  border: 1px solid rgba(142, 83, 174, 0.16);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.multiply-set:nth-child(even) {
+  background: rgba(242, 232, 255, 0.82);
+}
+
+.multiply-board.is-dense .multiply-set {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.multiply-set-number {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #8256b5;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.multiply-blocks {
+  display: grid;
+  grid-template-columns: repeat(var(--multiply-columns), minmax(0, 1fr));
+  gap: 4px;
+  min-width: 0;
+}
+
+.multiply-board.is-dense .multiply-blocks {
+  gap: 3px;
+}
+
+.multiply-block {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border: 2px solid #b03c73;
+  border-radius: 5px;
+  background: linear-gradient(145deg, #ff99c5, #ef5e9e);
+  box-shadow: inset 0 -3px 0 rgba(132, 27, 75, 0.15);
+  animation: multiply-block-pop 240ms ease-out var(--block-delay) both;
+}
+
+@keyframes multiply-block-pop {
+  from { opacity: 0; transform: scale(0.55); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.multiply-block-text {
+  margin: 0;
+  color: #5c3b71;
+  font-size: 17px;
+  font-weight: 900;
+  text-align: center;
+}
+
+body.no-explain .multiply-board,
+body.no-explain .multiply-block-text {
+  display: none;
+}
+
+.multiply-pad-panel {
+  align-self: start;
+  padding: 15px;
+  border: 2px solid rgba(38, 50, 56, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow);
+}
+
+.multiply-pad-step {
+  min-height: 30px;
+  margin: 0 0 10px;
+  color: #5c3b71;
+  font-size: 20px;
+  font-weight: 950;
+  text-align: center;
+}
+
+.multiply-keypad {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.multiply-keypad .multiply-key {
+  min-height: 68px;
+  border-radius: 16px;
+  font-size: 36px;
+  box-shadow: 0 6px 0 rgba(38, 50, 56, 0.09);
+}
+
+.multiply-keypad .multiply-key.is-wide {
+  grid-column: 1 / -1;
+  min-height: 58px;
+  font-size: 23px;
+}
+
+.multiply-keypad.is-locked .multiply-key:disabled {
+  color: var(--ink);
+  opacity: 0.72;
+}
+
+.multiply-keypad.is-locked .multiply-key.is-correct {
+  border-color: #30a46c;
+  background: #c9f7dc;
+  opacity: 1;
+}
+
+.multiply-keypad.is-locked .multiply-key.is-wrong {
+  border-color: #f97066;
+  background: #ffe1dc;
+  opacity: 1;
+}
+
+.multiply-back {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 11px;
+  padding: 8px 10px;
+  border-radius: 13px;
+  background: #eee9f6;
+  color: #665879;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.multiply-back.is-hidden {
+  display: none;
+}
+
+@media (min-width: 720px) {
+  .multiply-area {
+    grid-template-columns: minmax(0, 1fr) minmax(270px, 310px);
+    gap: 12px;
+  }
+
+  .multiply-keypad .multiply-key {
+    min-height: 72px;
+  }
+}
+
+@media (max-width: 719px) {
+  .multiply-equation {
+    font-size: clamp(37px, 11vw, 50px);
+  }
+
+  .multiply-pad-panel {
+    padding: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .multiply-block {
+    animation: none;
+  }
 }

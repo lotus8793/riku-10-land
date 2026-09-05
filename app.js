@@ -5,7 +5,7 @@ const TIMER_TICK_MS = 100;
 const MAX_RECORDS = 10;
 const STICKER_STEP = 10;
 
-const MODES = ["pair", "tenplus", "flash", "simple", "mogi", "bridge", "minus", "ice"];
+const MODES = ["pair", "tenplus", "flash", "simple", "mogi", "bridge", "minus", "ice", "multiply"];
 // ふくしゅうジムは「その日の間違いを全部やる」モードなので、固定問数ミッションには含めない
 const MISSION_MODES = [...MODES, "weakness"];
 // どのタブがポケモンゲット／コインゲージに進むかは、設定タブでタブごとに切り替えられる
@@ -20,7 +20,8 @@ const RECORDS_KEYS = {
   mogi: "riku10v2-records-mogi",
   bridge: "riku10v2-records-bridge",
   minus: "riku10v2-records-minus",
-  ice: "riku10v2-records-ice"
+  ice: "riku10v2-records-ice",
+  multiply: "riku10v2-records-multiply"
 };
 const TOTAL_KEY = "riku10v2-total-correct";
 const CATCH_PROGRESS_KEY = "riku10v2-catch-progress";
@@ -53,7 +54,7 @@ const PARENT_LOCK_ATTEMPTS_KEY = "riku10v2-parent-lock-attempts";
 const PARENT_PIN_LENGTH = 4;
 const PARENT_RECOVERY_LENGTH = 8;
 const PARENT_LOCKOUT_MS = 30000;
-const SETTINGS_VERSION = 5;
+const SETTINGS_VERSION = 6;
 
 // きょうのミッションで各タブに必要な問題数の初期値（設定タブでタブごとに変更できる）
 const MISSION_CAP_DEFAULTS = {
@@ -65,6 +66,7 @@ const MISSION_CAP_DEFAULTS = {
   bridge: 10,
   minus: 5,
   ice: 5,
+  multiply: 20,
   weakness: 0
 };
 
@@ -127,7 +129,7 @@ function loadSettings() {
 
   // 新形式
   if (parsed.missionCaps && typeof parsed.missionCaps === "object") {
-    [...MODES, "multiply", "weakness"].forEach((mode) => {
+    [...MODES, "weakness"].forEach((mode) => {
       const value = Number(parsed.missionCaps[mode]);
       if (Number.isFinite(value) && value >= 0 && value <= 999) merged.missionCaps[mode] = Math.round(value);
     });
@@ -143,7 +145,7 @@ function loadSettings() {
   merged.version = SETTINGS_VERSION;
   ["catchModes", "coinModes"].forEach((key) => {
     if (!parsed[key] || typeof parsed[key] !== "object") return;
-    [...MODES, "multiply", "dojo", "weakness"].forEach((mode) => {
+    [...MODES, "dojo", "weakness"].forEach((mode) => {
       if (typeof parsed[key][mode] === "boolean") merged[key][mode] = parsed[key][mode];
     });
   });
@@ -609,6 +611,14 @@ function makeIceProblems() {
   return problems;
 }
 
+function makeMultiplyProblems() {
+  const problems = [];
+  for (let a = 1; a <= 9; a += 1) {
+    for (let b = 1; b <= 9; b += 1) problems.push({ a, b });
+  }
+  return problems;
+}
+
 // かみなりジム（フラッシュ）: 10マスに n 個。5のかたまり＋いくつ、で見る練習。
 // 主役は5〜10（上の段が5でうまって、下の段があといくつ）。1〜4はごくまれ（20問に1問くらい）
 const FLASH_CORE_MIN = 5;
@@ -632,6 +642,7 @@ const simpleProblems = makeSimpleProblems();
 const tenPlusProblems = makeTenPlusProblems();
 const minusProblems = makeMinusProblems();
 const iceProblems = makeIceProblems();
+const multiplyProblems = makeMultiplyProblems();
 
 function loadModeRecords(key) {
   try {
@@ -646,13 +657,13 @@ function loadModeRecords(key) {
 }
 
 const state = {
-  problem: { simple: null, pair: null, tenplus: null, flash: null, mogi: null, bridge: null, minus: null, ice: null },
-  lastKey: { simple: "", pair: "", tenplus: "", flash: "", mogi: "", bridge: "", minus: "", ice: "" },
-  questionAt: { simple: 0, pair: 0, tenplus: 0, flash: 0, mogi: 0, bridge: 0, minus: 0, ice: 0 },
+  problem: { simple: null, pair: null, tenplus: null, flash: null, mogi: null, bridge: null, minus: null, ice: null, multiply: null },
+  lastKey: { simple: "", pair: "", tenplus: "", flash: "", mogi: "", bridge: "", minus: "", ice: "", multiply: "" },
+  questionAt: { simple: 0, pair: 0, tenplus: 0, flash: 0, mogi: 0, bridge: 0, minus: 0, ice: 0, multiply: 0 },
   stats: loadStats(),
   dayLog: loadDayLog(),
-  started: { simple: false, pair: false, tenplus: false, flash: false, mogi: false, bridge: false, minus: false, ice: false },
-  locked: { simple: true, pair: true, tenplus: true, flash: true, mogi: true, bridge: true, minus: true, ice: true },
+  started: { simple: false, pair: false, tenplus: false, flash: false, mogi: false, bridge: false, minus: false, ice: false, multiply: false },
+  locked: { simple: true, pair: true, tenplus: true, flash: true, mogi: true, bridge: true, minus: true, ice: true, multiply: true },
   records: {
     simple: loadModeRecords(RECORDS_KEYS.simple),
     pair: loadModeRecords(RECORDS_KEYS.pair),
@@ -661,7 +672,8 @@ const state = {
     mogi: loadModeRecords(RECORDS_KEYS.mogi),
     bridge: loadModeRecords(RECORDS_KEYS.bridge),
     minus: loadModeRecords(RECORDS_KEYS.minus),
-    ice: loadModeRecords(RECORDS_KEYS.ice)
+    ice: loadModeRecords(RECORDS_KEYS.ice),
+    multiply: loadModeRecords(RECORDS_KEYS.multiply)
   },
   // かみなりジム: timers はフラッシュ表示の setTimeout 群、replays は今の問題で見直した回数
   flash: { timers: [], replays: 0, shown: false },
@@ -674,6 +686,8 @@ const state = {
   bridgeMogi: { open: false, used: false, solved: false, original: { left: 0, right: 0 }, slots: { left: [], right: [] } },
   // ひきざんジム: 子どもが選んだ順に、消したブロックの位置を保持する
   minus: { removed: [] },
+  // かけざんジム: 十の位を先に選び、つぎに一の位を選ぶ
+  multiply: { stage: "tens", tens: undefined, ones: undefined },
   combo: 0,
   stars: 0,
   totalCorrect: Number(localStorage.getItem(TOTAL_KEY) || "0") || 0,
@@ -793,6 +807,18 @@ const els = {
   simpleCompare: qs("#simple-compare"),
   minusEquation: qs("#minus-equation"),
   minusFrame: qs("#minus-frame"),
+  multiplyEquation: qs("#multiply-equation"),
+  multiplyLeft: qs("#multiply-left"),
+  multiplyRight: qs("#multiply-right"),
+  multiplyAnswer: qs("#multiply-answer"),
+  multiplyTens: qs("#multiply-tens"),
+  multiplyOnes: qs("#multiply-ones"),
+  multiplyExplanation: qs("#multiply-explanation"),
+  multiplyReading: qs("#multiply-reading"),
+  multiplyBoard: qs("#multiply-board"),
+  multiplyBlockText: qs("#multiply-block-text"),
+  multiplyPadStep: qs("#multiply-pad-step"),
+  multiplyBack: qs("#multiply-back"),
   confetti: qs("#confetti"),
   flyLayer: qs("#fly-layer"),
   stickerOverlay: qs("#sticker-overlay"),
@@ -1547,18 +1573,18 @@ function importBackup(file) {
 
 /* ---------- せいせき（おうちの人向け） ---------- */
 
-const MODE_LABELS = { simple: "たしざんジム", pair: "あわせて10", tenplus: "10+X", flash: "かみなりジム", mogi: "もぎダンジョン", bridge: "ほのおのダンジョン", minus: "ひきざんジム", ice: "こおりのダンジョン" };
-const STATS_MODE_LABELS = { simple: "足し算ジム", pair: "合わせて10", tenplus: "10+X", flash: "雷ジム", mogi: "もぎダンジョン", bridge: "炎のダンジョン", minus: "引き算ジム", ice: "氷のダンジョン" };
+const MODE_LABELS = { simple: "たしざんジム", pair: "あわせて10", tenplus: "10+X", flash: "かみなりジム", mogi: "もぎダンジョン", bridge: "ほのおのダンジョン", minus: "ひきざんジム", ice: "こおりのダンジョン", multiply: "かけざんジム" };
+const STATS_MODE_LABELS = { simple: "足し算ジム", pair: "合わせて10", tenplus: "10+X", flash: "雷ジム", mogi: "もぎダンジョン", bridge: "炎のダンジョン", minus: "引き算ジム", ice: "氷のダンジョン", multiply: "掛け算ジム" };
 MODE_LABELS.bridge = "炎のダンジョン";
 MODE_LABELS.ice = "氷のダンジョン";
-MODE_LABELS.multiply = "かけざんジム";
 MODE_LABELS.dojo = "ふくしゅうジム";
 MODE_LABELS.weakness = "にがて道場";
-const SETTINGS_MODES = [...MODES, "multiply", "dojo", "weakness"];
+const SETTINGS_MODES = [...MODES, "dojo", "weakness"];
 
 function formatProblemLabel(mode, key) {
   if (mode === "flash") return `${key}こ`;
   if (mode === "minus" || mode === "ice") return key.replace("-", " − ");
+  if (mode === "multiply") return key.replace("-", " × ");
   if (mode === "simple" || mode === "tenplus") return key.replace("-", " + ");
   return key.replace("+", " + ");
 }
@@ -2503,7 +2529,8 @@ const STATIC_EXPLANATION_WAIT_MS = {
   flash: 1900,
   pair: 1200,
   tenplus: 800,
-  mogi: 1000
+  mogi: 1000,
+  multiply: 1400
 };
 
 function shouldWaitForExplanation() {
@@ -2730,6 +2757,7 @@ function nextQuestion(mode) {
   else if (mode === "bridge") nextBridge();
   else if (mode === "minus") nextMinus();
   else if (mode === "ice") nextIce();
+  else if (mode === "multiply") nextMultiply();
   else nextSimple();
 }
 
@@ -3858,6 +3886,205 @@ function chooseBridge(value, button, problem = state.problem.bridge) {
   }
 }
 
+/* ---------- かけざんジム（九九） ---------- */
+
+// 九九を唱えるときの、答えの前までの読み。
+// https://contest.japias.jp/tqj2003/60114/graph.htm の「声に出して読みたい九九」に準拠。
+const MULTIPLY_CALLS = {
+  1: ["いんいち", "いんに", "いんさん", "いんし", "いんご", "いんろく", "いんしち", "いんはち", "いんく"],
+  2: ["にいち", "ににん", "にさん", "にし", "にご", "にろく", "にしち", "にはち", "にく"],
+  3: ["さんいち", "さんに", "さざん", "さんし", "さんご", "さぶろく", "さんしち", "さんぱ", "さんく"],
+  4: ["しいち", "しに", "しさん", "しし", "しご", "しろく", "ししち", "しは", "しく"],
+  5: ["ごいち", "ごに", "ごさん", "ごし", "ごご", "ごろく", "ごしち", "ごは", "ごっく"],
+  6: ["ろくいち", "ろくに", "ろくさん", "ろくし", "ろくご", "ろくろく", "ろくしち", "ろくは", "ろっく"],
+  7: ["しちいち", "しちに", "しちさん", "しちし", "しちご", "しちろく", "しちしち", "しちは", "しちく"],
+  8: ["はちいち", "はちに", "はっさん", "はちし", "はちご", "はちろく", "はちしち", "はっぱ", "はっく"],
+  9: ["くいち", "くに", "くさん", "くし", "くご", "くろく", "くしち", "くは", "くく"]
+};
+
+// 同表では積の4・7・9を「し・しち・く」と唱える（例: 3×3 は「さざん が く」）。
+const JAPANESE_DIGITS = ["", "いち", "に", "さん", "し", "ご", "ろく", "しち", "はち", "く"];
+
+function japaneseNumberReading(number) {
+  if (number < 10) return JAPANESE_DIGITS[number];
+  const tens = Math.floor(number / 10);
+  const ones = number % 10;
+  const tensPart = tens === 1 ? "じゅう" : `${JAPANESE_DIGITS[tens]}じゅう`;
+  return `${tensPart}${JAPANESE_DIGITS[ones]}`;
+}
+
+function multiplyReading(problem) {
+  const answer = problem.a * problem.b;
+  const connector = answer < 10 ? "が" : "";
+  return `${MULTIPLY_CALLS[problem.a][problem.b - 1]}${connector}、${japaneseNumberReading(answer)}`;
+}
+
+function renderMultiplyDraft() {
+  const { stage, tens, ones } = state.multiply;
+  els.multiplyAnswer.classList.remove("is-final");
+  els.multiplyTens.classList.toggle("is-none", tens === null);
+  els.multiplyTens.textContent = tens === undefined ? "?" : tens === null ? "なし" : String(tens);
+  els.multiplyOnes.textContent = ones === undefined ? "?" : String(ones);
+  els.multiplyAnswer.setAttribute(
+    "aria-label",
+    stage === "tens"
+      ? "まず10のくらいを入力"
+      : `${tens === null ? "10のくらいはなし" : `10のくらいは${tens}`}、つぎに1のくらいを入力`
+  );
+}
+
+function renderMultiplyFinalAnswer(answer) {
+  els.multiplyAnswer.classList.add("is-final");
+  els.multiplyTens.classList.remove("is-none");
+  els.multiplyTens.textContent = answer >= 10 ? String(Math.floor(answer / 10)) : "";
+  els.multiplyTens.classList.toggle("is-empty", answer < 10);
+  els.multiplyOnes.textContent = String(answer % 10);
+  els.multiplyAnswer.setAttribute("aria-label", `こたえは${answer}`);
+}
+
+function renderMultiplyKeypad(stage) {
+  const keypad = M.multiply.choices;
+  keypad.replaceChildren();
+  keypad.classList.remove("is-locked");
+  const values = stage === "tens" ? [1, 2, 3, 4, 5, 6, 7, 8, 9, null] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
+  keypad.setAttribute("aria-label", stage === "tens" ? "10のくらいの数字パッド" : "1のくらいの数字パッド");
+  values.forEach((value) => {
+    const button = document.createElement("button");
+    button.className = "choice-card multiply-key";
+    button.type = "button";
+    button.textContent = value === null ? "なし" : String(value);
+    button.dataset.value = value === null ? "none" : String(value);
+    if (value === null || value === 0) button.classList.add("is-wide");
+    button.setAttribute("aria-label", value === null ? "10のくらいはなし" : String(value));
+    button.addEventListener("click", () => chooseMultiplyDigit(value, button));
+    keypad.append(button);
+  });
+}
+
+function renderMultiplyBoard(problem) {
+  const board = els.multiplyBoard;
+  board.replaceChildren();
+  const dense = problem.a * problem.b >= 49;
+  board.classList.toggle("is-dense", dense);
+  board.style.setProperty("--multiply-columns", String(problem.a));
+  board.style.maxWidth = `${50 + problem.a * (dense ? 25 : 32)}px`;
+  board.setAttribute("aria-label", `${problem.a}このブロックのセットが、たてに${problem.b}セット。ぜんぶで${problem.a * problem.b}こ`);
+
+  for (let setIndex = 0; setIndex < problem.b; setIndex += 1) {
+    const group = document.createElement("div");
+    group.className = "multiply-set";
+    group.setAttribute("aria-label", `${setIndex + 1}セットめ、${problem.a}こ`);
+
+    const number = document.createElement("span");
+    number.className = "multiply-set-number";
+    number.textContent = String(setIndex + 1);
+
+    const blocks = document.createElement("span");
+    blocks.className = "multiply-blocks";
+    blocks.setAttribute("aria-hidden", "true");
+    for (let blockIndex = 0; blockIndex < problem.a; blockIndex += 1) {
+      const block = document.createElement("i");
+      block.className = "multiply-block";
+      block.style.setProperty("--block-delay", `${Math.min(600, (setIndex * problem.a + blockIndex) * 14)}ms`);
+      blocks.append(block);
+    }
+    group.append(number, blocks);
+    board.append(group);
+  }
+}
+
+function showMultiplyExplanation(problem) {
+  const answer = problem.a * problem.b;
+  els.multiplyReading.textContent = multiplyReading(problem);
+  els.multiplyReading.setAttribute("aria-label", multiplyReading(problem).replace("、", "、 "));
+  els.multiplyBlockText.textContent = `${problem.a}こずつの セットが ${problem.b}こ。ぜんぶで ${answer}こ！`;
+  renderMultiplyBoard(problem);
+  els.multiplyExplanation.classList.remove("is-hidden");
+}
+
+function lockMultiplyKeypad() {
+  M.multiply.choices.classList.add("is-locked");
+  M.multiply.choices.querySelectorAll("button").forEach((button) => {
+    button.disabled = true;
+  });
+  els.multiplyBack.classList.add("is-hidden");
+}
+
+function chooseMultiplyDigit(value, button) {
+  if (state.locked.multiply) return;
+  if (state.multiply.stage === "tens") {
+    state.multiply.tens = value;
+    state.multiply.ones = undefined;
+    state.multiply.stage = "ones";
+    renderMultiplyDraft();
+    renderMultiplyKeypad("ones");
+    els.multiplyPadStep.textContent = "② つぎに 1のくらい";
+    els.multiplyBack.classList.remove("is-hidden");
+    M.multiply.feedback.className = "feedback";
+    M.multiply.feedback.textContent = "つぎは 1のくらいを いれてね";
+    return;
+  }
+
+  state.multiply.ones = value;
+  const problem = state.problem.multiply;
+  const entered = state.multiply.tens === null ? value : state.multiply.tens * 10 + value;
+  const answer = problem.a * problem.b;
+  const correct = entered === answer;
+  recordAnswer("multiply", problem, correct);
+  button.classList.add(correct ? "is-correct" : "is-wrong");
+  renderMultiplyFinalAnswer(answer);
+  els.multiplyEquation.classList.add("is-solved");
+  els.multiplyPadStep.textContent = correct ? "○ せいかい！" : `こたえは ${answer}`;
+  showMultiplyExplanation(problem);
+  lockMultiplyKeypad();
+  requestAnimationFrame(() => {
+    if (state.activeMode !== "multiply" || state.problem.multiply !== problem) return;
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    M.multiply.section.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "nearest" });
+  });
+
+  if (correct) {
+    onCorrect("multiply");
+  } else {
+    onWrong("multiply");
+    M.multiply.feedback.innerHTML = `ふせいかい！ <strong>${entered}</strong> ではなく <strong>${answer}</strong> だよ`;
+  }
+}
+
+function nextMultiply() {
+  if (!guardNext("multiply")) return;
+  const problem = pickWeighted("multiply", multiplyProblems, state.lastKey.multiply);
+  state.problem.multiply = problem;
+  state.lastKey.multiply = abKey(problem);
+  state.multiply = { stage: "tens", tens: undefined, ones: undefined };
+  els.multiplyLeft.textContent = problem.a;
+  els.multiplyRight.textContent = problem.b;
+  els.multiplyEquation.classList.remove("is-solved");
+  els.multiplyTens.classList.remove("is-empty", "is-none");
+  els.multiplyExplanation.classList.add("is-hidden");
+  els.multiplyReading.textContent = "";
+  els.multiplyBoard.replaceChildren();
+  els.multiplyBlockText.textContent = "";
+  els.multiplyPadStep.textContent = "① まず 10のくらい";
+  els.multiplyBack.classList.add("is-hidden");
+  M.multiply.feedback.className = "feedback";
+  M.multiply.feedback.textContent = "10のくらいから いれてね";
+  setNextButton("multiply", false);
+  renderMultiplyDraft();
+  renderMultiplyKeypad("tens");
+  if (state.activeMode === "multiply") startChallengeTimer();
+}
+
+els.multiplyBack.addEventListener("click", () => {
+  if (state.locked.multiply || state.multiply.stage !== "ones") return;
+  state.multiply = { stage: "tens", tens: undefined, ones: undefined };
+  renderMultiplyDraft();
+  renderMultiplyKeypad("tens");
+  els.multiplyPadStep.textContent = "① まず 10のくらい";
+  els.multiplyBack.classList.add("is-hidden");
+  M.multiply.feedback.textContent = "10のくらいから いれなおしてね";
+});
+
 /* ---------- ひきざん ---------- */
 
 function renderMinusChoices(problem) {
@@ -4337,7 +4564,6 @@ function switchMode(mode) {
   qs("#report-mode").classList.toggle("is-hidden", mode !== "report");
   qs("#dojo-mode").classList.toggle("is-hidden", mode !== "dojo");
   qs("#weakness-mode").classList.toggle("is-hidden", mode !== "weakness");
-  qs("#multiply-mode").classList.toggle("is-hidden", mode !== "multiply");
   qs("#settings-mode").classList.toggle("is-hidden", mode !== "settings");
   qs("#calendar-mode").classList.toggle("is-hidden", mode !== "calendar");
 
@@ -4578,7 +4804,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("sw.js?v=109", { updateViaCache: "none" })
+    .register("sw.js?v=111", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }

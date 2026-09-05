@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=69">
+    <link rel="stylesheet" href="styles.css?v=70">
   </head>
   <body>
     <main class="app-shell">
@@ -79,6 +79,7 @@
           <div class="mission-seg seg-bridge" id="mission-seg-bridge"></div>
           <div class="mission-seg seg-minus" id="mission-seg-minus"></div>
           <div class="mission-seg seg-ice" id="mission-seg-ice"></div>
+          <div class="mission-seg seg-multiply" id="mission-seg-multiply"></div>
           <div class="mission-seg seg-weakness" id="mission-seg-weakness"></div>
         </div>
         <span class="mission-text" id="mission-text">あと60もん</span>
@@ -347,6 +348,44 @@
         <div class="choice-grid simple-choice-grid" id="ice-choices" aria-label="こたえのカード"></div>
       </section>
 
+      <section class="play-area is-hidden is-waiting multiply-area" id="multiply-mode">
+        <div class="question-card multiply-card">
+          <div class="prompt-row">
+            <p class="prompt">こたえは いくつ？</p>
+            <span class="practice-cap" id="multiply-cap"></span>
+          </div>
+          <button class="start-button" type="button" id="multiply-start">スタート</button>
+          <div class="timer-row" id="multiply-timer-row" aria-label="のこりじかん">
+            <div class="timer-track">
+              <div class="timer-fill" id="multiply-timer-fill"></div>
+            </div>
+            <div class="timer-count"><span id="multiply-time">60</span>びょう</div>
+          </div>
+          <div class="multiply-equation" id="multiply-equation" aria-live="polite">
+            <span id="multiply-left">3</span>
+            <span aria-hidden="true">×</span>
+            <span id="multiply-right">3</span>
+            <span aria-hidden="true">＝</span>
+            <span class="multiply-answer" id="multiply-answer" aria-label="こたえはまだ入力されていません">
+              <span class="multiply-answer-digit" id="multiply-tens">?</span>
+              <span class="multiply-answer-digit" id="multiply-ones">?</span>
+            </span>
+          </div>
+          <div class="multiply-explanation is-hidden" id="multiply-explanation">
+            <p class="multiply-reading" id="multiply-reading"></p>
+            <div class="multiply-board" id="multiply-board" aria-label="かけざんのブロック解説"></div>
+            <p class="multiply-block-text" id="multiply-block-text"></p>
+          </div>
+          <p class="feedback" id="multiply-feedback" aria-live="polite">10のくらいから いれてね</p>
+          <button class="next-button is-hidden" type="button" id="multiply-next">つぎへ</button>
+        </div>
+        <div class="multiply-pad-panel">
+          <p class="multiply-pad-step" id="multiply-pad-step">① まず 10のくらい</p>
+          <div class="choice-grid multiply-keypad" id="multiply-choices" aria-label="10のくらいの数字パッド"></div>
+          <button class="multiply-back is-hidden" type="button" id="multiply-back">← 10のくらいを えらびなおす</button>
+        </div>
+      </section>
+
       <section class="records-panel is-hidden" id="records-mode" aria-labelledby="records-title">
         <div class="question-card">
           <div class="prompt-row">
@@ -393,6 +432,11 @@
               <h3 class="records-col-title">こおりのダンジョン</h3>
               <ol class="records-list" id="ice-records-list" aria-label="こおりのダンジョンランキング"></ol>
               <p class="records-empty" id="ice-records-empty">まだきろくがないよ</p>
+            </div>
+            <div class="records-col">
+              <h3 class="records-col-title">かけざんジム</h3>
+              <ol class="records-list" id="multiply-records-list" aria-label="かけざんジムランキング"></ol>
+              <p class="records-empty" id="multiply-records-empty">まだきろくがないよ</p>
             </div>
           </div>
         </div>
@@ -531,15 +575,6 @@
         </div>
       </section>
 
-      <section class="records-panel is-hidden" id="multiply-mode" aria-labelledby="multiply-title">
-        <div class="question-card coming-soon-card">
-          <div class="prompt-row">
-            <p class="prompt" id="multiply-title">かけざんジム</p>
-          </div>
-          <p class="coming-soon-message">まだ Open してないよ！<br>たのしみに まっててね！</p>
-        </div>
-      </section>
-
       <section class="records-panel is-hidden" id="settings-mode" aria-label="設定（保護者向け）">
         <div class="question-card parent-lock-card" id="parent-lock-card">
           <div class="prompt-row">
@@ -628,6 +663,7 @@
             <label>炎のダンジョン <input type="number" id="set-cap-bridge" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
             <label>ひきざんジム <input type="number" id="set-cap-minus" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
             <label>氷のダンジョン <input type="number" id="set-cap-ice" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
+            <label>かけざんジム <input type="number" id="set-cap-multiply" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
             <label>にがて道場 <input type="number" id="set-cap-weakness" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
           </div>
           <p class="settings-note settings-note-total" id="mission-cap-total"></p>
@@ -690,6 +726,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=77"></script>
+    <script src="app.js?v=79"></script>
   </body>
 </html>
