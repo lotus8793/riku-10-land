@@ -65,7 +65,7 @@ button {
 
 .hero-banner {
   display: block;
-  width: clamp(240px, 46vw, 400px);
+  width: clamp(240px, 36vw, 275px);
   max-width: 100%;
   height: auto;
   filter: drop-shadow(0 8px 14px rgba(10, 40, 90, 0.3));

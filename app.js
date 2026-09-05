@@ -4579,7 +4579,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("sw.js?v=107", { updateViaCache: "none" })
+    .register("sw.js?v=108", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
