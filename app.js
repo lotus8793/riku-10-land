@@ -3881,13 +3881,12 @@ function setupMinusPracticeFrame(problem) {
 function updateMinusPractice() {
   const removed = state.minus.removed;
   [...els.minusFrame.children].forEach((cell, index) => {
-    const order = removed.indexOf(index);
-    const selected = order !== -1;
+    const selected = removed.includes(index);
     cell.classList.toggle("is-removed", selected);
     cell.setAttribute("aria-pressed", String(selected));
     cell.setAttribute("aria-label", `${index + 1}ばんめのブロック${selected ? "、けした" : ""}`);
-    if (selected) cell.dataset.count = String(order + 1);
-    else delete cell.dataset.count;
+    // 手動操作では消した数のヒントになる番号を出さない。番号は解説アニメーションだけで付ける
+    delete cell.dataset.count;
   });
 }
 
@@ -4579,7 +4578,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("sw.js?v=108", { updateViaCache: "none" })
+    .register("sw.js?v=109", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
