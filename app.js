@@ -2306,6 +2306,13 @@ qs("#set-flash-max").addEventListener("change", () => {
 
 let calendarOffset = 0; // 0 = 今月、-1 = 先月…
 
+function calendarTimeMessage(date = new Date()) {
+  const hour = date.getHours();
+  if (hour >= 5 && hour < 11) return "🌅 Good morning！ きょうもあさからえらいね";
+  if (hour >= 11 && hour < 17) return "☀️ Good afternoon！ きょうはようちえんおやすみかな？";
+  return "🌙 Good evening！ ねるまえにおわらしちゃおう！";
+}
+
 function renderCalendar() {
   const base = new Date();
   base.setDate(1);
@@ -2313,6 +2320,7 @@ function renderCalendar() {
   const year = base.getFullYear();
   const month = base.getMonth();
   qs("#cal-title").textContent = `${year}ねん ${month + 1}がつ`;
+  qs("#cal-time-message").textContent = calendarTimeMessage();
   qs("#cal-next").disabled = calendarOffset >= 0;
 
   const grid = qs("#cal-grid");
@@ -2342,7 +2350,6 @@ function renderCalendar() {
     const key = `${year}-${month + 1}-${d}`;
     const log = state.dayLog[key];
     const cleared = Boolean(log && log.m);
-    const played = Boolean(log && (log.c || 0) + (log.w || 0) > 0);
     const cell = document.createElement("div");
     cell.className = "cal-cell";
     if (cleared) cell.classList.add("is-cleared");
@@ -2353,8 +2360,6 @@ function renderCalendar() {
     stamp.className = "cal-stamp";
     if (log?.master) stamp.classList.add("cal-master");
     else if (cleared) stamp.classList.add("cal-ball");
-    else stamp.textContent = played ? "🟢" : "";
-    if (played) cell.title = `${log.c || 0}問正解 / ${log.w || 0}問ミス`;
     cell.append(num, stamp);
     grid.append(cell);
   }
@@ -4600,6 +4605,7 @@ function switchMode(mode) {
   stopChallengeTimer();
   els.flyLayer.replaceChildren();
   state.activeMode = mode;
+  document.body.dataset.activeMode = mode;
   state.combo = 0;
   if (MODES.includes(mode)) {
     resetChallengeScore();
@@ -4858,7 +4864,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("sw.js?v=112", { updateViaCache: "none" })
+    .register("sw.js?v=114", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }

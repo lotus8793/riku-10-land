@@ -2203,6 +2203,64 @@ body.no-blocks.no-explain #bridge-mode:not(.is-waiting) .bridge-mogi-helper .ten
 
 /* カレンダー */
 
+.cal-title-wrap {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.cal-time-message {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #fff4c7;
+  color: #725a00;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+@media (min-width: 720px) and (max-height: 1100px) {
+  body[data-active-mode="calendar"] .app-shell {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  body[data-active-mode="calendar"] .mode-tabs {
+    gap: 3px;
+    margin: 8px 0 6px;
+    padding: 4px;
+  }
+
+  body[data-active-mode="calendar"] .mode-tab {
+    min-height: 42px;
+    font-size: 12px;
+  }
+
+  body[data-active-mode="calendar"] .mission-strip {
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 6px 10px;
+  }
+
+  body[data-active-mode="calendar"] #calendar-mode .question-card {
+    padding: 12px;
+  }
+
+  body[data-active-mode="calendar"] .cal-legend {
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+
+  body[data-active-mode="calendar"] .cal-grid {
+    gap: 4px;
+  }
+
+  body[data-active-mode="calendar"] .cal-cell {
+    min-height: 46px;
+    padding: 3px 4px;
+  }
+}
+
 .cal-legend {
   display: flex;
   align-items: center;

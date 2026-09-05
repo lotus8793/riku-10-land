@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=71">
+    <link rel="stylesheet" href="styles.css?v=73">
   </head>
   <body>
     <main class="app-shell">
@@ -493,13 +493,16 @@
       <section class="records-panel is-hidden" id="calendar-mode" aria-labelledby="cal-title">
         <div class="question-card">
           <div class="prompt-row">
-            <p class="prompt" id="cal-title">カレンダー</p>
+            <div class="cal-title-wrap">
+              <p class="prompt" id="cal-title">カレンダー</p>
+              <span class="cal-time-message" id="cal-time-message"></span>
+            </div>
             <div class="stats-buttons">
               <button class="quiet-button" type="button" id="cal-prev">← まえ</button>
               <button class="quiet-button" type="button" id="cal-next">つぎ →</button>
             </div>
           </div>
-          <p class="cal-legend"><span class="cal-stamp cal-master"></span> ミッション＋復習クリア　<span class="cal-stamp cal-ball"></span> ミッションクリア　🟢 あそんだ日</p>
+          <p class="cal-legend"><span class="cal-stamp cal-master"></span> ミッション＋復習クリア　<span class="cal-stamp cal-ball"></span> ミッションクリア</p>
           <div class="cal-grid" id="cal-grid"></div>
         </div>
       </section>
@@ -729,6 +732,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=80"></script>
+    <script src="app.js?v=82"></script>
   </body>
 </html>
