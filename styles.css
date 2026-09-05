@@ -2148,6 +2148,34 @@ body.no-blocks.no-explain #bridge-mode:not(.is-waiting) .bridge-mogi-helper .ten
   font-weight: 700;
 }
 
+.weakness-mode-settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  max-width: 680px;
+  margin: 6px 0 14px;
+}
+
+.weakness-mode-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(38, 50, 56, 0.04);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.weakness-mode-option input {
+  width: 22px;
+  height: 22px;
+  accent-color: #2f5fd0;
+}
+
 .stats-settings {
   display: flex;
   flex-wrap: wrap;

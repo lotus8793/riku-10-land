@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=70">
+    <link rel="stylesheet" href="styles.css?v=71">
   </head>
   <body>
     <main class="app-shell">
@@ -667,6 +667,9 @@
             <label>にがて道場 <input type="number" id="set-cap-weakness" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
           </div>
           <p class="settings-note settings-note-total" id="mission-cap-total"></p>
+          <h3 class="stats-heading">にがて道場に出すカテゴリ</h3>
+          <p class="settings-note">チェックしたカテゴリの、過去にまちがえた問題だけを出題します</p>
+          <div class="weakness-mode-settings" id="weakness-mode-settings"></div>
           <h3 class="stats-heading">ゲージのクリア問題数</h3>
           <div class="stats-settings">
             <label>ポケモンゲット <input type="number" id="set-catch" min="1" max="999" inputmode="numeric" pattern="[0-9]*"></label>
@@ -726,6 +729,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=79"></script>
+    <script src="app.js?v=80"></script>
   </body>
 </html>

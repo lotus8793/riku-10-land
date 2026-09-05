@@ -6,6 +6,8 @@ const MAX_RECORDS = 10;
 const STICKER_STEP = 10;
 
 const MODES = ["pair", "tenplus", "flash", "simple", "mogi", "bridge", "minus", "ice", "multiply"];
+// にがて道場は計算問題の強化用。数の見方・操作練習のカテゴリは対象外にする。
+const WEAKNESS_SOURCE_MODES = ["simple", "bridge", "minus", "ice", "multiply"];
 // ふくしゅうジムは「その日の間違いを全部やる」モードなので、固定問数ミッションには含めない
 const MISSION_MODES = [...MODES, "weakness"];
 // どのタブがポケモンゲット／コインゲージに進むかは、設定タブでタブごとに切り替えられる
@@ -54,7 +56,7 @@ const PARENT_LOCK_ATTEMPTS_KEY = "riku10v2-parent-lock-attempts";
 const PARENT_PIN_LENGTH = 4;
 const PARENT_RECOVERY_LENGTH = 8;
 const PARENT_LOCKOUT_MS = 30000;
-const SETTINGS_VERSION = 6;
+const SETTINGS_VERSION = 7;
 
 // きょうのミッションで各タブに必要な問題数の初期値（設定タブでタブごとに変更できる）
 const MISSION_CAP_DEFAULTS = {
@@ -81,6 +83,10 @@ function defaultGaugeMap() {
   return map;
 }
 
+function defaultWeaknessModeMap() {
+  return Object.fromEntries(WEAKNESS_SOURCE_MODES.map((mode) => [mode, true]));
+}
+
 // ゲージのクリア数（設定タブで変更できる）
 function loadSettings() {
   const defaults = {
@@ -93,7 +99,8 @@ function loadSettings() {
     waitForExplanation: true, // 解説が終わるまで「つぎへ」を表示しない
     missionCaps: { ...MISSION_CAP_DEFAULTS },
     catchModes: defaultGaugeMap(), // ポケモンゲットに進めるタブ
-    coinModes: defaultGaugeMap() // コインゲージに進めるタブ
+    coinModes: defaultGaugeMap(), // コインゲージに進めるタブ
+    weaknessModes: defaultWeaknessModeMap() // にがて道場へ出すカテゴリ
   };
   defaults.coinModes.weakness = true;
   let parsed = null;
@@ -102,7 +109,11 @@ function loadSettings() {
   } catch {}
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return defaults;
 
-  const merged = { ...defaults, missionCaps: { ...MISSION_CAP_DEFAULTS } };
+  const merged = {
+    ...defaults,
+    missionCaps: { ...MISSION_CAP_DEFAULTS },
+    weaknessModes: { ...defaults.weaknessModes }
+  };
   ["catchStep", "coinStep"].forEach((key) => {
     const value = Number(parsed[key]);
     if (Number.isFinite(value) && value >= 1 && value <= 999) merged[key] = Math.round(value);
@@ -149,6 +160,11 @@ function loadSettings() {
       if (typeof parsed[key][mode] === "boolean") merged[key][mode] = parsed[key][mode];
     });
   });
+  if (parsed.weaknessModes && typeof parsed.weaknessModes === "object" && !Array.isArray(parsed.weaknessModes)) {
+    WEAKNESS_SOURCE_MODES.forEach((mode) => {
+      if (typeof parsed.weaknessModes[mode] === "boolean") merged.weaknessModes[mode] = parsed.weaknessModes[mode];
+    });
+  }
   return merged;
 }
 
@@ -159,6 +175,10 @@ function catchEnabled(mode) {
 
 function coinEnabled(mode) {
   return SETTINGS.coinModes[mode] === true;
+}
+
+function weaknessModeEnabled(mode) {
+  return SETTINGS.weaknessModes[mode] === true;
 }
 
 // そのタブが今日ミッションに必要な問題数（0 なら必須から外れる）
@@ -2033,8 +2053,7 @@ function renderReviewGym() {
 
 function historicalWrongItems() {
   const items = [];
-  MODES.forEach((mode) => {
-    if (mode === "pair") return;
+  WEAKNESS_SOURCE_MODES.filter(weaknessModeEnabled).forEach((mode) => {
     Object.entries(state.stats[mode] || {}).forEach(([key, stat]) => {
       const wrong = Math.max(0, Number(stat?.w) || 0);
       if (wrong > 0) items.push({ mode, key, wrong });
@@ -2050,11 +2069,20 @@ function renderEndlessDojo() {
   state.weakness.queue = historicalWrongItems();
   state.weakness.current = 0;
   state.weakness.started = false;
+  const hasSources = WEAKNESS_SOURCE_MODES.some(weaknessModeEnabled);
   qs("#weakness-start").disabled = !state.weakness.queue.length;
-  qs("#weakness-start").textContent = state.weakness.queue.length ? "スタート" : "まだ にがて問題はないよ";
+  qs("#weakness-start").textContent = state.weakness.queue.length
+    ? "スタート"
+    : hasSources
+      ? "まだ にがて問題はないよ"
+      : "出題カテゴリを選んでね";
   const note = document.createElement("p");
   note.className = "stats-day-summary";
-  note.textContent = state.weakness.queue.length ? `${state.weakness.queue.length}種類の問題をくりかえし出題するよ。` : "問題をまちがえると、ここに追加されるよ。";
+  note.textContent = state.weakness.queue.length
+    ? `${state.weakness.queue.length}種類の問題をくりかえし出題するよ。`
+    : hasSources
+      ? "選んだカテゴリで問題をまちがえると、ここに追加されるよ。"
+      : "設定で、にがて道場に出すカテゴリを選んでね。";
   wrap.append(note);
 }
 
@@ -2155,6 +2183,28 @@ function buildGaugeMatrix() {
   });
 }
 
+function buildWeaknessModeSettings() {
+  const wrap = qs("#weakness-mode-settings");
+  if (!wrap) return;
+  wrap.replaceChildren();
+  WEAKNESS_SOURCE_MODES.forEach((mode) => {
+    const label = document.createElement("label");
+    label.className = "weakness-mode-option";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.id = `set-weakness-source-${mode}`;
+    input.checked = weaknessModeEnabled(mode);
+    input.addEventListener("change", () => {
+      SETTINGS.weaknessModes[mode] = input.checked;
+      saveSettings();
+    });
+    const name = document.createElement("span");
+    name.textContent = MODE_LABELS[mode];
+    label.append(input, name);
+    wrap.append(label);
+  });
+}
+
 function renderSettingsPanel() {
   renderFireDirectionToggle();
   renderExplanationWaitToggle();
@@ -2163,6 +2213,10 @@ function renderSettingsPanel() {
     const coinInput = qs(`#set-coin-${mode}`);
     if (catchInput) catchInput.checked = catchEnabled(mode);
     if (coinInput) coinInput.checked = coinEnabled(mode);
+  });
+  WEAKNESS_SOURCE_MODES.forEach((mode) => {
+    const input = qs(`#set-weakness-source-${mode}`);
+    if (input) input.checked = weaknessModeEnabled(mode);
   });
   qs("#set-catch").value = SETTINGS.catchStep;
   qs("#set-coin").value = SETTINGS.coinStep;
@@ -4804,7 +4858,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("sw.js?v=111", { updateViaCache: "none" })
+    .register("sw.js?v=112", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -4818,6 +4872,7 @@ renderFireDirectionToggle();
 awardPendingDexBonuses();
 renderRecords();
 buildGaugeMatrix();
+buildWeaknessModeSettings();
 renderMission();
 renderCoinGauge();
 renderHeroStats();
