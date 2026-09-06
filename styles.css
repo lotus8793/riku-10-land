@@ -553,6 +553,18 @@ body.no-minus-blocks.no-explain #minus-mode .ten-frame {
   display: none;
 }
 
+/* こおりのダンジョンも専用設定を優先する。OFF・解説ありでは答えたあとだけ模範を見せる */
+body.ice-blocks #ice-mode:not(.is-waiting) #ice-board,
+body.ice-blocks #ice-mode:not(.is-waiting) .ten-frame,
+body.ice-blocks #ice-mode:not(.is-waiting) .donor-dots {
+  display: grid;
+}
+
+body.no-ice-blocks #ice-mode:not(.is-answer-shown) #ice-board,
+body.no-ice-blocks.no-explain #ice-mode #ice-board {
+  display: none;
+}
+
 .timer-track {
   overflow: hidden;
   height: 18px;
@@ -642,19 +654,28 @@ body.no-minus-blocks.no-explain #minus-mode .ten-frame {
   font-weight: 950;
 }
 
-.minus-pick-frame .frame-cell.is-pickable {
+.minus-pick-frame .frame-cell.is-pickable,
+#ice-frame .frame-cell.is-pickable {
   cursor: pointer;
   touch-action: manipulation;
   transition: transform 120ms ease, box-shadow 120ms ease;
 }
 
-.minus-pick-frame .frame-cell.is-pickable:active {
+.minus-pick-frame .frame-cell.is-pickable:active,
+#ice-frame .frame-cell.is-pickable:active {
   transform: scale(0.9);
 }
 
-.minus-pick-frame .frame-cell.is-pickable:focus-visible {
+.minus-pick-frame .frame-cell.is-pickable:focus-visible,
+#ice-frame .frame-cell.is-pickable:focus-visible {
   outline: 4px solid rgba(47, 95, 208, 0.45);
   outline-offset: 2px;
+}
+
+#ice-frame {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .donor-dot.is-removed {
@@ -876,6 +897,10 @@ body.no-minus-blocks.no-explain #minus-mode .ten-frame {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
+}
+
+#ice-choices.is-hidden {
+  display: none;
 }
 
 .choice-card {

@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=73">
+    <link rel="stylesheet" href="styles.css?v=74">
   </head>
   <body>
     <main class="app-shell">
@@ -331,11 +331,11 @@
             <div class="timer-count"><span id="ice-time">60</span>びょう</div>
           </div>
           <div class="equation bridge-equation" id="ice-equation">13 − 8</div>
-          <div class="equation-chain" aria-hidden="true"></div>
-          <div class="bridge-board">
+          <div class="equation-chain" id="ice-chain" aria-live="polite"></div>
+          <div class="bridge-board" id="ice-board">
             <div>
               <p class="small-label addend-label" id="ice-left-label">10</p>
-              <div class="ten-frame compact" id="ice-frame"></div>
+              <div class="ten-frame compact" id="ice-frame" aria-label="10からけすブロックをえらぶボード"></div>
             </div>
             <div>
               <p class="small-label addend-label" id="ice-right-label">3</p>
@@ -647,6 +647,14 @@
               <span id="minus-block-toggle-label">引き算：ブロックあり</span>
             </button>
           </div>
+          <h3 class="stats-heading">氷のダンジョン</h3>
+          <p class="settings-note">ブロックありでは、まず10のかたまりから引く数だけ消して、その残りと右の数を合わせて考えます</p>
+          <div class="settings-display-toggles">
+            <button class="time-toggle settings-display-toggle" type="button" id="ice-block-toggle" aria-pressed="true">
+              <span class="toggle-knob" aria-hidden="true"></span>
+              <span id="ice-block-toggle-label">氷：ブロックあり</span>
+            </button>
+          </div>
           <h3 class="stats-heading">炎のダンジョン</h3>
           <p class="settings-note">通常は小さい数から大きい数へ移動。ONでは、式の左の数から右の数へ固定します（ブロックはいつも後ろから移動）</p>
           <div class="settings-display-toggles">
@@ -732,6 +740,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=82"></script>
+    <script src="app.js?v=85"></script>
   </body>
 </html>

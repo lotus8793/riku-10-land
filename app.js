@@ -29,6 +29,7 @@ const TOTAL_KEY = "riku10v2-total-correct";
 const CATCH_PROGRESS_KEY = "riku10v2-catch-progress";
 const TIMED_KEY = "riku10v2-timed-enabled";
 const MINUS_BLOCKS_KEY = "riku10v2-minus-blocks-enabled";
+const ICE_BLOCKS_KEY = "riku10v2-ice-blocks-enabled";
 const CAUGHT_KEY = "riku10v2-caught";
 const DAILY_KEY = "riku10v2-daily";
 const STATS_KEY = "riku10v2-stats";
@@ -706,6 +707,8 @@ const state = {
   bridgeMogi: { open: false, used: false, solved: false, original: { left: 0, right: 0 }, slots: { left: [], right: [] } },
   // ひきざんジム: 子どもが選んだ順に、消したブロックの位置を保持する
   minus: { removed: [] },
+  // こおりのダンジョン: 10のかたまりから引く数だけ、自分で消してから答える
+  ice: { phase: "remove", removed: [], pointerActive: false, pointerId: null },
   // かけざんジム: 十の位を先に選び、つぎに一の位を選ぶ
   multiply: { stage: "tens", tens: undefined, ones: undefined },
   combo: 0,
@@ -730,6 +733,7 @@ const state = {
   timedEnabled: localStorage.getItem(TIMED_KEY) === "true",
   blocksEnabled: localStorage.getItem("riku10v2-blocks-enabled") === "true",
   minusBlocksEnabled: localStorage.getItem(MINUS_BLOCKS_KEY) !== "false",
+  iceBlocksEnabled: localStorage.getItem(ICE_BLOCKS_KEY) !== "false",
   explainEnabled: localStorage.getItem("riku10v2-explain-enabled") !== "false",
   challenge: { remainingMs: CHALLENGE_SECONDS * 1000, intervalId: null, ended: false }
 };
@@ -774,6 +778,8 @@ const els = {
   blockToggleLabel: qs("#block-toggle-label"),
   minusBlockToggle: qs("#minus-block-toggle"),
   minusBlockToggleLabel: qs("#minus-block-toggle-label"),
+  iceBlockToggle: qs("#ice-block-toggle"),
+  iceBlockToggleLabel: qs("#ice-block-toggle-label"),
   explainToggle: qs("#explain-toggle"),
   explainToggleLabel: qs("#explain-toggle-label"),
   explanationWaitToggle: qs("#explanation-wait-toggle"),
@@ -806,6 +812,7 @@ const els = {
   tenplusDots: qs("#tenplus-dots"),
   tenplusRightLabel: qs("#tenplus-right-label"),
   iceEquation: qs("#ice-equation"),
+  iceChain: qs("#ice-chain"),
   iceFrame: qs("#ice-frame"),
   iceDots: qs("#ice-dots"),
   iceLeftLabel: qs("#ice-left-label"),
@@ -2399,6 +2406,8 @@ function playTone(kind, combo = 0) {
           ? [392, 293.66]
           : kind === "click"
             ? [987.77]
+            : kind === "step"
+              ? [659.25, 783.99, 1046.5]
             : kind === "flash"
               ? [1318.5] // かみなりジムでブロックが出た合図
               : [330, 220];
@@ -2640,6 +2649,10 @@ function resetModeStart(mode) {
   M[mode].section.classList.remove("is-answer-shown");
   setNextButton(mode, false);
   if (mode === "flash") resetFlashStage();
+  if (mode === "ice") {
+    state.ice.pointerActive = false;
+    state.ice.pointerId = null;
+  }
 }
 
 function clearNextQuestion() {
@@ -2740,6 +2753,20 @@ function setMinusBlockDisplay(enabled) {
   state.minusBlocksEnabled = enabled;
   localStorage.setItem(MINUS_BLOCKS_KEY, String(enabled));
   renderMinusBlockToggle();
+}
+
+function renderIceBlockToggle() {
+  els.iceBlockToggle.classList.toggle("is-on", state.iceBlocksEnabled);
+  els.iceBlockToggle.setAttribute("aria-pressed", String(state.iceBlocksEnabled));
+  els.iceBlockToggleLabel.textContent = state.iceBlocksEnabled ? "氷：ブロックあり" : "氷：ブロックなし";
+  document.body.classList.toggle("ice-blocks", state.iceBlocksEnabled);
+  document.body.classList.toggle("no-ice-blocks", !state.iceBlocksEnabled);
+}
+
+function setIceBlockDisplay(enabled) {
+  state.iceBlocksEnabled = enabled;
+  localStorage.setItem(ICE_BLOCKS_KEY, String(enabled));
+  renderIceBlockToggle();
 }
 
 function renderExplainToggle() {
@@ -4248,6 +4275,69 @@ els.minusFrame.addEventListener("keydown", (event) => {
 
 /* ---------- こおりのダンジョン（くり下がり） ---------- */
 
+function renderIceChoices(problem) {
+  renderChoiceButtons(M.ice.choices, [1, 2, 3, 4, 5, 6, 7, 8, 9], (value, button) => {
+    chooseIce(value, button, problem);
+  });
+}
+
+function setupIcePracticeFrame(problem) {
+  renderMinusFrame(els.iceFrame, 10, 0);
+  [...els.iceFrame.children].forEach((cell, index) => {
+    cell.classList.add("is-pickable");
+    cell.dataset.index = String(index);
+    cell.setAttribute("role", "button");
+    cell.setAttribute("tabindex", "0");
+    cell.setAttribute("aria-pressed", "false");
+    cell.setAttribute("aria-label", `${index + 1}ばんめのブロック`);
+  });
+  state.ice.removed = [];
+  state.ice.phase = "remove";
+  state.ice.pointerActive = false;
+  state.ice.pointerId = null;
+  M.ice.feedback.textContent = `ひだりの10から まず ${problem.b}を ひいてみよう`;
+  updateIcePractice();
+}
+
+function updateIcePractice() {
+  [...els.iceFrame.children].forEach((cell, index) => {
+    const removed = state.ice.removed.includes(index);
+    cell.classList.toggle("is-removed", removed);
+    cell.setAttribute("aria-pressed", String(removed));
+    cell.setAttribute("aria-label", `${index + 1}ばんめのブロック${removed ? "、けした" : ""}`);
+    // 自分で消している間は答えにつながる番号を表示しない
+    delete cell.dataset.count;
+  });
+}
+
+function completeIceRemoval(problem) {
+  if (state.problem.ice !== problem || state.ice.phase !== "remove") return;
+  state.ice.phase = "answer";
+  state.ice.pointerActive = false;
+  state.ice.pointerId = null;
+  [...els.iceFrame.children].forEach((cell) => {
+    cell.classList.remove("is-pickable");
+    cell.removeAttribute("role");
+    cell.removeAttribute("tabindex");
+    cell.removeAttribute("aria-pressed");
+  });
+  els.iceChain.className = "equation-chain";
+  els.iceChain.textContent = "";
+  M.ice.feedback.textContent = `${problem.b}こ けせた！ じゃあ、みぎと ひだりを あわせて、のこりは？`;
+  M.ice.choices.classList.remove("is-hidden");
+  playTone("step");
+}
+
+function removeIceBlock(index) {
+  const problem = state.problem.ice;
+  if (!state.iceBlocksEnabled || !problem || state.activeMode !== "ice" || state.locked.ice || state.ice.phase !== "remove") return;
+  if (!Number.isInteger(index) || index < 0 || index >= 10 || state.ice.removed.includes(index)) return;
+  state.ice.removed.push(index);
+  updateIcePractice();
+  if (state.ice.removed.length === problem.b) completeIceRemoval(problem);
+  else playTone("click");
+}
+
 function nextIce() {
   if (!guardNext("ice")) return;
   clearRemovalReveal("ice");
@@ -4258,16 +4348,25 @@ function nextIce() {
   const ones = p.a - 10;
   els.iceEquation.classList.remove("is-solved");
   els.iceEquation.textContent = `${p.a} − ${p.b}`;
+  els.iceChain.className = "equation-chain";
+  els.iceChain.textContent = "";
   els.iceLeftLabel.textContent = 10;
   els.iceRightLabel.textContent = ones;
   M.ice.feedback.className = "feedback";
-  M.ice.feedback.textContent = "こたえを えらんでね";
   setNextButton("ice", false);
-  renderMinusFrame(els.iceFrame, 10, 0);
   renderPlainDots(els.iceDots, ones);
-  renderChoiceButtons(M.ice.choices, [1, 2, 3, 4, 5, 6, 7, 8, 9], (value, button) => {
-    chooseIce(value, button, p);
-  });
+  renderIceChoices(p);
+  M.ice.choices.classList.toggle("is-hidden", state.iceBlocksEnabled);
+  if (state.iceBlocksEnabled) {
+    setupIcePracticeFrame(p);
+  } else {
+    state.ice.phase = "answer";
+    state.ice.removed = [];
+    state.ice.pointerActive = false;
+    state.ice.pointerId = null;
+    renderMinusFrame(els.iceFrame, 10, 0);
+    M.ice.feedback.textContent = "こたえを えらんでね";
+  }
   if (state.activeMode === "ice") startChallengeTimer();
 }
 
@@ -4295,7 +4394,11 @@ function startRemovalSteps(mode, problem, targets) {
 
 function scheduleRemovalReveal(mode, problem, buildTargets) {
   if (!state.explainEnabled) return;
-  const blocksWereVisible = mode === "minus" ? state.minusBlocksEnabled : state.blocksEnabled;
+  const blocksWereVisible = mode === "minus"
+    ? state.minusBlocksEnabled
+    : mode === "ice"
+      ? state.iceBlocksEnabled
+      : state.blocksEnabled;
   if (blocksWereVisible) {
     startRemovalSteps(mode, problem, buildTargets());
     return;
@@ -4314,12 +4417,9 @@ function clearRemovalReveal(mode) {
   }
 }
 
-// こおり（減々法）: まず右のバラを右から✕にし、たりない分は10のかたまりを右から✕にする
+// こおり（減加法）: 右のバラは残し、10のかたまりから引く数を取る
 function iceRemovalTargets(problem) {
-  const ones = problem.a - 10;
-  const dots = [...els.iceDots.children].slice(0, ones).reverse();
-  const cells = [...els.iceFrame.children].slice(0, 10).reverse();
-  return dots.concat(cells).slice(0, problem.b);
+  return [...els.iceFrame.children].slice(0, 10).reverse().slice(0, problem.b);
 }
 
 // ひきざんジム: ブロックを右から✕にする
@@ -4329,19 +4429,73 @@ function minusRemovalTargets(problem) {
 
 function chooseIce(value, button, problem = state.problem.ice) {
   if (state.locked.ice) return;
+  if (state.iceBlocksEnabled && state.ice.phase !== "answer") return;
   const answer = problem.a - problem.b;
+  const tenRest = 10 - problem.b;
+  const ones = problem.a - 10;
   const correct = value === answer;
   recordAnswer("ice", problem, correct);
   button.classList.add(correct ? "is-correct" : "is-wrong");
   els.iceEquation.textContent = `${problem.a} − ${problem.b} = ${answer}`;
   els.iceEquation.classList.add("is-solved");
+  if (state.explainEnabled || state.iceBlocksEnabled) {
+    els.iceChain.className = "equation-chain is-solved";
+    els.iceChain.textContent = `${tenRest} ＋ ${ones} = ${answer}`;
+  }
+  state.ice.phase = "done";
   if (correct) {
     onCorrect("ice");
   } else {
-    onWrong("ice", "バラからとって、のこりは10からとるよ", answer);
+    onWrong("ice", `10から${problem.b}をひいて、${ones}とあわせるよ`, answer);
   }
-  scheduleRemovalReveal("ice", problem, () => iceRemovalTargets(problem));
+  if (state.iceBlocksEnabled) {
+    // 答える前の操作で減加法の解説は完了している
+    explanationFinished("ice", problem);
+  } else {
+    // 操作OFF・解説ONでは、解答後に同じ減加法を模範アニメーションで見せる
+    renderMinusFrame(els.iceFrame, 10, 0);
+    scheduleRemovalReveal("ice", problem, () => iceRemovalTargets(problem));
+  }
 }
+
+function iceBlockFromPoint(clientX, clientY) {
+  const cell = document.elementFromPoint(clientX, clientY)?.closest("#ice-frame .frame-cell.is-pickable");
+  return cell && els.iceFrame.contains(cell) ? cell : null;
+}
+
+els.iceFrame.addEventListener("pointerdown", (event) => {
+  const cell = event.target.closest(".frame-cell.is-pickable");
+  if (!cell || !els.iceFrame.contains(cell)) return;
+  event.preventDefault();
+  state.ice.pointerActive = true;
+  state.ice.pointerId = event.pointerId;
+  els.iceFrame.setPointerCapture?.(event.pointerId);
+  removeIceBlock(Number(cell.dataset.index));
+});
+
+window.addEventListener("pointermove", (event) => {
+  if (!state.ice.pointerActive || event.pointerId !== state.ice.pointerId) return;
+  event.preventDefault();
+  const cell = iceBlockFromPoint(event.clientX, event.clientY);
+  if (cell) removeIceBlock(Number(cell.dataset.index));
+}, { passive: false });
+
+function endIcePointer(event) {
+  if (!state.ice.pointerActive || event.pointerId !== state.ice.pointerId) return;
+  state.ice.pointerActive = false;
+  state.ice.pointerId = null;
+}
+
+window.addEventListener("pointerup", endIcePointer);
+window.addEventListener("pointercancel", endIcePointer);
+
+els.iceFrame.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const cell = event.target.closest(".frame-cell.is-pickable");
+  if (!cell || !els.iceFrame.contains(cell)) return;
+  event.preventDefault();
+  removeIceBlock(Number(cell.dataset.index));
+});
 
 /* ---------- 保護者ロック ---------- */
 
@@ -4753,6 +4907,10 @@ els.minusBlockToggle.addEventListener("click", () => {
   setMinusBlockDisplay(!state.minusBlocksEnabled);
 });
 
+els.iceBlockToggle.addEventListener("click", () => {
+  setIceBlockDisplay(!state.iceBlocksEnabled);
+});
+
 els.explainToggle.addEventListener("click", () => {
   setExplainDisplay(!state.explainEnabled);
 });
@@ -4864,7 +5022,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("sw.js?v=114", { updateViaCache: "none" })
+    .register("sw.js?v=117", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
@@ -4872,6 +5030,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 renderTimeToggle();
 renderBlockToggle();
 renderMinusBlockToggle();
+renderIceBlockToggle();
 renderExplainToggle();
 renderExplanationWaitToggle();
 renderFireDirectionToggle();
