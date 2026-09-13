@@ -244,6 +244,16 @@ button {
   color: #fff;
 }
 
+.mode-tab.is-locked {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.mode-tab.is-locked::after {
+  content: " 🔒";
+  font-size: 0.9em;
+}
+
 .mission-strip {
   display: grid;
   grid-template-columns: auto 1fr auto;

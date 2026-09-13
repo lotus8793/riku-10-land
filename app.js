@@ -1345,6 +1345,21 @@ function missionTotal() {
   return MISSION_MODES.reduce((sum, mode) => sum + missionCap(mode), 0);
 }
 
+function reviewGymUnlocked() {
+  rolloverDaily();
+  return state.daily.done || missionTotal() === 0;
+}
+
+function renderReviewGymAvailability() {
+  const tab = qs('.mode-tab[data-mode="dojo"]');
+  if (!tab) return;
+  const unlocked = reviewGymUnlocked();
+  tab.disabled = !unlocked;
+  tab.classList.toggle("is-locked", !unlocked);
+  tab.title = unlocked ? "" : "きょうのミッションをクリアするとオープン！";
+  tab.setAttribute("aria-label", unlocked ? "ふくしゅうジム" : "ふくしゅうジム（きょうのミッションクリア後にオープン）");
+}
+
 // 各タブが今日あと何問ミッションに必要か
 function renderMissionCaps() {
   MISSION_MODES.forEach((mode) => {
@@ -1403,6 +1418,7 @@ function renderMission() {
   els.missionText.textContent = state.daily.done
     ? `クリア！🎉${state.streak.last === todayStr() && state.streak.count > 1 ? ` ${state.streak.count}日れんぞく` : ""}`
     : `あと ${left}もん`;
+  renderReviewGymAvailability();
 }
 
 /* ---------- りくのパートナー ---------- */
@@ -4754,6 +4770,7 @@ function submitParentLockEntry() {
 /* ---------- モード切替・初期化 ---------- */
 
 function switchMode(mode) {
+  if (mode === "dojo" && !reviewGymUnlocked()) return;
   if (mode !== "settings") lockParentSettings();
   clearNextQuestion();
   stopChallengeTimer();
@@ -5022,7 +5039,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("sw.js?v=117", { updateViaCache: "none" })
+    .register("sw.js?v=118", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
