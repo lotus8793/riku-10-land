@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=80">
+    <link rel="stylesheet" href="styles.css?v=83">
   </head>
   <body>
     <main class="app-shell">
@@ -362,9 +362,9 @@
               <div class="visual-equation" id="visual-equation">
                 <span class="visual-reading-call is-hidden" id="visual-reading-call"></span>
                 <span class="visual-reading-total is-hidden" id="visual-reading-total"></span>
-                <div class="visual-factor" id="visual-factor-each"><span>1つぶんの かず</span><b class="visual-slot">?</b><span>こずつ</span></div><span class="visual-operator visual-times">×</span>
-                <div class="visual-factor" id="visual-factor-groups"><span>いくつぶん</span><b class="visual-slot">?</b><span>つぶん</span></div><span class="visual-operator visual-equals">＝</span>
-                <div class="visual-factor" id="visual-factor-total"><span>ぜんぶの かず</span><b class="visual-slot">?</b><span>こ</span></div>
+                <div class="visual-factor" id="visual-factor-each"><span>ふくろのなかのブロック</span><b class="visual-slot">?</b><span>こ</span></div><span class="visual-operator visual-times">×</span>
+                <div class="visual-factor" id="visual-factor-groups"><span>ふくろのかず</span><b class="visual-slot">?</b><span>ふくろ</span></div><span class="visual-operator visual-equals">＝</span>
+                <div class="visual-factor" id="visual-factor-total"><span>ぜんぶでブロックは</span><b class="visual-slot">?</b><span>こ</span></div>
               </div>
               <div id="visual-input">
                 <p class="visual-input-note" id="visual-input-note"></p>
@@ -694,7 +694,7 @@
             </button>
           </div>
           <h3 class="stats-heading">かけざんジムA</h3>
-          <p class="settings-note">OFFでは、個数とグループ数が合うと答えを自動表示します。ONでは、合計も入力して答え合わせをします。</p>
+          <p class="settings-note">OFFでは、ひとつのふくろの個数とふくろの数が合うと答えを自動表示します。ONでは、合計も入力して答え合わせをします。</p>
           <div class="settings-display-toggles">
             <button class="time-toggle settings-display-toggle" type="button" id="visual-answer-input-toggle" aria-pressed="false">
               <span class="toggle-knob" aria-hidden="true"></span>
@@ -788,7 +788,7 @@
     </div>
 
     <script src="visual-model.js?v=2"></script>
-    <script src="visual-gym.js?v=3"></script>
-    <script src="app.js?v=90"></script>
+    <script src="visual-gym.js?v=5"></script>
+    <script src="app.js?v=93"></script>
   </body>
 </html>

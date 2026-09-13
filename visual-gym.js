@@ -73,9 +73,10 @@ function renderVisual() {
   const failed = phase === "factor-error" || phase === "total-error";
   const done = phase === "done";
   buildVisualBoard(qs("#visual-board"), p, phase);
+  qs("#visual-board").setAttribute("aria-label", `${p.a}こ はいった ふくろが ${p.b}ふくろ。`);
   qs("#visual-board").classList.toggle("is-solved", done);
   const step = phase === "each" ? 1 : phase === "groups" || phase === "factor-error" ? 2 : 3;
-  qs("#visual-step").textContent = done ? "できた！\nこえにだしてみよう！" : failed ? "ずを みながら、もういちど！" : ["", "① ひとつの わくに、なんこある？", "② その まとまりが、いくつある？", "③ ブロックは、ぜんぶで なんこ？"][step];
+  qs("#visual-step").textContent = done ? "できた！\nこえにだしてみよう！" : failed ? "ずを みながら、もういちど！" : ["", "① ひとつの ふくろに、なんこ はいってる？", "② ふくろは、いくつある？", "③ ブロックは、ぜんぶで なんこ？"][step];
   ["each", "groups", "total"].forEach((name, index) => {
     const factor = qs(`#visual-factor-${name}`);
     factor.classList.toggle("is-active", phase === name);
@@ -103,14 +104,14 @@ function renderVisual() {
     button.classList.toggle("visual-zero", value === 0);
   });
   M.visual.feedback.className = "feedback" + (failed ? " is-try" : done ? " is-good" : "");
-  let message = SETTINGS.visualRequireTotalInput ? "1つぶん → いくつぶん → ぜんぶの かず" : "1つぶん → いくつぶん";
+  let message = SETTINGS.visualRequireTotalInput ? "ふくろの なかの かず → ふくろの かず → ぜんぶの ブロック" : "ふくろの なかの かず → ふくろの かず";
   if (phase === "factor-error") {
     const reversed = answer[0] === p.b && answer[1] === p.a;
-    message = reversed ? "ぜんぶの かずは おなじになるね！ ここでは「1つぶん → いくつぶん」の じゅんに いれよう。" : answer[0] !== p.a ? "まずは、ひとつの わくの なかだけを かぞえてみよう。" : "1つぶんは あっているよ！ わくが いくつあるか かぞえよう。";
-  } else if (phase === "total-error") message = "しきは あっているよ！ まとまりを たして、ぜんぶの かずを かんがえよう。";
+    message = reversed ? "ぜんぶの かずは おなじになるね！ ここでは「ふくろの なかの かず → ふくろの かず」の じゅんに いれよう。" : answer[0] !== p.a ? "まずは、ひとつの ふくろの なかだけを かぞえてみよう。" : "ふくろの なかの かずは あっているよ！ ふくろが いくつあるか かぞえよう。";
+  } else if (phase === "total-error") message = "しきは あっているよ！ ふくろの なかの ブロックを たして、ぜんぶの かずを かんがえよう。";
   M.visual.feedback.textContent = message;
   qs("#visual-explanation").classList.toggle("is-hidden", !done);
-  qs("#visual-explanation").textContent = done ? `${p.a}こずつが ${p.b}つで、ぜんぶで ${total}こ！` : "";
+  qs("#visual-explanation").textContent = done ? `${p.a}こ はいった ふくろが ${p.b}ふくろで、ブロックは ぜんぶで ${total}こ！` : "";
 }
 
 function renderVisualAnswerInputToggle() {

@@ -3600,7 +3600,6 @@ body.no-explain .multiply-block-text {
 .visual-equation{display:flex;justify-content:center;align-items:center;gap:14px;margin-bottom:20px}
 .visual-factor{display:grid;justify-items:center;gap:7px;font-size:14px;color:#536c87;min-width:110px;font-weight:800}
 .visual-slot{display:grid;place-items:center;width:80px;min-height:72px;border:2px dashed #bdcde0;border-radius:14px;background:#f5f8fc;color:#5b7493;font-size:38px;line-height:1.3}
-.visual-factor.is-active .visual-slot{border:3px solid #2769d6;box-shadow:0 0 0 4px #eaf2ff;color:#2769d6;background:#f0f6ff}.visual-factor.is-solved .visual-slot{color:#168653;border:2px solid #9aceb4;background:#f0faf4}
 .visual-operator{font-size:30px;color:#68819d}
 .visual-keypad{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-width:390px;margin:auto}.visual-keypad .choice-card{min-height:54px;font-size:28px;border-radius:12px;padding:7px}.visual-zero{grid-column:2}
 .visual-undo{display:block;margin:12px auto;padding:10px 18px;background:#edf2fa;color:#405d80;border-radius:12px;font-size:14px;min-height:44px}
@@ -3646,3 +3645,20 @@ body.no-explain .multiply-block-text {
 .multiply-board .five-set{padding:clamp(3px,1vw,8px)}
 .multiply-board .five-cells{gap:clamp(2px,.5vw,4px)}
 .multiply-board .five-cell{border-width:1px;border-bottom-width:2px;border-radius:3px}
+
+.visual-equation .visual-factor{align-self:stretch;grid-template-rows:1fr auto auto}
+.visual-factor>span:first-child{text-align:center;align-self:end;line-height:1.5}
+.visual-equation.is-reading .visual-factor{grid-template-rows:auto auto}
+
+/* 袋の内側でも、ブロックは5こずつの2段に並べる。 */
+#visual-board .five-set{
+  aspect-ratio:8 / 7;
+  padding:44% 14% 12%;
+  border:0;
+  border-radius:0;
+  background:url("block-bag.svg") center / 100% 100% no-repeat;
+  box-shadow:none;
+}
+#visual-board .five-set.is-focused{
+  filter:drop-shadow(0 0 3px #e8a855);
+}

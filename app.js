@@ -5027,7 +5027,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("sw.js?v=123", { updateViaCache: "none" })
+    .register("sw.js?v=126", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
