@@ -3650,6 +3650,12 @@ body.no-explain .multiply-block-text {
 .visual-factor>span:first-child{text-align:center;align-self:end;line-height:1.5}
 .visual-equation.is-reading .visual-factor{grid-template-rows:auto auto}
 
+/* 袋が大きくなりすぎないよう、3ふくろ表示のときの幅を上限にする。 */
+#visual-board.five-board{
+  width:min(100%,calc(100% * var(--five-groups) / 3));
+  margin-inline:auto;
+}
+
 /* 袋の内側でも、ブロックは5こずつの2段に並べる。 */
 #visual-board .five-set{
   aspect-ratio:8 / 7;
