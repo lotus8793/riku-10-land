@@ -3558,7 +3558,7 @@ body.no-explain .multiply-block-text {
 
 @media (min-width: 720px) {
   .multiply-area {
-    grid-template-columns: minmax(0, 1fr) minmax(270px, 310px);
+    grid-template-columns: minmax(0, 1fr);
     gap: 12px;
   }
 
@@ -3582,3 +3582,67 @@ body.no-explain .multiply-block-text {
     animation: none;
   }
 }
+
+/* かけざんジムA: 小さな10マスも、まとまり全体も5列で折り返す。 */
+.mission-seg.seg-visual,.legend-dot.seg-visual{background:#4487e5}
+.visual-area{display:block}.visual-area.is-hidden{display:none}.visual-card{padding:22px}.visual-content{width:100%;min-width:0}.visual-area.is-waiting .visual-content{display:none}
+.five-scroll{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;padding:6px 0}
+.five-board{display:grid;grid-template-columns:repeat(var(--five-groups),minmax(0,1fr));gap:12px;width:100%;min-width:calc(var(--five-groups)*112px);margin:0;padding:12px 5px;align-items:stretch}
+.five-set{display:grid;align-items:center;min-width:0;padding:10px;border:2px solid #cddff2;border-radius:14px;background:#eef5ff}
+.five-set.is-focused{border-color:#2769d6;box-shadow:0 0 0 3px #e8f0ff}
+.five-cells{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));grid-template-rows:repeat(2,1fr);gap:4px;width:100%;max-width:160px;margin:auto}
+.five-cell{display:block;aspect-ratio:1;min-width:0;border:1px solid #c5d5e7;border-radius:4px;background:#e0e8f1}
+.five-cell.is-filled{background:#4388ef;border:1.5px solid #2166ce;border-bottom-width:3px;box-shadow:inset 0 2px 0 #8dbcff}
+.five-board.is-solved .five-cell.is-filled{background:#38b281;border-color:#21865e;box-shadow:inset 0 2px 0 #8ddcb8}
+.visual-board-note,.visual-input-note{text-align:center;font-size:14px;color:#536c87;line-height:1.6;margin:8px 0 16px}
+.visual-answer-panel{margin-top:16px;padding:20px;border:2px solid #d8e5f6;border-radius:22px;background:#fff}
+.visual-step{font-size:20px;font-weight:900;line-height:1.6;text-align:center;color:#245489;margin:0 0 18px}
+.visual-equation{display:flex;justify-content:center;align-items:center;gap:14px;margin-bottom:20px}
+.visual-factor{display:grid;justify-items:center;gap:7px;font-size:14px;color:#536c87;min-width:110px;font-weight:800}
+.visual-slot{display:grid;place-items:center;width:80px;min-height:72px;border:2px dashed #bdcde0;border-radius:14px;background:#f5f8fc;color:#5b7493;font-size:38px;line-height:1.3}
+.visual-factor.is-active .visual-slot{border:3px solid #2769d6;box-shadow:0 0 0 4px #eaf2ff;color:#2769d6;background:#f0f6ff}.visual-factor.is-solved .visual-slot{color:#168653;border:2px solid #9aceb4;background:#f0faf4}
+.visual-operator{font-size:30px;color:#68819d}
+.visual-keypad{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-width:390px;margin:auto}.visual-keypad .choice-card{min-height:54px;font-size:28px;border-radius:12px;padding:7px}.visual-zero{grid-column:2}
+.visual-undo{display:block;margin:12px auto;padding:10px 18px;background:#edf2fa;color:#405d80;border-radius:12px;font-size:14px;min-height:44px}
+.visual-action{display:block;width:min(100%,340px);min-height:54px;margin:12px auto;padding:12px;background:#2769d6;color:#fff;border-radius:14px;font-size:18px;font-weight:900}
+.visual-action.is-hidden,.visual-content .is-hidden{display:none}.visual-action:disabled,.visual-undo:disabled,.visual-keypad button:disabled{opacity:.45}
+.visual-explanation{font-size:20px;font-weight:900;text-align:center;color:#168653;line-height:1.6}
+.visual-area .feedback{font-size:17px;line-height:1.7}
+/* ジムBは全幅を使って5列の解説を表示する。 */
+.multiply-explanation{min-width:0;justify-items:stretch}.multiply-board.five-board{gap:9px;min-width:0}
+@media(max-width:600px){.visual-card{padding:14px}.visual-answer-panel{padding:16px 10px}.visual-equation{gap:5px}.visual-factor{min-width:0;flex:1;font-size:12px}.visual-slot{width:66px;min-height:62px;font-size:31px}.visual-operator{font-size:23px}.visual-step{font-size:17px}.five-board{gap:8px}.five-set{padding:8px}.visual-area .feedback{font-size:15px}.visual-explanation{font-size:17px}}
+
+/* ブロックと「1つぶん」は青、枠と「いくつぶん」は橙、合計は緑。 */
+.five-set,.five-set.is-focused{border-color:#d97924;background:#fff6e8}.five-set.is-focused{box-shadow:0 0 0 3px #ffe7c7}.five-board.is-solved .five-cell.is-filled{background:#4388ef;border-color:#2166ce;box-shadow:inset 0 2px 0 #8dbcff}
+#visual-factor-each{--visual-color:#235ed4;--visual-bg:#edf4ff;--visual-halo:#dfeaff}#visual-factor-groups{--visual-color:#b76013;--visual-bg:#fff4e4;--visual-halo:#ffead0}#visual-factor-total{--visual-color:#167454;--visual-bg:#edf9f3;--visual-halo:#ddf2e7}
+.visual-factor{color:var(--visual-color)}.visual-factor .visual-slot,.visual-factor.is-solved .visual-slot{color:var(--visual-color);background:var(--visual-bg);border:2px solid var(--visual-color)}.visual-factor.is-active .visual-slot{border:3px solid var(--visual-color);box-shadow:0 0 0 4px var(--visual-halo)}
+
+/* 九九の読みを、左の「個数×グループ数」と右の合計の真上に置く。 */
+.visual-equation{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);column-gap:14px;row-gap:8px;width:min(100%,580px);margin:0 auto 20px;align-items:center}
+.visual-equation .visual-factor,.visual-equation .visual-operator{grid-row:2;min-width:0}
+#visual-factor-each{grid-column:1}#visual-factor-groups{grid-column:3}#visual-factor-total{grid-column:5}
+.visual-equation .visual-times{grid-column:2}.visual-equation .visual-equals{grid-column:4}
+.visual-reading-call,.visual-reading-total{grid-row:1;min-width:0;font-size:clamp(16px,2.6vw,24px);font-weight:900;text-align:center;line-height:1.6;overflow-wrap:anywhere}
+.visual-reading-call{grid-column:1 / 4;color:#384f74}.visual-reading-total{grid-column:5;color:#167454}
+.visual-equation.is-reading .visual-factor>span:first-child{display:none}
+.visual-step{white-space:pre-line}
+@media(max-width:600px){.visual-equation{column-gap:5px}.visual-reading-call,.visual-reading-total{font-size:16px}}
+
+/* Aの唱え方: 左を大きく、式と答えの読みを同じ赤にする。 */
+.visual-reading-call,.visual-reading-total{color:#c72f37}
+.visual-reading-call{font-size:clamp(24px,4vw,32px)}
+
+/* BはiPad mini縦向きでも、問題→数字パッドの1列。 */
+.multiply-area{grid-template-columns:minmax(0,1fr);gap:14px}
+.multiply-card,.multiply-pad-panel{min-width:0}
+.multiply-card{overflow:hidden}
+.multiply-pad-panel{width:100%;padding:14px}
+.multiply-keypad{max-width:420px;margin:0 auto}
+.multiply-keypad .multiply-key{min-height:54px;font-size:30px}
+.multiply-keypad .multiply-key.is-wide{min-height:48px;font-size:21px}
+.multiply-back{max-width:420px;margin:12px auto 0}
+.multiply-area.is-answer-shown .multiply-pad-panel{display:none}
+.multiply-board.five-board{min-width:0;gap:clamp(4px,1.2vw,9px);padding:8px 0}
+.multiply-board .five-set{padding:clamp(3px,1vw,8px)}
+.multiply-board .five-cells{gap:clamp(2px,.5vw,4px)}
+.multiply-board .five-cell{border-width:1px;border-bottom-width:2px;border-radius:3px}

@@ -5,7 +5,7 @@ const TIMER_TICK_MS = 100;
 const MAX_RECORDS = 10;
 const STICKER_STEP = 10;
 
-const MODES = ["pair", "tenplus", "flash", "simple", "mogi", "bridge", "minus", "ice", "multiply"];
+const MODES = ["pair", "tenplus", "flash", "simple", "mogi", "bridge", "minus", "ice", "visual", "multiply"];
 // にがて道場は計算問題の強化用。数の見方・操作練習のカテゴリは対象外にする。
 const WEAKNESS_SOURCE_MODES = ["simple", "bridge", "minus", "ice", "multiply"];
 // ふくしゅうジムは「その日の間違いを全部やる」モードなので、固定問数ミッションには含めない
@@ -23,6 +23,7 @@ const RECORDS_KEYS = {
   bridge: "riku10v2-records-bridge",
   minus: "riku10v2-records-minus",
   ice: "riku10v2-records-ice",
+  visual: "riku10v2-records-visual",
   multiply: "riku10v2-records-multiply"
 };
 const TOTAL_KEY = "riku10v2-total-correct";
@@ -57,7 +58,7 @@ const PARENT_LOCK_ATTEMPTS_KEY = "riku10v2-parent-lock-attempts";
 const PARENT_PIN_LENGTH = 4;
 const PARENT_RECOVERY_LENGTH = 8;
 const PARENT_LOCKOUT_MS = 30000;
-const SETTINGS_VERSION = 7;
+const SETTINGS_VERSION = 8;
 
 // きょうのミッションで各タブに必要な問題数の初期値（設定タブでタブごとに変更できる）
 const MISSION_CAP_DEFAULTS = {
@@ -69,6 +70,7 @@ const MISSION_CAP_DEFAULTS = {
   bridge: 10,
   minus: 5,
   ice: 5,
+  visual: 10,
   multiply: 20,
   weakness: 0
 };
@@ -97,6 +99,7 @@ function loadSettings() {
     flashMs: 1500, // フラッシュでブロックが見えている時間（ミリ秒）
     flashMax: 10, // フラッシュで出す最大の数
     fireLeftToRight: false, // ほのお: false=小→大、true=左→右に固定
+    visualRequireTotalInput: false, // Aは標準で式ができたら合計を自動表示
     waitForExplanation: true, // 解説が終わるまで「つぎへ」を表示しない
     missionCaps: { ...MISSION_CAP_DEFAULTS },
     catchModes: defaultGaugeMap(), // ポケモンゲットに進めるタブ
@@ -123,6 +126,7 @@ function loadSettings() {
   if (Number.isFinite(ms) && ms >= 200 && ms <= 10000) merged.flashMs = Math.round(ms);
   const max = Number(parsed.flashMax);
   if (Number.isFinite(max) && max >= 3 && max <= 10) merged.flashMax = Math.round(max);
+  if (typeof parsed.visualRequireTotalInput === "boolean") merged.visualRequireTotalInput = parsed.visualRequireTotalInput;
   if (typeof parsed.fireLeftToRight === "boolean") merged.fireLeftToRight = parsed.fireLeftToRight;
   if (typeof parsed.waitForExplanation === "boolean") merged.waitForExplanation = parsed.waitForExplanation;
 
@@ -678,13 +682,13 @@ function loadModeRecords(key) {
 }
 
 const state = {
-  problem: { simple: null, pair: null, tenplus: null, flash: null, mogi: null, bridge: null, minus: null, ice: null, multiply: null },
-  lastKey: { simple: "", pair: "", tenplus: "", flash: "", mogi: "", bridge: "", minus: "", ice: "", multiply: "" },
-  questionAt: { simple: 0, pair: 0, tenplus: 0, flash: 0, mogi: 0, bridge: 0, minus: 0, ice: 0, multiply: 0 },
+  problem: { simple: null, pair: null, tenplus: null, flash: null, mogi: null, bridge: null, minus: null, ice: null, visual: null, multiply: null },
+  lastKey: { simple: "", pair: "", tenplus: "", flash: "", mogi: "", bridge: "", minus: "", ice: "", visual: "", multiply: "" },
+  questionAt: { simple: 0, pair: 0, tenplus: 0, flash: 0, mogi: 0, bridge: 0, minus: 0, ice: 0, visual: 0, multiply: 0 },
   stats: loadStats(),
   dayLog: loadDayLog(),
-  started: { simple: false, pair: false, tenplus: false, flash: false, mogi: false, bridge: false, minus: false, ice: false, multiply: false },
-  locked: { simple: true, pair: true, tenplus: true, flash: true, mogi: true, bridge: true, minus: true, ice: true, multiply: true },
+  started: { simple: false, pair: false, tenplus: false, flash: false, mogi: false, bridge: false, minus: false, ice: false, visual: false, multiply: false },
+  locked: { simple: true, pair: true, tenplus: true, flash: true, mogi: true, bridge: true, minus: true, ice: true, visual: true, multiply: true },
   records: {
     simple: loadModeRecords(RECORDS_KEYS.simple),
     pair: loadModeRecords(RECORDS_KEYS.pair),
@@ -694,6 +698,7 @@ const state = {
     bridge: loadModeRecords(RECORDS_KEYS.bridge),
     minus: loadModeRecords(RECORDS_KEYS.minus),
     ice: loadModeRecords(RECORDS_KEYS.ice),
+    visual: loadModeRecords(RECORDS_KEYS.visual),
     multiply: loadModeRecords(RECORDS_KEYS.multiply)
   },
   // かみなりジム: timers はフラッシュ表示の setTimeout 群、replays は今の問題で見直した回数
@@ -710,6 +715,7 @@ const state = {
   // こおりのダンジョン: 10のかたまりから引く数だけ、自分で消してから答える
   ice: { phase: "remove", removed: [], pointerActive: false, pointerId: null },
   // かけざんジム: 十の位を先に選び、つぎに一の位を選ぶ
+  visual: { ...KakezanVisual.initialGame, answer: [] },
   multiply: { stage: "tens", tens: undefined, ones: undefined },
   combo: 0,
   stars: 0,
@@ -1616,8 +1622,8 @@ function importBackup(file) {
 
 /* ---------- せいせき（おうちの人向け） ---------- */
 
-const MODE_LABELS = { simple: "たしざんジム", pair: "あわせて10", tenplus: "10+X", flash: "かみなりジム", mogi: "もぎダンジョン", bridge: "ほのおのダンジョン", minus: "ひきざんジム", ice: "こおりのダンジョン", multiply: "かけざんジム" };
-const STATS_MODE_LABELS = { simple: "足し算ジム", pair: "合わせて10", tenplus: "10+X", flash: "雷ジム", mogi: "もぎダンジョン", bridge: "炎のダンジョン", minus: "引き算ジム", ice: "氷のダンジョン", multiply: "掛け算ジム" };
+const MODE_LABELS = { simple: "たしざんジム", pair: "あわせて10", tenplus: "10+X", flash: "かみなりジム", mogi: "もぎダンジョン", bridge: "ほのおのダンジョン", minus: "ひきざんジム", ice: "こおりのダンジョン", visual: "かけざんジムA", multiply: "かけざんジムB" };
+const STATS_MODE_LABELS = { simple: "足し算ジム", pair: "合わせて10", tenplus: "10+X", flash: "雷ジム", mogi: "もぎダンジョン", bridge: "炎のダンジョン", minus: "引き算ジム", ice: "氷のダンジョン", visual: "掛け算ジムA", multiply: "掛け算ジムB" };
 MODE_LABELS.bridge = "炎のダンジョン";
 MODE_LABELS.ice = "氷のダンジョン";
 MODE_LABELS.dojo = "ふくしゅうジム";
@@ -1627,7 +1633,7 @@ const SETTINGS_MODES = [...MODES, "dojo", "weakness"];
 function formatProblemLabel(mode, key) {
   if (mode === "flash") return `${key}こ`;
   if (mode === "minus" || mode === "ice") return key.replace("-", " − ");
-  if (mode === "multiply") return key.replace("-", " × ");
+  if (mode === "multiply" || mode === "visual") return key.replace("-", " × ");
   if (mode === "simple" || mode === "tenplus") return key.replace("-", " + ");
   return key.replace("+", " + ");
 }
@@ -2229,6 +2235,7 @@ function buildWeaknessModeSettings() {
 }
 
 function renderSettingsPanel() {
+  renderVisualAnswerInputToggle();
   renderFireDirectionToggle();
   renderExplanationWaitToggle();
   SETTINGS_MODES.forEach((mode) => {
@@ -2614,6 +2621,7 @@ const STATIC_EXPLANATION_WAIT_MS = {
   pair: 1200,
   tenplus: 800,
   mogi: 1000,
+  visual: 1000,
   multiply: 1400
 };
 
@@ -2859,6 +2867,7 @@ function nextQuestion(mode) {
   else if (mode === "bridge") nextBridge();
   else if (mode === "minus") nextMinus();
   else if (mode === "ice") nextIce();
+  else if (mode === "visual") nextVisual();
   else if (mode === "multiply") nextMultiply();
   else nextSimple();
 }
@@ -3988,7 +3997,9 @@ function chooseBridge(value, button, problem = state.problem.bridge) {
   }
 }
 
-/* ---------- かけざんジム（九九） ---------- */
+bindVisualGym();
+
+/* ---------- かけざんジムB（九九） ---------- */
 
 // 九九を唱えるときの、答えの前までの読み。
 // https://contest.japias.jp/tqj2003/60114/graph.htm の「声に出して読みたい九九」に準拠。
@@ -4064,35 +4075,7 @@ function renderMultiplyKeypad(stage) {
 }
 
 function renderMultiplyBoard(problem) {
-  const board = els.multiplyBoard;
-  board.replaceChildren();
-  const dense = problem.a * problem.b >= 49;
-  board.classList.toggle("is-dense", dense);
-  board.style.setProperty("--multiply-columns", String(problem.a));
-  board.style.maxWidth = `${50 + problem.a * (dense ? 25 : 32)}px`;
-  board.setAttribute("aria-label", `${problem.a}このブロックのセットが、たてに${problem.b}セット。ぜんぶで${problem.a * problem.b}こ`);
-
-  for (let setIndex = 0; setIndex < problem.b; setIndex += 1) {
-    const group = document.createElement("div");
-    group.className = "multiply-set";
-    group.setAttribute("aria-label", `${setIndex + 1}セットめ、${problem.a}こ`);
-
-    const number = document.createElement("span");
-    number.className = "multiply-set-number";
-    number.textContent = String(setIndex + 1);
-
-    const blocks = document.createElement("span");
-    blocks.className = "multiply-blocks";
-    blocks.setAttribute("aria-hidden", "true");
-    for (let blockIndex = 0; blockIndex < problem.a; blockIndex += 1) {
-      const block = document.createElement("i");
-      block.className = "multiply-block";
-      block.style.setProperty("--block-delay", `${Math.min(600, (setIndex * problem.a + blockIndex) * 14)}ms`);
-      blocks.append(block);
-    }
-    group.append(number, blocks);
-    board.append(group);
-  }
+  buildVisualBoard(els.multiplyBoard, problem);
 }
 
 function showMultiplyExplanation(problem) {
@@ -4112,6 +4095,13 @@ function lockMultiplyKeypad() {
   els.multiplyBack.classList.add("is-hidden");
 }
 
+function keepMultiplyVisible(problem) {
+  requestAnimationFrame(() => {
+    if (state.activeMode !== "multiply" || state.problem.multiply !== problem) return;
+    M.multiply.section.scrollIntoView({ behavior: "auto", block: "nearest" });
+  });
+}
+
 function chooseMultiplyDigit(value, button) {
   if (state.locked.multiply) return;
   if (state.multiply.stage === "tens") {
@@ -4124,6 +4114,7 @@ function chooseMultiplyDigit(value, button) {
     els.multiplyBack.classList.remove("is-hidden");
     M.multiply.feedback.className = "feedback";
     M.multiply.feedback.textContent = "つぎは 1のくらいを いれてね";
+    keepMultiplyVisible(state.problem.multiply);
     return;
   }
 
@@ -4139,11 +4130,7 @@ function chooseMultiplyDigit(value, button) {
   els.multiplyPadStep.textContent = correct ? "○ せいかい！" : `こたえは ${answer}`;
   showMultiplyExplanation(problem);
   lockMultiplyKeypad();
-  requestAnimationFrame(() => {
-    if (state.activeMode !== "multiply" || state.problem.multiply !== problem) return;
-    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    M.multiply.section.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "nearest" });
-  });
+  keepMultiplyVisible(problem);
 
   if (correct) {
     onCorrect("multiply");
@@ -4174,6 +4161,7 @@ function nextMultiply() {
   setNextButton("multiply", false);
   renderMultiplyDraft();
   renderMultiplyKeypad("tens");
+  keepMultiplyVisible(problem);
   if (state.activeMode === "multiply") startChallengeTimer();
 }
 
@@ -5039,7 +5027,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("sw.js?v=118", { updateViaCache: "none" })
+    .register("sw.js?v=123", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }
