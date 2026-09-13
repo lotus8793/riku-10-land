@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=83">
+    <link rel="stylesheet" href="styles.css?v=84">
   </head>
   <body>
     <main class="app-shell">
@@ -787,8 +787,37 @@
       </div>
     </div>
 
+    <div class="review-unlock-overlay is-hidden" id="review-unlock-overlay" role="status" aria-live="polite" aria-atomic="true">
+      <div class="review-unlock-card">
+        <p class="review-unlock-kicker">ミッションクリア！</p>
+        <div class="review-gym" aria-hidden="true">
+          <div class="review-gym-sign">ふくしゅうジム</div>
+          <div class="review-gym-doorway">
+            <div class="review-gym-light">✦</div>
+            <div class="review-gym-door review-gym-door-left"></div>
+            <div class="review-gym-door review-gym-door-right"></div>
+          </div>
+          <div class="review-gym-step"></div>
+        </div>
+        <p class="review-unlock-title">ふくしゅうジム<span>Open！</span></p>
+        <p class="review-unlock-note">とびらが ひらいたよ！</p>
+      </div>
+    </div>
+
+    <div class="review-unlock-overlay is-hidden" id="master-ball-overlay" role="status" aria-live="polite" aria-atomic="true">
+      <div class="review-unlock-card master-reward-card">
+        <p class="review-unlock-kicker">ふくしゅうジム クリア！</p>
+        <div class="master-reward-art" aria-hidden="true">
+          <span class="master-sparkle spark-one">✦</span><span class="master-sparkle spark-two">✧</span><span class="master-sparkle spark-three">✦</span>
+          <div class="master-reward-ball"><span class="master-ball-letter">M</span><span class="master-ball-button"></span></div>
+        </div>
+        <p class="review-unlock-title">マスターボール<span>Get！</span></p>
+        <p class="review-unlock-note">きょうの がんばり、かんぺき！</p>
+      </div>
+    </div>
+
     <script src="visual-model.js?v=2"></script>
     <script src="visual-gym.js?v=5"></script>
-    <script src="app.js?v=93"></script>
+    <script src="app.js?v=94"></script>
   </body>
 </html>

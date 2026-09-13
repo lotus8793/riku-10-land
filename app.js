@@ -1271,6 +1271,10 @@ function showNextOverlay() {
     return;
   }
   overlayActive = true;
+  if (item.type === "review-unlock" || item.type === "master-ball") {
+    showGymCelebration(item.type);
+    return;
+  }
   const popEl = els.stickerOverlay.querySelector(".sticker-pop");
   const ball = els.pokeball;
 
@@ -1537,6 +1541,28 @@ function registerWrong(mode) {
   renderMission();
 }
 
+function showGymCelebration(type) {
+  const overlay = qs(type === "master-ball" ? "#master-ball-overlay" : "#review-unlock-overlay");
+  const shell = qs(".app-shell");
+  const wasInert = shell.inert;
+  shell.inert = true;
+  overlay.classList.remove("is-hidden");
+  playTone(type === "master-ball" ? "shiny" : "sticker");
+  setTimeout(() => {
+    overlay.classList.add("is-hidden");
+    shell.inert = wasInert;
+    showNextOverlay();
+  }, 3800);
+}
+
+function queueMasterBallCelebration() {
+  const day = state.dayLog[todayStr()];
+  if (!day?.master || day.masterCelebrated) return;
+  day.masterCelebrated = true;
+  saveDayLog();
+  queueCatchOverlay({ type: "master-ball" });
+}
+
 function checkMissionGoal() {
   const done = missionParts();
   const cleared = MISSION_MODES.every((mode) => done[mode] >= missionCap(mode));
@@ -1545,6 +1571,8 @@ function checkMissionGoal() {
     saveDaily();
     registerMissionClear();
     catchPokemon(true);
+    queueCatchOverlay({ type: "review-unlock" });
+    queueMasterBallCelebration();
   }
 }
 
@@ -2515,6 +2543,7 @@ function onCorrect(mode) {
     state.combo += 1;
     countSolvedQuestion();
     if (!state.challenge.ended) registerCorrect(mode);
+    if (state.dojo.started) queueMasterBallCelebration();
   }
   const feedback = M[mode].feedback;
   feedback.className = "feedback is-good";
@@ -5027,7 +5056,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.location.reload();
   });
   navigator.serviceWorker
-    .register("sw.js?v=126", { updateViaCache: "none" })
+    .register("sw.js?v=127", { updateViaCache: "none" })
     .then((registration) => registration.update())
     .catch(() => {});
 }

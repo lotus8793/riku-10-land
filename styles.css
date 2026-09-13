@@ -3662,3 +3662,43 @@ body.no-explain .multiply-block-text {
 #visual-board .five-set.is-focused{
   filter:drop-shadow(0 0 3px #e8a855);
 }
+
+/* 捕獲演出と同じキューで、復習の解禁・完了を順番に見せる。 */
+.review-unlock-overlay{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:20px;background:rgba(15,30,54,.7);overflow:hidden}
+.review-unlock-overlay.is-hidden{display:none}
+.review-unlock-card{width:min(100%,430px);max-height:100%;overflow:auto;padding:26px 20px;text-align:center;border:3px solid #f7d578;border-radius:28px;background:radial-gradient(ellipse at 50% 48%,#fff8cd,#e4f4ff 75%);box-shadow:0 18px 70px #10243d66;animation:review-cut-in .45s ease-out both}
+.review-unlock-kicker{margin:0 0 18px;color:#45627e;font-size:clamp(18px,4vw,24px);font-weight:900}
+.review-gym{width:min(100%,280px);margin:auto;padding:12px 20px 0;border-radius:28px 28px 8px 8px;background:linear-gradient(90deg,#728dad,#b0c4dc 50%,#728dad);border:3px solid #486583;box-shadow:0 7px 0 #b8c6d4}
+.review-gym-sign{padding:10px 3px;margin:0 -8px 15px;border:2px solid #f4ce68;border-radius:12px;background:#23496b;color:#fff7cd;font-size:20px;font-weight:900}
+.review-gym-doorway{position:relative;height:190px;overflow:hidden;perspective:550px;border:5px solid #3c5572;border-bottom:0;border-radius:55px 55px 0 0;background:radial-gradient(ellipse at center,#fff 5%,#fff3a2 55%,#efbb54)}
+.review-gym-light{position:absolute;inset:0;display:grid;place-items:center;color:white;font-size:85px;text-shadow:0 0 25px #ffdf43;animation:review-light 1.1s .7s both}
+.review-gym-door{position:absolute;top:0;bottom:0;width:50%;border:3px solid #365979;background:linear-gradient(90deg,#4879a2,#6ca3c6);backface-visibility:hidden}
+.review-gym-door::before{content:"";position:absolute;inset:22px 12px;border:2px solid #b8d4e9;border-radius:18px 18px 3px 3px}
+.review-gym-door::after{content:"";position:absolute;top:58%;width:10px;height:24px;background:#ffde7c;border-radius:5px;box-shadow:0 2px 0 #8e6b27}
+.review-gym-door-left{left:0;transform-origin:left center;animation:review-door-left 1.25s .65s ease-in-out both}
+.review-gym-door-left::after{right:8px}
+.review-gym-door-right{right:0;transform-origin:right center;animation:review-door-right 1.25s .65s ease-in-out both}
+.review-gym-door-right::after{left:8px}
+.review-gym-step{height:13px;background:#e1eaf2;border-top:3px solid #7c94aa;margin:0 -12px;border-radius:3px}
+.review-unlock-title{margin:22px 0 8px;color:#214967;font-size:clamp(23px,5vw,30px);font-weight:900;line-height:1.3;animation:review-open-title .5s 1.5s both}
+.review-unlock-title span{display:block;color:#b14b18;font-size:clamp(38px,9vw,54px);text-shadow:0 2px 0 white}
+.review-unlock-note{margin:0;color:#45627e;font-weight:800;animation:review-open-title .5s 1.7s both}
+.master-reward-card{background:radial-gradient(ellipse at 50% 42%,#fffbe1,#eee4ff 75%);border-color:#c8a2f7}
+.master-reward-art{position:relative;display:grid;place-items:center;width:min(100%,290px);height:245px;margin:auto}
+.master-reward-ball{position:relative;width:190px;height:190px;border:6px solid #39285c;border-radius:50%;overflow:hidden;background:linear-gradient(#8a4dcc 0 47%,#39285c 47% 53%,#fff 53%);box-shadow:inset -12px -10px 0 #39285c18,0 0 35px #c99aff;animation:master-ball-glow 1.2s ease-in-out infinite alternate}
+.master-reward-ball::before,.master-reward-ball::after{content:"";position:absolute;top:13px;width:46px;height:52px;background:#ef73c3;border:3px solid #a74995;border-radius:50%}
+.master-reward-ball::before{left:-4px;transform:rotate(-30deg)}.master-reward-ball::after{right:-4px;transform:rotate(30deg)}
+.master-ball-letter{position:absolute;top:19px;left:0;right:0;color:white;font-size:42px;font-weight:1000;line-height:1;text-shadow:0 2px 0 #593086}
+.master-ball-button{position:absolute;z-index:1;left:50%;top:50%;transform:translate(-50%,-50%);width:46px;height:46px;border:7px solid #39285c;border-radius:50%;background:#fff;box-shadow:inset 0 0 0 4px #eadcf9}
+.master-sparkle{position:absolute;color:#c58e13;text-shadow:0 0 12px white;font-size:48px;animation:master-sparkle 1.3s ease-in-out infinite alternate}
+.spark-one{left:0;top:12px}.spark-two{right:0;top:50px;animation-delay:.4s;font-size:60px}.spark-three{left:20px;bottom:0;animation-delay:.8s;font-size:32px}
+.master-reward-card .review-unlock-title{animation-delay:.5s}.master-reward-card .review-unlock-title span{color:#7945b6}.master-reward-card .review-unlock-note{animation-delay:.7s}
+@keyframes review-cut-in{from{opacity:0;transform:translateY(30px) scale(.9)}to{opacity:1;transform:none}}
+@keyframes review-door-left{from{transform:rotateY(0)}to{transform:rotateY(-105deg)}}
+@keyframes review-door-right{from{transform:rotateY(0)}to{transform:rotateY(105deg)}}
+@keyframes review-light{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+@keyframes review-open-title{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes master-ball-glow{from{filter:brightness(1);box-shadow:inset -12px -10px 0 #39285c18,0 0 20px #c99aff;transform:translateY(3px)}to{filter:brightness(1.15);box-shadow:inset -12px -10px 0 #39285c18,0 0 50px #bb88ff;transform:translateY(-3px)}}
+@keyframes master-sparkle{from{opacity:.35;transform:scale(.75)}to{opacity:1;transform:scale(1.1)}}
+@media(max-height:600px){.review-unlock-card{padding:14px 20px}.review-unlock-kicker{margin-bottom:8px}.review-gym{width:230px}.review-gym-doorway{height:130px}.review-gym-sign{padding:5px;margin-bottom:8px;font-size:17px}.review-unlock-title{margin-top:14px}.master-reward-art{height:210px}}
+@media(prefers-reduced-motion:reduce){.review-unlock-card,.review-gym-light,.review-unlock-title,.review-unlock-note,.master-reward-ball,.master-sparkle{animation:none}.review-gym-door-left{animation:none;transform:rotateY(-105deg)}.review-gym-door-right{animation:none;transform:rotateY(105deg)}}
