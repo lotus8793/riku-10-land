@@ -74,7 +74,6 @@ body[data-active-mode="rockrun"] .mission-legend { display: none; }
 .run-rule-chips { display: flex; justify-content: center; flex-wrap: wrap; gap: 7px; margin: 17px 0; }
 .run-rule-chips span { padding: 6px 10px; background: #edf1df; color: #5a7051; border-radius: 8px; font-size: 11px; font-weight: 800; }
 .run-primary { display: flex; align-items: center; justify-content: center; gap: 20px; width: min(100%, 380px); margin: 15px auto 0; min-height: 53px; padding: 13px 15px; color: #fffef0; background: #477b55; border: 1px solid #346343; border-bottom: 4px solid #2c5a3c; border-radius: 13px; font-weight: 900; font-size: 16px; cursor: pointer; box-shadow: 0 3px 0 #e2e7d4; }
-.run-primary:hover { background: #3b6b49; }
 .run-primary:active { transform: translateY(2px); border-bottom-width: 2px; }
 .run-primary:disabled { background: #b8c3aa; border-color: #a4b194; cursor: default; box-shadow: none; }
 .run-primary:focus-visible, .run-pause:focus-visible, .run-answer:focus-visible, .run-secondary:focus-visible { outline: 3px solid #e4a333; outline-offset: 4px; }
@@ -89,7 +88,12 @@ body[data-active-mode="rockrun"] .mission-legend { display: none; }
 .run-equation { margin: 18px 0 21px; text-align: center; font-size: clamp(34px, 7vw, 48px); font-weight: 900; letter-spacing: .04em; font-variant-numeric: tabular-nums; line-height: 1.2; }
 .run-choices { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .run-answer { position: relative; min-width: 0; min-height: 77px; border: 2px solid #dddfc6; border-bottom: 5px solid #d0d6b8; border-radius: 14px; background: #f7f8e9; color: #375d42; font-size: 34px; font-weight: 900; cursor: pointer; box-shadow: 0 2px 0 #ebeddc; transition: background .15s, transform .15s; }
-.run-answer:not(:disabled):hover { transform: translateY(-3px); background: #eef4d5; border-color: #8aab68; }
+/* Hover only with a real pointer: on iPad a tap leaves a sticky hover on whatever
+   button is redrawn under the finger, which looked like the next question's answer. */
+@media (hover: hover) and (pointer: fine) {
+  .run-primary:hover { background: #3b6b49; }
+  .run-answer:not(:disabled):hover { transform: translateY(-3px); background: #eef4d5; border-color: #8aab68; }
+}
 .run-answer-key { position: absolute; top: 6px; left: 8px; font-size: 10px; color: #9aa68b; }
 .run-answer:disabled { cursor: default; opacity: .5; }
 .run-answer.is-correct { opacity: 1; background: #dfefcb; border-color: #83a86a; color: #35613d; }
