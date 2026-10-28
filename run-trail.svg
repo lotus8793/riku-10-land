@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 340" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="hill" x2="0" y2="1"><stop stop-color="#91b99a"/><stop offset="1" stop-color="#7fa982"/></linearGradient>
+    <linearGradient id="ground" x2="0" y2="1"><stop stop-color="#afcb7c"/><stop offset="1" stop-color="#82ae57"/></linearGradient>
+    <linearGradient id="path" x2=".25" y2="1"><stop stop-color="#dfd6a9"/><stop offset="1" stop-color="#dfc493"/></linearGradient>
+    <g id="tree"><path d="M-3 0h6v-41h-6" fill="#887b51"/><path d="M0-105 26-66 19-66 35-39 25-39 40-14Q0-1-40-14L-25-39-35-39-19-66-26-66Z" fill="#4f8864"/><path d="M0-105 0-17Q20-7 40-14L25-39 35-39 19-66 26-66Z" fill="#39775c"/><path d="M-20-64 0-95 0-76Z" fill="#78a777" opacity=".6"/></g>
+  </defs>
+  <path d="M0 139Q95 57 204 113T389 125Q480 65 578 105T800 96V226H0" fill="#95bdaf"/>
+  <path d="M0 147Q155 94 295 147T550 130Q677 94 800 150V245H0" fill="url(#hill)"/>
+  <path d="M0 173Q160 136 312 163T528 164Q690 130 800 164V340H0" fill="url(#ground)"/>
+  <path d="M392 154L118 340H682L408 154Z" fill="#749c5750"/>
+  <path d="M396 153L142 340H658L404 153Z" fill="url(#path)"/>
+  <path d="M397 155L147 340" fill="none" stroke="#f5edc2" stroke-width="4" opacity=".65"/>
+  <path d="M403 155L653 340" fill="none" stroke="#bda778" stroke-width="3" opacity=".6"/>
+  <g opacity=".55"><use href="#tree" transform="translate(298 161) scale(.31)"/><use href="#tree" transform="translate(328 166) scale(.27)"/><use href="#tree" transform="translate(477 162) scale(.3)"/><use href="#tree" transform="translate(505 166) scale(.4)"/></g>
+</svg>

@@ -101,6 +101,8 @@ function loadSettings() {
     fireLeftToRight: false, // ほのお: false=小→大、true=左→右に固定
     visualRequireTotalInput: false, // Aは標準で式ができたら合計を自動表示
     waitForExplanation: true, // 解説が終わるまで「つぎへ」を表示しない
+    rockRunSeconds: 8,
+    rockRunHearts: 3,
     missionCaps: { ...MISSION_CAP_DEFAULTS },
     catchModes: defaultGaugeMap(), // ポケモンゲットに進めるタブ
     coinModes: defaultGaugeMap(), // コインゲージに進めるタブ
@@ -129,6 +131,10 @@ function loadSettings() {
   if (typeof parsed.visualRequireTotalInput === "boolean") merged.visualRequireTotalInput = parsed.visualRequireTotalInput;
   if (typeof parsed.fireLeftToRight === "boolean") merged.fireLeftToRight = parsed.fireLeftToRight;
   if (typeof parsed.waitForExplanation === "boolean") merged.waitForExplanation = parsed.waitForExplanation;
+  const rockRunSeconds = Number(parsed.rockRunSeconds);
+  if (Number.isFinite(rockRunSeconds) && rockRunSeconds >= 5 && rockRunSeconds <= 30) merged.rockRunSeconds = Math.round(rockRunSeconds);
+  const rockRunHearts = Number(parsed.rockRunHearts);
+  if (Number.isInteger(rockRunHearts) && rockRunHearts >= 1 && rockRunHearts <= 5) merged.rockRunHearts = rockRunHearts;
 
   // 旧形式の引き継ぎ: ジム・ダンジョン合算だった missionGoal を4タブに配分する
   const legacyGoal = Number(parsed.missionGoal);
@@ -4788,6 +4794,7 @@ function submitParentLockEntry() {
 
 function switchMode(mode) {
   if (mode === "dojo" && !reviewGymUnlocked()) return;
+  window.rockRun?.leave();
   if (mode !== "settings") lockParentSettings();
   clearNextQuestion();
   stopChallengeTimer();
@@ -4812,6 +4819,7 @@ function switchMode(mode) {
   qs("#report-mode").classList.toggle("is-hidden", mode !== "report");
   qs("#dojo-mode").classList.toggle("is-hidden", mode !== "dojo");
   qs("#weakness-mode").classList.toggle("is-hidden", mode !== "weakness");
+  qs("#rockrun-mode").classList.toggle("is-hidden", mode !== "rockrun");
   qs("#settings-mode").classList.toggle("is-hidden", mode !== "settings");
   qs("#calendar-mode").classList.toggle("is-hidden", mode !== "calendar");
 
@@ -4822,6 +4830,7 @@ function switchMode(mode) {
   if (mode === "report") renderReport();
   if (mode === "dojo") renderReviewGym();
   if (mode === "weakness") renderEndlessDojo();
+  if (mode === "rockrun") window.rockRun?.enter();
   if (mode === "settings") showParentLockGate();
   if (mode === "calendar") {
     calendarOffset = 0;

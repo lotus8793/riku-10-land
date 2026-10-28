@@ -10,7 +10,8 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="stylesheet" href="styles.css?v=84">
+    <link rel="stylesheet" href="styles.css?v=85">
+    <link rel="stylesheet" href="rock-run.css?v=3">
   </head>
   <body>
     <main class="app-shell">
@@ -52,6 +53,7 @@
         <button class="mode-tab" type="button" data-mode="multiply">かけざんジムB</button>
         <button class="mode-tab" type="button" data-mode="dojo">ふくしゅうジム</button>
         <button class="mode-tab" type="button" data-mode="weakness">にがて道場</button>
+        <button class="mode-tab rockrun-tab" type="button" data-mode="rockrun">いわくだきラン</button>
         <button class="mode-tab" type="button" data-mode="gametime">ショップ</button>
         <button class="mode-tab" type="button" data-mode="dex">ずかん</button>
         <button class="mode-tab" type="button" data-mode="calendar">カレンダー</button>
@@ -616,6 +618,61 @@
         </div>
       </section>
 
+      <section class="is-hidden rockrun" id="rockrun-mode" aria-labelledby="rockrun-title">
+        <div class="run-heading">
+          <div><span class="run-eyebrow">にがての さきへ、ぼうけんだ！</span><h2 id="rockrun-title">いわくだきラン</h2></div>
+          <button class="run-pause is-hidden" id="run-pause" type="button">Ⅱ ひとやすみ</button>
+        </div>
+        <div class="run-stage" id="run-stage" data-phase="ready" role="img" aria-label="ポケモンと草原の道を走り、せまる岩をくだくぼうけん">
+          <div class="run-sun"></div><div class="run-cloud run-cloud-one"></div><div class="run-cloud run-cloud-two"></div>
+          <div class="run-trail"></div>
+          <div class="run-world" id="run-world" aria-hidden="true"><div class="run-rock" id="run-rock"><div class="run-boulder"><span></span><i></i></div><div class="run-rock-shadow"></div></div></div>
+          <div class="run-hud"><span class="run-location">◈ こもれびの こみち</span><span class="run-hearts" id="run-hearts" aria-label="のこり3回">♥ ♥ ♥</span></div>
+          <div class="run-speedlines" aria-hidden="true"></div>
+          <div class="run-fragments" id="run-fragments" aria-hidden="true"></div>
+          <div class="run-impact" id="run-impact" aria-hidden="true">いわくだき！</div>
+          <div class="run-evolve is-hidden" id="run-evolve" data-kind="evolve">
+            <div class="run-evolve-band"><div class="run-evolve-ring"></div><div class="run-evolve-art"><img class="run-evolve-from" id="run-evolve-from" alt="" width="96" height="96"><img class="run-evolve-to" id="run-evolve-to" alt="" width="96" height="96"></div></div>
+            <p class="run-evolve-line run-evolve-line1" id="run-evolve-line1"></p>
+            <p class="run-evolve-line run-evolve-line2" id="run-evolve-line2" role="status" aria-live="polite"></p>
+            <div class="run-evolve-flash"></div>
+          </div>
+          <div class="run-pokemon" id="run-pokemon"><span class="run-pokemon-shadow"></span><img id="run-partner" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/25.png" alt="ピカチュウ" width="128" height="128"><span class="run-dust"></span></div>
+          <div class="run-stage-caption" id="run-stage-caption">ポケモンと にがてを こえていこう！</div>
+          <div class="run-bottom-hud"><span><strong id="run-distance">0</strong> m</span><span class="run-combo" id="run-combo-badge" data-big="0"><strong id="run-combo">0</strong> コンボ</span></div>
+        </div>
+        <div class="run-console">
+          <div id="run-ready" class="run-ready">
+            <div class="run-intro-title">こたえて、くだいて、つきすすめ！</div>
+            <p>せまる いわを、せいかいで バリーン！<br>まちがえたり じかんがきれたら、ごっつん。</p>
+            <div class="run-rule-chips"><span id="run-time-rule">1もん 8びょう</span><span id="run-hearts-rule">♥ 3かいまで</span><span>にがて問題だけ</span></div>
+            <button type="button" class="run-primary" id="run-start">ぼうけんに しゅっぱつ！ <span>→</span></button>
+            <p class="run-source-note" id="run-source-note"></p>
+            <p class="run-best" id="run-best"></p>
+          </div>
+          <div id="run-question" class="is-hidden">
+            <div class="run-question-top"><span id="run-category">にがてチャレンジ</span><span class="run-countdown" id="run-countdown">いわまで <strong id="run-seconds">8.0</strong> びょう</span></div>
+            <div class="run-time-track" id="run-time-track" role="progressbar" aria-label="岩にぶつかるまでの時間" aria-valuemin="0" aria-valuemax="8" aria-valuenow="8"><div id="run-time-fill"></div></div>
+            <p class="run-equation" id="run-equation"></p>
+            <div class="run-choices" id="run-choices" aria-label="こたえをえらんでね"></div>
+            <p class="run-feedback" id="run-feedback" role="status" aria-live="polite">こたえを えらんで いわくだき！</p>
+            <button type="button" class="run-primary is-hidden" id="run-continue">わかった！ つづける →</button>
+          </div>
+          <div id="run-rest" class="run-rest is-hidden">
+            <span class="run-eyebrow">ちょっと ひとやすみ</span><h3>じゅんびが できたら いこう！</h3>
+            <p>じかんは とまっているよ。</p><button type="button" class="run-primary" id="run-resume">ぼうけんを つづける →</button>
+          </div>
+          <div id="run-result" class="run-result is-hidden">
+            <span class="run-eyebrow">ぼうけん おつかれさま！</span><h3 id="run-result-title">よく がんばったね！</h3>
+            <div class="run-result-score"><strong id="run-result-score">0</strong><span>この いわを くだいた！</span></div>
+            <p id="run-result-answer"></p><p id="run-result-best" class="run-best"></p>
+            <button type="button" class="run-primary" id="run-retry">もういちど しゅっぱつ！ →</button>
+            <button type="button" class="run-secondary" id="run-home">こみちの いりぐちへ</button>
+          </div>
+        </div>
+        <p class="run-footer">パートナーと いっしょに！ にがて道場と おなじ問題・ごほうびで あそべるよ。</p>
+      </section>
+
       <section class="records-panel is-hidden" id="settings-mode" aria-label="設定（保護者向け）">
         <div class="question-card parent-lock-card" id="parent-lock-card">
           <div class="prompt-row">
@@ -725,7 +782,10 @@
             <label>にがて道場 <input type="number" id="set-cap-weakness" min="0" max="999" inputmode="numeric" pattern="[0-9]*"></label>
           </div>
           <p class="settings-note settings-note-total" id="mission-cap-total"></p>
-          <h3 class="stats-heading">にがて道場に出すカテゴリ</h3>
+          <h3 class="stats-heading">いわくだきラン</h3>
+          <p class="settings-note">岩にぶつかるまでの時間と、何回ぶつかったら終わるか（ハートの数）。にがて道場と同じカテゴリ・ミッション・ゲージ設定を使います。通常の「じかんあり／なし」に関係なく、1問ずつ時間を計ります。ハートの数は次のスタートから反映されます。</p>
+          <div class="stats-settings"><label>1問の制限時間（5〜30秒） <input type="number" id="set-rockrun-seconds" min="5" max="30" step="1" inputmode="numeric"></label><label>ハートの数（1〜5こ） <input type="number" id="set-rockrun-hearts" min="1" max="5" step="1" inputmode="numeric"></label></div>
+          <h3 class="stats-heading">にがて道場・いわくだきランに出すカテゴリ</h3>
           <p class="settings-note">チェックしたカテゴリの、過去にまちがえた問題だけを出題します</p>
           <div class="weakness-mode-settings" id="weakness-mode-settings"></div>
           <h3 class="stats-heading">ゲージのクリア問題数</h3>
@@ -818,6 +878,7 @@
 
     <script src="visual-model.js?v=2"></script>
     <script src="visual-gym.js?v=5"></script>
-    <script src="app.js?v=94"></script>
+    <script src="app.js?v=96"></script>
+    <script src="rock-run.js?v=4"></script>
   </body>
 </html>
