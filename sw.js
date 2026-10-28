@@ -1,10 +1,11 @@
-const CACHE = "riku10-v2-130";
+const CACHE = "riku10-v2-131";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
   "./rock-run.js",
+  "./rock-run-data.js",
   "./rock-run.css",
   "./run-trail.svg",
   "./visual-model.js",

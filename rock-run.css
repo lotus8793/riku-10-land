@@ -129,7 +129,7 @@ body[data-active-mode="rockrun"] .mission-legend { display: none; }
 @keyframes run-kick { 0% { transform: translateY(5px); } 30% { transform: translate(-3px, -2px); } 60% { transform: translate(2px, 1px); } 100% { transform: none; } }
 .run-stage[data-power="1"] .run-impact { font-size: clamp(30px, 7vw, 50px); color: #fff36b; -webkit-text-stroke: 1.5px #c46a00; text-shadow: 0 4px #9a4b00, 0 0 18px #fff6a0; }
 .run-stage[data-power="2"] .run-impact { font-size: clamp(34px, 8vw, 58px); color: transparent; background: linear-gradient(90deg, #ff6b8b, #ffb74d, #fff176, #81e58b, #64c8ff, #b388ff); -webkit-background-clip: text; background-clip: text; -webkit-text-stroke: 1.5px #fff; text-shadow: none; filter: drop-shadow(0 4px 0 #6a3fa0) drop-shadow(0 0 14px #fff); }
-.run-fragments i.run-spark { width: 8px; height: 36px; background: linear-gradient(#fffbe0, #ffe23d 45%, #ffb300); clip-path: polygon(50% 0, 100% 38%, 62% 42%, 100% 100%, 0 52%, 40% 48%); filter: drop-shadow(0 0 4px #fff27a); animation: run-spark .6s ease-out both; }
+.run-fragments i.run-spark { width: 8px; height: 36px; background: linear-gradient(#fffbe0, var(--spark) 45%, #ffb300); clip-path: polygon(50% 0, 100% 38%, 62% 42%, 100% 100%, 0 52%, 40% 48%); filter: drop-shadow(0 0 4px #fff27a); animation: run-spark .6s ease-out both; }
 .run-stage[data-power="2"] .run-fragments i.run-spark { width: 10px; height: 44px; background: hsl(var(--hue) 95% 66%); filter: drop-shadow(0 0 5px hsl(var(--hue) 100% 78%)); }
 .run-fragments i.run-ring { width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; border: 5px solid #fff5a8; background: none; clip-path: none; box-shadow: 0 0 12px #ffe45c; animation: run-ring .6s ease-out both; }
 .run-stage[data-power="2"] .run-fragments i.run-ring { border-color: #ffd6f3; box-shadow: 0 0 14px #ff9ee0, inset 0 0 10px #7fd4ff; }
@@ -146,17 +146,25 @@ body[data-active-mode="rockrun"] .mission-legend { display: none; }
 @keyframes run-fly { 0% { transform: translateY(0); } 28% { transform: translateY(-120px) rotate(-6deg) scale(1.05); } 72% { transform: translateY(-110px) rotate(5deg) scale(1.05); } 100% { transform: translateY(0); } }
 @keyframes run-fly-shadow { 0%, 100% { transform: scale(1); opacity: 1; } 28%, 72% { transform: scale(.45); opacity: .5; } }
 @keyframes run-speedlines { 0% { opacity: 0; transform: scale(1.2); } 20%, 70% { opacity: .85; transform: scale(1); } 100% { opacity: 0; transform: scale(.95); } }
-/* Answers within 1.5 seconds: thunderbolt on the distant rock, or a dash-in back flip Iron Tail. */
-.run-stage[data-phase="success"][data-move="thunder"] .run-pokemon img { animation: run-charge .55s ease-out both; }
-.run-stage[data-phase="success"][data-move="tail"] .run-pokemon img { animation: run-tail .8s ease-in-out both; }
-.run-stage.is-struck[data-move="thunder"]::before { background: radial-gradient(circle at 50% 40%, #fffef0, #fff59dcc 45%, #fff59d55); animation: run-power-flash .45s ease-out both; }
-.run-stage.is-struck[data-move="tail"]::before { background: radial-gradient(circle at 50% 60%, #ffffffee, #dceeff88 40%, #0000 70%); animation: run-power-flash .4s ease-out both; }
-.run-stage.is-struck[data-move="thunder"], .run-stage.is-struck[data-move="tail"] { animation: run-shake .26s 2; }
-.run-stage[data-move="thunder"] .run-impact { font-size: clamp(34px, 8vw, 56px); color: #fff36b; background: none; filter: none; -webkit-text-stroke: 1.5px #b07800; text-shadow: 0 4px #7a5200, 0 0 22px #fffbd0; }
-.run-stage[data-move="tail"] .run-impact { font-size: clamp(28px, 6.6vw, 48px); color: #f4f8ff; background: none; filter: none; -webkit-text-stroke: 1.5px #5a6f8a; text-shadow: 0 4px #3d4f66, 0 0 18px #fff; }
-.run-fragments i.run-bolt { bottom: 0; width: 64px; margin-left: -32px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 200' preserveAspectRatio='none'%3E%3Cpath d='M23 0 8 82h12L3 200 35 92H21L37 0Z' fill='%23fff7a8'/%3E%3Cpath d='M24 6 13 80h10L9 180 30 96H18L31 6Z' fill='%23fff'/%3E%3C/svg%3E") center / 100% 100% no-repeat; clip-path: none; transform-origin: 50% 0; filter: drop-shadow(0 0 6px #fff36b) drop-shadow(0 0 16px #ffe45c); animation: run-bolt .5s ease-out both; }
-.run-fragments i.run-slash { width: 190px; height: 190px; margin: -95px 0 0 -95px; border-radius: 50%; background: none; clip-path: none; border: 12px solid #0000; border-top-color: #f4fbff; border-right-color: #b9d6f5; filter: drop-shadow(0 0 8px #fff); animation: run-slash .42s ease-out both; }
-@keyframes run-charge { 0% { transform: none; filter: brightness(1) drop-shadow(0 0 0 #fff36b); } 25% { transform: translateY(-10px) scale(1.08); filter: brightness(1.7) drop-shadow(0 0 12px #fff36b); } 55% { transform: translateY(0) scale(1); filter: brightness(1.3) drop-shadow(0 0 8px #fff36b); } 100% { transform: none; filter: brightness(1) drop-shadow(0 0 0 #fff36b); } }
+/* Answers within 1.5 seconds: the current form's type moves. "far" hits the distant rock from the sky,
+   as a beam, or rising from the ground; "close" dashes in for a back flip strike (silver for Iron Tail). */
+.run-stage { --move-color: #ffe45c; }
+.run-stage[data-phase="success"][data-move="far"] .run-pokemon img { animation: run-charge .55s ease-out both; }
+.run-stage[data-phase="success"][data-move="close"] .run-pokemon img { animation: run-close .8s ease-in-out both; }
+.run-stage[data-phase="success"][data-move="close"][data-metal="1"] .run-pokemon img { animation-name: run-tail; }
+.run-stage.is-struck[data-move="far"]::before { background: radial-gradient(circle at 50% 40%, #fffef0, var(--move-color) 45%, #fff0 80%); animation: run-power-flash .45s ease-out both; }
+.run-stage.is-struck[data-move="close"]::before { background: radial-gradient(circle at 50% 60%, #ffffffee, var(--move-color) 40%, #0000 70%); animation: run-power-flash .4s ease-out both; }
+.run-stage.is-struck[data-move="far"], .run-stage.is-struck[data-move="close"] { animation: run-shake .26s 2; }
+.run-stage[data-move="far"] .run-impact, .run-stage[data-move="close"] .run-impact { font-size: clamp(28px, 6.6vw, 50px); color: var(--move-color); background: none; filter: none; -webkit-text-stroke: 1.5px #2b2b3a; text-shadow: 0 4px #2b2b3a, 0 0 20px #fff; }
+.run-stage[data-move="close"][data-metal="1"] .run-impact { color: #f4f8ff; -webkit-text-stroke: 1.5px #5a6f8a; text-shadow: 0 4px #3d4f66, 0 0 18px #fff; }
+.run-fragments i.run-shot { width: 60px; margin-left: -30px; clip-path: none; animation: run-shot .5s ease-out both; filter: drop-shadow(0 0 6px var(--move-color)) drop-shadow(0 0 16px var(--move-color)); }
+.run-fragments i.run-shot-sky { top: auto; bottom: 0; background: linear-gradient(90deg, var(--move-color), #fff 42% 58%, var(--move-color)); clip-path: polygon(58% 0, 92% 0, 52% 41%, 88% 41%, 22% 100%, 40% 52%, 6% 52%); transform-origin: 50% 0; }
+.run-fragments i.run-shot-beam { top: 0; width: 40px; margin-left: -20px; border-radius: 20px; background: linear-gradient(90deg, #fff0, var(--move-color) 22%, #fff 42% 58%, var(--move-color) 78%, #fff0); transform-origin: 50% 100%; }
+.run-fragments i.run-shot-rise { top: auto; bottom: -70px; width: 120px; margin-left: -60px; background: linear-gradient(0deg, var(--move-color), #fff 40%, #fff0); clip-path: polygon(0 100%, 12% 30%, 22% 70%, 34% 5%, 46% 60%, 56% 0, 68% 55%, 80% 20%, 90% 65%, 100% 100%); transform-origin: 50% 100%; }
+.run-fragments i.run-spark { --spark: var(--move-color); }
+.run-stage:not([data-move="far"]):not([data-move="close"]) .run-fragments i.run-spark { --spark: #ffe23d; }
+.run-fragments i.run-slash { width: 190px; height: 190px; margin: -95px 0 0 -95px; border-radius: 50%; background: none; clip-path: none; border: 12px solid #0000; border-top-color: #fff; border-right-color: var(--move-color); filter: drop-shadow(0 0 8px #fff); animation: run-slash .42s ease-out both; }
+@keyframes run-charge { 0% { transform: none; filter: brightness(1) drop-shadow(0 0 0 var(--move-color)); } 25% { transform: translateY(-10px) scale(1.08); filter: brightness(1.7) drop-shadow(0 0 12px var(--move-color)); } 55% { transform: translateY(0) scale(1); filter: brightness(1.3) drop-shadow(0 0 8px var(--move-color)); } 100% { transform: none; filter: brightness(1) drop-shadow(0 0 0 var(--move-color)); } }
 @keyframes run-tail {
   0% { transform: perspective(500px) translateY(0) rotateX(0) scale(1); filter: brightness(1) saturate(1) drop-shadow(0 0 0 #fff); }
   30% { transform: perspective(500px) translateY(-6px) rotateX(0) scale(1.06); filter: brightness(1) saturate(1) drop-shadow(0 0 0 #fff); }
@@ -165,7 +173,15 @@ body[data-active-mode="rockrun"] .mission-legend { display: none; }
   66% { transform: perspective(500px) translateY(-18px) rotateX(-360deg) scale(1.12); filter: brightness(1.4) saturate(.4) drop-shadow(0 0 10px #e8f4ff); }
   100% { transform: perspective(500px) translateY(0) rotateX(-360deg) scale(1); filter: brightness(1) saturate(1) drop-shadow(0 0 0 #fff); }
 }
-@keyframes run-bolt { 0% { opacity: 0; transform: scaleY(0); } 18% { opacity: 1; transform: scaleY(1); } 32% { opacity: .35; } 44% { opacity: 1; } 70% { opacity: .8; } 100% { opacity: 0; transform: scaleY(1); } }
+@keyframes run-close {
+  0% { transform: perspective(500px) translateY(0) rotateX(0) scale(1); filter: brightness(1) saturate(1) drop-shadow(0 0 0 #fff); }
+  30% { transform: perspective(500px) translateY(-6px) rotateX(0) scale(1.06); filter: brightness(1) saturate(1) drop-shadow(0 0 0 #fff); }
+  46% { transform: perspective(500px) translateY(-72px) rotateX(-180deg) scale(1.1); filter: brightness(1.5) saturate(1.2) drop-shadow(0 0 10px var(--move-color)); }
+  59% { transform: perspective(500px) translateY(-28px) rotateX(-340deg) scale(1.18); filter: brightness(1.6) saturate(1.2) drop-shadow(0 0 14px var(--move-color)); }
+  66% { transform: perspective(500px) translateY(-18px) rotateX(-360deg) scale(1.12); filter: brightness(1.4) saturate(1.1) drop-shadow(0 0 10px var(--move-color)); }
+  100% { transform: perspective(500px) translateY(0) rotateX(-360deg) scale(1); filter: brightness(1) saturate(1) drop-shadow(0 0 0 #fff); }
+}
+@keyframes run-shot { 0% { opacity: 0; transform: scaleY(0); } 18% { opacity: 1; transform: scaleY(1); } 32% { opacity: .35; } 44% { opacity: 1; } 70% { opacity: .8; } 100% { opacity: 0; transform: scaleY(1); } }
 @keyframes run-slash { from { opacity: 1; transform: rotate(-140deg) scale(.55); } to { opacity: 0; transform: rotate(70deg) scale(1.25); } }
 /* Evolution / Mega Evolution cut-in (4.2s, matched by EVOLVE_MS in rock-run.js). */
 .run-evolve { position: absolute; inset: 0; z-index: 9; overflow: hidden; background: #10213ad9; animation: run-evolve-in 4.2s both; }

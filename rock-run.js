@@ -36,31 +36,49 @@
   let hitStop = 0;
   let moveTime = 0;
   let struck = true;
-  let special = "tail";
+  let special = "close";
+  let reached = 0;
   let audio = null;
   let noise = null;
 
-  // Every 500m the smash gets flashier. A Pikachu runner evolves at the same
-  // milestones, so the bigger effects arrive together with the new form.
-  const POWER_AT = [0, 500, 1000];
+  // Every 500m the partner takes the next step along its own evolution line
+  // (ending in Mega Evolution when it has one), and the smash gets flashier
+  // up to 1000m, so the bigger effects arrive together with the new form.
+  const MILESTONE = 500;
   const EVOLVE_MS = 4200;
   // Answers this quick earn a flight over the rock instead of a smash.
   const FLY_WITHIN = 2000;
-  // Even quicker answers alternate two signature moves: a thunderbolt on the
-  // distant rock, or a dash-in back flip Iron Tail.
+  // Even quicker answers alternate two signature moves that match the current
+  // form's type: a long-range "far" move on the distant rock, or a dash-in back
+  // flip "close" strike (Pikachu's line: Thunder and Iron Tail).
   const SPECIAL_WITHIN = 1500;
-  const STRIKE_AT = { smash: 0, thunder: 150, tail: 470 };
+  const STRIKE_AT = { smash: 0, far: 150, close: 470 };
   const TAIL_DASH_MS = 280;
-  const MOVE_WORDS = { thunder: "かみなり！", tail: "アイアンテール！" };
+  // type: [far move, how it reaches the rock (sky / beam / rise), close move, colour]
+  const TYPE_MOVES = {
+    electric: ["かみなり", "sky", "アイアンテール", "#ffe45c"],
+    fire: ["だいもんじ", "beam", "フレアドライブ", "#ff7a3d"],
+    water: ["ハイドロポンプ", "beam", "アクアテール", "#4aa8ff"],
+    grass: ["ソーラービーム", "beam", "リーフブレード", "#6fd25a"],
+    ice: ["ふぶき", "beam", "つららおとし", "#9be7ff"],
+    fighting: ["はどうだん", "beam", "インファイト", "#ff8a4d"],
+    poison: ["ヘドロばくだん", "beam", "どくづき", "#c070e0"],
+    ground: ["だいちのちから", "rise", "ドリルライナー", "#e0b060"],
+    flying: ["エアスラッシュ", "beam", "ブレイブバード", "#a9d0ff"],
+    psychic: ["サイコキネシス", "beam", "しねんのずつき", "#ff6fb0"],
+    bug: ["むしのさざめき", "beam", "シザークロス", "#b5d83a"],
+    rock: ["ストーンエッジ", "rise", "もろはのずつき", "#d4bc84"],
+    ghost: ["シャドーボール", "beam", "シャドークロー", "#9a7fe8"],
+    dragon: ["りゅうせいぐん", "sky", "げきりん", "#7f8cff"],
+    dark: ["あくのはどう", "beam", "かみくだく", "#8a6a9a"],
+    steel: ["ラスターカノン", "beam", "アイアンテール", "#dfe9f3"],
+    fairy: ["ムーンフォース", "beam", "じゃれつく", "#ffa6d8"],
+    normal: ["はかいこうせん", "beam", "すてみタックル", "#fff3c4"],
+  };
   const FLY_MS = 900;
   const FLY_END = .8;
-  const CHAIN = [
-    { id: 25, name: "ピカチュウ" },
-    { id: 26, name: "ライチュウ" },
-    { id: 10305, name: "メガライチュウ", mega: true },
-  ];
   const SMASH_WORDS = ["いわくだき！", "ドカーン！\nいわくだき！！", "ちょう いわくだき！！！"];
-  let runner = { id: 25, name: "ピカチュウ", shiny: false, form: 0 };
+  let runner = { shiny: false, form: 0, path: [{ id: 25, name: "ピカチュウ", type: "electric" }] };
 
   // Road perspective shared by the scenery and the rock: depth z=1 is the stage's
   // bottom edge and larger z approaches the horizon in run-trail.svg. Because the
@@ -188,26 +206,57 @@
 
   // Fetch every form once so the evolution cut-ins also work offline later.
   function prefetchForms() {
-    CHAIN.forEach(({ id }) => [false, true].forEach((back) => {
+    runner.path.forEach(({ id }) => [false, true].forEach((back) => {
       new Image().src = spriteUrl(id, { back });
       if (runner.shiny) new Image().src = spriteUrl(id, { back, shiny: true });
     }));
+  }
+
+  function formInfo(id, fallbackName) {
+    const mega = RUN_MEGAS[id];
+    if (mega) return { id, name: `メガ${RUN_FORMS[mega[0]][0]}${mega[1]}`, type: mega[2], mega: true };
+    const form = RUN_FORMS[id];
+    return { id, name: form?.[0] ?? fallbackName, type: form?.[3] ?? "normal" };
+  }
+
+  // Branching lines (Eevee, Ralts, …) and X/Y Megas pick one at random per run.
+  function evolutionPath(id, name) {
+    const pick = (list) => list[Math.floor(Math.random() * list.length)];
+    const path = [formInfo(id, name)];
+    for (let next = RUN_FORMS[id]?.[1]; next?.length; next = RUN_FORMS[id]?.[1]) {
+      id = pick(next);
+      path.push(formInfo(id));
+    }
+    const megas = RUN_FORMS[id]?.[2];
+    if (megas?.length) path.push(formInfo(pick(megas)));
+    return path;
   }
 
   function chooseRunner() {
     const species = STICKERS.find((s) => s.id === state.partner);
     const caught = species && state.caught[species.id];
     const owned = Boolean(caught?.n || caught?.s);
-    const id = owned ? species.id : 25;
-    runner = { id, name: owned ? species.name : "ピカチュウ", shiny: Boolean(owned && caught.s), form: CHAIN.findIndex((form) => form.id === id) };
+    runner = {
+      shiny: Boolean(owned && caught.s),
+      form: 0,
+      path: owned ? evolutionPath(species.id, species.name) : evolutionPath(25, "ピカチュウ"),
+    };
     showRunner();
   }
 
+  function currentForm() {
+    return runner.path[runner.form];
+  }
+
+  function moves() {
+    return TYPE_MOVES[currentForm().type] ?? TYPE_MOVES.normal;
+  }
+
   function showRunner() {
-    const form = CHAIN[runner.form];
+    const form = currentForm();
     const img = $("partner");
-    sprite(img, form?.id ?? runner.id, { back: true, shiny: runner.shiny, fallbackId: form?.id ?? 25 });
-    img.alt = form?.name ?? runner.name;
+    sprite(img, form.id, { back: true, shiny: runner.shiny, fallbackId: form.id });
+    img.alt = form.name;
   }
 
   function setPower(value) {
@@ -227,6 +276,7 @@
     current = null;
     chooseRunner();
     prefetchForms();
+    reached = 0;
     setPower(0);
     $("evolve").classList.add("is-hidden");
     setPhase("ready");
@@ -274,6 +324,7 @@
     distance = 0;
     lastItem = "";
     chooseRunner();
+    reached = 0;
     setPower(0);
     $("evolve").classList.add("is-hidden");
     renderHud();
@@ -372,14 +423,14 @@
         flyLeft -= delta;
         rockZ -= step;
         advance(step);
-      } else if (move === "tail" && !struck) {
+      } else if (move === "close" && !struck) {
         // Dash right up to the rock before the flip.
         const left = Math.max(1, TAIL_DASH_MS - moveTime + delta);
         const step = Math.max(0, rockZ - (view.hitZ + .15)) * Math.min(1, delta / left);
         rockZ -= step;
         advance(step);
       } else if (!struck) {
-        // The thunderbolt is on its way down.
+        // The far move is on its way to the rock.
       } else if (hitStop > 0) {
         // Freeze the road for an instant on impact so the smash lands hard.
         hitStop -= delta;
@@ -397,7 +448,7 @@
       evolveLeft -= delta;
       if (!evolveCued && evolveLeft < EVOLVE_MS * .38) {
         evolveCued = true;
-        sound(CHAIN[evolveTarget].mega ? "mega" : "evolved");
+        sound(runner.path[evolveTarget].mega ? "mega" : "evolved");
       }
       if (evolveLeft <= 0) endEvolve();
     } else if (!blocked && phase === "rush") {
@@ -421,17 +472,19 @@
   }
 
   function milestone() {
-    const tier = POWER_AT.findLastIndex((at) => distance >= at);
-    if (tier <= power) return;
-    if (runner.form >= 0 && tier > runner.form && CHAIN[tier]) return startEvolve(tier);
-    setPower(tier);
+    const tier = Math.floor(distance / MILESTONE);
+    if (tier <= reached) return;
+    reached = tier;
+    if (runner.path[runner.form + 1]) return startEvolve(runner.form + 1);
+    if (Math.min(tier, 2) <= power) return;
+    setPower(Math.min(tier, 2));
     $("stage-caption").textContent = "パワーアップ！ いわくだきが もっと すごく なった！";
     sound("power");
   }
 
   function startEvolve(target) {
-    const from = CHAIN[runner.form];
-    const to = CHAIN[target];
+    const from = currentForm();
+    const to = runner.path[target];
     evolvePhase = phase;
     evolveTarget = target;
     evolveLeft = EVOLVE_MS;
@@ -455,9 +508,10 @@
     if (evolvePhase === "running") state.questionAt[current.mode] += EVOLVE_MS;
     runner.form = evolveTarget;
     showRunner();
-    setPower(evolveTarget);
+    setPower(Math.max(power, Math.min(reached, 2)));
     $("evolve").classList.add("is-hidden");
-    $("stage-caption").textContent = CHAIN[runner.form].mega ? "メガライチュウの パワーで つきすすめ！" : `${CHAIN[runner.form].name}に なった！ このまま つきすすめ！`;
+    const form = currentForm();
+    $("stage-caption").textContent = form.mega ? `${form.name}の パワーで つきすすめ！` : `${form.name}に なった！ このまま つきすすめ！`;
     setPhase(evolvePhase);
   }
 
@@ -483,7 +537,7 @@
   function shatter(move) {
     const fragments = $("fragments");
     aim();
-    const special = move === "thunder" || move === "tail";
+    const special = move === "far" || move === "close";
     const count = 12 + power * 8 + Math.min(combo, 10) + (special ? 8 : 0);
     const reach = 1 + power * .35 + (special ? .25 : 0);
     for (let i = 0; i < count; i += 1) {
@@ -494,9 +548,9 @@
       fragment.style.setProperty("--spin", `${(i % 2 ? 1 : -1) * 240}deg`);
       fragments.append(fragment);
     }
-    // Electric sparks from 500m (always for thunder); rainbow sparks and a
-    // second shockwave from 1000m.
-    const sparks = Math.max(power, move === "thunder" ? 1 : 0) * 8;
+    // Sparks from 500m (always for signature moves, in the move's colour);
+    // rainbow sparks and a second shockwave from 1000m.
+    const sparks = Math.max(power, special ? 1 : 0) * 8;
     for (let i = 0; i < sparks; i += 1) {
       const spark = document.createElement("i");
       const angle = (i + .5) / sparks * Math.PI * 2;
@@ -513,20 +567,29 @@
       ring.style.animationDelay = `${i * .14}s`;
       fragments.append(ring);
     }
-    if (move === "tail") {
+    if (move === "close") {
       const slash = document.createElement("i");
       slash.className = "run-slash";
       fragments.append(slash);
     }
-    showImpact(MOVE_WORDS[move] ?? SMASH_WORDS[power]);
+    showImpact(special ? `${moveName(move)}！` : SMASH_WORDS[power]);
   }
 
-  function thunderbolt() {
+  function moveName(move) {
+    const [far, , close] = moves();
+    return move === "far" ? far : close;
+  }
+
+  // The far move reaches the rock from the sky, as a beam from the partner, or
+  // rising out of the ground beneath it.
+  function farShot() {
     const y = aim();
-    const bolt = document.createElement("i");
-    bolt.className = "run-bolt";
-    bolt.style.height = `${y + 10}px`;
-    $("fragments").append(bolt);
+    const style = moves()[1];
+    const shot = document.createElement("i");
+    shot.className = `run-shot run-shot-${style}`;
+    const partnerY = view.height - 95;
+    shot.style.height = `${style === "sky" ? y + 10 : style === "beam" ? Math.max(20, partnerY - y) : 120}px`;
+    $("fragments").append(shot);
   }
 
   function showImpact(text) {
@@ -623,21 +686,32 @@
       }
       chime(t + .05, C.slice(0, 3 + power), .055 - power * .008);
       if (combo > 0 && combo % 5 === 0) sound("bonus");
-    } else if (kind === "thunder" || kind === "tail") {
+    } else if (kind === "far" || kind === "close") {
       // The rock still breaks with the full smash, plus the move's own sound.
       sound("smash");
-      if (kind === "thunder") {
+      const [, style, close] = moves();
+      if (kind === "far" && style !== "sky") {
+        // ズバーン: a rushing beam / eruption ending in a bright burst.
+        hiss(t, .5, .6, { type: "bandpass", from: 500, to: 3800, q: 1.1, attack: .02 });
+        tone(260, t, .4, { type: "sawtooth", volume: .08, to: 1300 });
+        tone(90, t + .02, .7, { type: "sine", volume: .7, to: 30 });
+      } else if (kind === "far") {
         // ピシャーン: a sharp crack, a falling zap and a long rolling rumble.
         hiss(t, .12, 1, { type: "highpass", from: 5000, to: 2500 });
         tone(3200, t, .3, { type: "sawtooth", volume: .12, to: 90 });
         tone(2400, t + .05, .22, { type: "square", volume: .07, to: 150 });
         hiss(t + .05, 1.1, .7, { from: 700, to: 50, attack: .04 });
         tone(70, t + .02, .9, { type: "sine", volume: .8, to: 28 });
-      } else {
+      } else if (close === "アイアンテール") {
         // カキーン: an inharmonic metal clang under the boom.
         [1, 2.76, 5.4, 8.93].forEach((ratio, i) => tone(620 * ratio, t, .7 - i * .12, { type: "sine", volume: .16 / (i + 1) }));
         tone(1240, t, .08, { type: "square", volume: .08, to: 900 });
         tone(110, t, .45, { type: "sine", volume: .8, to: 35 });
+      } else {
+        // ドゴォ: a heavy body hit with a short swish.
+        hiss(t, .18, .5, { type: "bandpass", from: 2600, to: 900, q: 1.5 });
+        tone(130, t, .5, { type: "sine", volume: .9, to: 32 });
+        tone(70, t + .04, .4, { type: "square", volume: .12, to: 40 });
       }
     } else if (kind === "charge") {
       // ピカッ: a quick rising buzz while the bolt comes down.
@@ -683,7 +757,7 @@
     lastFrame = now;
     const correct = remaining > 0 && value === current.answer;
     const took = seconds * 1000 - remaining;
-    if (correct && took <= SPECIAL_WITHIN) special = special === "thunder" ? "tail" : "thunder";
+    if (correct && took <= SPECIAL_WITHIN) special = special === "far" ? "close" : "far";
     const move = !correct ? "" : took <= SPECIAL_WITHIN ? special : took <= FLY_WITHIN ? "fly" : "smash";
     const flying = move === "fly";
     stage.dataset.move = move;
@@ -709,7 +783,9 @@
       // Use the weakness gauge switches/cap, including the dojo's double coins.
       registerCorrect("weakness");
       if (coinEnabled("weakness")) registerCoinProgress();
-      feedbackTime = move === "tail" ? 1400 : 1100;
+      feedbackTime = move === "close" ? 1400 : 1100;
+      stage.style.setProperty("--move-color", moves()[3]);
+      stage.dataset.metal = moves()[2] === "アイアンテール" ? "1" : "";
       $("feedback").textContent = `${current.label} = ${current.answer}　せいかい！`;
       $("feedback").classList.add("is-good");
       if (flying) {
@@ -721,10 +797,9 @@
         $("stage-caption").textContent = combo % 5 === 0 ? `${combo} コンボ ボーナス！ すごい！` : combo > 1 ? `${combo} コンボ！ そのちょうし！` : "バリーン！ みちが ひらけた！";
         strike();
       } else {
-        const name = CHAIN[runner.form]?.name ?? runner.name;
-        $("stage-caption").textContent = `${combo % 5 === 0 ? `${combo} コンボ ボーナス！ ` : combo > 1 ? `${combo} コンボ！ ` : "すごく はやい！ "}${name}の ${MOVE_WORDS[move].replace("！", "")}！`;
-        if (move === "thunder") thunderbolt();
-        sound(move === "tail" ? "dash" : "charge");
+        $("stage-caption").textContent = `${combo % 5 === 0 ? `${combo} コンボ ボーナス！ ` : combo > 1 ? `${combo} コンボ！ ` : "すごく はやい！ "}${currentForm().name}の ${moveName(move)}！`;
+        if (move === "far") farShot();
+        sound(move === "close" ? "dash" : "charge");
       }
       popCombo();
     } else {
@@ -756,7 +831,7 @@
     $("result-title").textContent = score > runStartBest ? "さいこうきろく こうしん！" : "よく がんばったね！";
     $("result-score").textContent = score;
     $("result-answer").textContent = `さいごの こたえ：${current.label} = ${current.answer}`;
-    const evolved = runner.form > CHAIN.findIndex((form) => form.id === runner.id) ? `${CHAIN[runner.form].name}に なれた！ ／ ` : "";
+    const evolved = runner.form > 0 ? `${currentForm().name}に なれた！ ／ ` : "";
     $("result-best").textContent = `${Math.floor(distance)}m の ぼうけん ／ ${evolved}さいだい ${maxCombo} コンボ ／ さいこうきろく：いわ ${best}こ`;
     cancelAnimationFrame(frame);
   }
